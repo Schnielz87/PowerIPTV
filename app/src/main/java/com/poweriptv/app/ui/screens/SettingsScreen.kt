@@ -256,6 +256,17 @@ fun SettingsScreen(
                         "Auf Fire TV zusaetzlich unter Einstellungen → Display → \"Originalbildfrequenz anpassen\" aktivieren.",
                     afr,
                 ) { s.setAutoFrameRate(it) }
+                val scrub by s.scrubPreview.collectAsState()
+                Text("Vorschaubilder beim Spulen auf dem Zeitstrahl", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                com.poweriptv.app.player.ScrubPreviewMode.entries.forEach { m ->
+                    Row(
+                        Modifier.fillMaxWidth().tvFocus().clickable { s.setScrubPreview(m) },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = scrub == m.name, onClick = { s.setScrubPreview(m) })
+                        Text(m.label)
+                    }
+                }
                 Text("Bildformat (im Player auch per blauer Taste wechselbar)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 VideoScale.entries.forEach { v ->
                     Row(

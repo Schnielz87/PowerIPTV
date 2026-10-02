@@ -43,6 +43,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -96,6 +97,8 @@ class VlcPlayerActivity : ComponentActivity() {
     /** Waehrend der Nutzer den Regler zieht, keine Positions-Updates. */
     private var dragging by mutableStateOf<Float?>(null)
     private var showRecordDialog by mutableStateOf(false)
+    /** Vorschaubilder beim Spulen (pro Titel). */
+    private var scrubPreview by mutableStateOf<ScrubPreview?>(null)
     /** Live-Bild kommt aus der laufenden Aufnahme (spart eine Verbindung zum Anbieter). */
     private var watchingRecording = false
     private var recPipe: android.os.ParcelFileDescriptor? = null
@@ -182,6 +185,13 @@ class VlcPlayerActivity : ComponentActivity() {
                     if (showOverlay) {
                         Overlay()
                         if (current()?.live != true) SeekBar(Modifier.align(Alignment.BottomCenter))
+                    }
+                    // Thumbnail-Scrubbing: Vorschau an der Spulposition
+                    val drag = dragging
+                    if (drag != null && length > 0) {
+                        val p = scrubPreview
+                        val frame = p?.frame?.collectAsState()?.value
+                        ScrubPreviewBubble(frame, formatTime((drag * length).toLong()), drag, 64.dp, showImage = p != null)
                     }
                     toast?.let { msg ->
                         LaunchedEffect(msg) { delay(2500); toast = null }
@@ -292,8 +302,9 @@ class VlcPlayerActivity : ComponentActivity() {
             Text(formatTime(shown), color = Color.White, style = MaterialTheme.typography.labelMedium)
             Slider(
                 value = dragging ?: (position.toFloat() / length).coerceIn(0f, 1f),
-                onValueChange = { dragging = it; showOverlay = true },
+                onValueChange = { dragging = it; showOverlay = true; scrubPreview?.request((it * length).toLong()) },
                 onValueChangeFinished = {
+                    scrubPreview?.pause()
                     dragging?.let { mediaPlayer.time = (it * length).toLong() }
                     dragging = null
                 },
@@ -365,6 +376,8 @@ class VlcPlayerActivity : ComponentActivity() {
         buffering = true
         entry.item?.let { container.history.add(it) }
 
+        scrubPreview?.release()
+        scrubPreview = ScrubPreview.create(container, entry)
         blockedRec = null
         watchingRecording = false
         recPipe?.let { runCatching { mediaPlayer.stop(); it.close() } }
@@ -503,6 +516,7 @@ class VlcPlayerActivity : ComponentActivity() {
             mediaPlayer.detachViews()
             mediaPlayer.release()
             recPipe?.close()
+            scrubPreview?.release()
             // libVlc NICHT freigeben – wird app-weit wiederverwendet
         }
         super.onDestroy()

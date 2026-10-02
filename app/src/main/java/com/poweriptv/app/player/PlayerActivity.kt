@@ -41,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -117,6 +118,9 @@ class PlayerActivity : ComponentActivity() {
     /** Letzte Bedienung (Taste/Tipp) – 5 s danach blendet sich die Leiste automatisch aus. */
     private var lastInteraction by mutableLongStateOf(System.currentTimeMillis())
     private var showRecordDialog by mutableStateOf(false)
+    /** Vorschaubilder beim Spulen (pro Titel) und aktuelle Spulposition. */
+    private var scrubPreview by mutableStateOf<ScrubPreview?>(null)
+    private var scrubPos by mutableStateOf<Long?>(null)
     /** Live-Bild kommt aus der laufenden Aufnahme (spart eine Verbindung zum Anbieter). */
     private var watchingRecording = false
     /** Sender kann nicht geoeffnet werden, weil die Aufnahme die einzige Verbindung belegt. */
@@ -250,6 +254,16 @@ class PlayerActivity : ComponentActivity() {
                                     if (e.action == android.view.MotionEvent.ACTION_UP) v.performClick()
                                     true
                                 }
+                                // Thumbnail-Scrubbing: beim Ziehen auf dem Zeitstrahl Vorschaubild zeigen
+                                findViewById<androidx.media3.ui.DefaultTimeBar>(androidx.media3.ui.R.id.exo_progress)
+                                    ?.addListener(object : androidx.media3.ui.TimeBar.OnScrubListener {
+                                        override fun onScrubStart(timeBar: androidx.media3.ui.TimeBar, position: Long) = onScrub(position)
+                                        override fun onScrubMove(timeBar: androidx.media3.ui.TimeBar, position: Long) = onScrub(position)
+                                        override fun onScrubStop(timeBar: androidx.media3.ui.TimeBar, position: Long, canceled: Boolean) {
+                                            scrubPos = null
+                                            scrubPreview?.pause()
+                                        }
+                                    })
                                 playerView = this
                             }
                         },
@@ -267,6 +281,12 @@ class PlayerActivity : ComponentActivity() {
                         }
                     }
                     if (showOverlay) TopOverlay()
+                    scrubPos?.let { pos ->
+                        val dur = player.duration.takeIf { it > 0 } ?: return@let
+                        val p = scrubPreview
+                        val frame = p?.frame?.collectAsState()?.value
+                        ScrubPreviewBubble(frame, formatTime(pos), pos.toFloat() / dur, 110.dp, showImage = p != null)
+                    }
                     CastingBar(
                         container,
                         Modifier.align(Alignment.BottomCenter).padding(bottom = 72.dp),
@@ -512,6 +532,8 @@ class PlayerActivity : ComponentActivity() {
             player.stop()
             return
         }
+        scrubPreview?.release()
+        scrubPreview = ScrubPreview.create(container, entry)
         blockedRec = null
         watchingRecording = false
         if (entry.live) {
@@ -541,6 +563,13 @@ class PlayerActivity : ComponentActivity() {
     private inline fun withSwitch(block: () -> Unit) {
         switchingSource = true
         try { block() } finally { switchingSource = false }
+    }
+
+    private fun onScrub(position: Long) {
+        lastInteraction = System.currentTimeMillis()
+        if (current()?.live == true || timeshiftActive || watchingRecording) return
+        scrubPos = position
+        scrubPreview?.request(position)
     }
 
     // ---------- Aufnahme + Schauen mit einer Verbindung ----------
@@ -596,7 +625,7 @@ class PlayerActivity : ComponentActivity() {
         val file = timeshiftFile ?: return
         timeshiftDelay = System.currentTimeMillis() - pausedAt
         playingBuffer = true
-        val factory = DataSource.Factory { GrowingFileDataSource(file) { timeshiftJob?.isActive == true } }
+        val factory = DataSource.Factory { GrowingFileDataSource(file, isGrowing = { timeshiftJob?.isActive == true }) }
         val source = ProgressiveMediaSource.Factory(factory).createMediaSource(MediaItem.fromUri(Uri.fromFile(file)))
         withSwitch {
             player.setMediaSource(source)
@@ -730,6 +759,7 @@ class PlayerActivity : ComponentActivity() {
         if (active?.get() === this) active = null
         resetDisplayMode()
         stopTimeshift()
+        scrubPreview?.release()
         player.release()
         super.onDestroy()
     }
