@@ -215,32 +215,50 @@ fun BrowseScreen(
                     )
                 }
                 Column(Modifier.weight(1f).fillMaxHeight()) {
-                    // Werkzeugleiste: (Kategorie) · Suche · Filter · Aktualisieren
-                    Row(Modifier.fillMaxWidth().padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (!wide) {
-                            OutlinedButton(onClick = { showCategoryPicker = true }, modifier = Modifier.tvFocus()) {
-                                Text(selectedName.ifBlank { "Kategorie" }, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(110.dp))
-                                Icon(Icons.Filled.ArrowDropDown, null)
-                            }
-                            Spacer(Modifier.width(8.dp))
-                        }
+                    // Werkzeugleiste
+                    val searchField = @Composable { mod: Modifier ->
                         CompactSearchField(
                             value = query,
                             onValueChange = { query = it },
-                            placeholder = "$title suchen (alle Kategorien)",
-                            modifier = Modifier.weight(1f),
+                            placeholder = if (wide) "$title suchen (alle Kategorien)" else "In allen Kategorien suchen",
+                            modifier = mod,
                         )
+                    }
+                    val filterButton = @Composable {
                         IconButton(onClick = { showFilter = true }, modifier = Modifier.tvFocus(RoundedCornerShape(20.dp), 1f)) {
                             BadgedBox(badge = { if (filter.activeCount > 0) Badge { Text("${filter.activeCount}") } }) {
                                 Icon(Icons.Filled.FilterList, "Filter")
                             }
                         }
-                        if (wide) {
+                    }
+                    if (wide) {
+                        // Querformat: Suche · Filter · Aktualisieren in einer flachen Zeile
+                        Row(Modifier.fillMaxWidth().padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            searchField(Modifier.weight(1f))
+                            filterButton()
                             IconButton(
                                 onClick = { source.clearCache(); allItems = null; reload++ },
                                 modifier = Modifier.tvFocus(RoundedCornerShape(20.dp), 1f),
                             ) { Icon(Icons.Filled.Refresh, "Neu laden") }
                         }
+                    } else {
+                        // Hochformat: Zeile 1 Kategorie + Filter, Zeile 2 Suche ueber die volle Breite
+                        Row(Modifier.fillMaxWidth().padding(start = 10.dp, end = 4.dp, top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedButton(
+                                onClick = { showCategoryPicker = true },
+                                modifier = Modifier.weight(1f).tvFocus(),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                            ) {
+                                Text(
+                                    selectedName.ifBlank { "Kategorie waehlen" },
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Icon(Icons.Filled.ArrowDropDown, null)
+                            }
+                            filterButton()
+                        }
+                        searchField(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp))
                     }
                     // Info-Zeile
                     Row(Modifier.padding(horizontal = 14.dp, vertical = 0.dp), verticalAlignment = Alignment.CenterVertically) {
