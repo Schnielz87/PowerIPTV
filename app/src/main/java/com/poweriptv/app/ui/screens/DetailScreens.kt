@@ -82,9 +82,12 @@ private fun FavoriteButton(container: AppContainer, item: ContentItem) {
 @Composable
 private fun Header(title: String, cover: String?, backdrop: String?, lines: List<String>, extra: @Composable () -> Unit) {
     val config = androidx.compose.ui.platform.LocalConfiguration.current
-    // Tablet (nicht TV): Hintergrundbild deutlich groesser, Inhalt unten auf dem Bild – Handy bleibt wie bisher
-    val tablet = config.smallestScreenWidthDp >= 600 && !com.poweriptv.app.util.LocalIsTv.current
-    val bgHeight = if (tablet) (config.screenWidthDp * 0.42f).dp.coerceIn(320.dp, 600.dp) else 220.dp
+    // Tablet & Fernseher: Hintergrundbild deutlich groesser, Inhalt unten auf dem Bild – Handy bleibt wie bisher
+    val tablet = config.smallestScreenWidthDp >= 600 || com.poweriptv.app.util.LocalIsTv.current
+    val bgHeight = if (tablet) {
+        // nicht hoeher als ~3/4 des Bildschirms (TV im Querformat ist nur ~540 dp hoch)
+        minOf(config.screenWidthDp * 0.42f, config.screenHeightDp * 0.75f).dp.coerceIn(300.dp, 600.dp)
+    } else 220.dp
     Box(Modifier.fillMaxWidth().then(if (tablet) Modifier.heightIn(min = bgHeight) else Modifier)) {
         if (!backdrop.isNullOrBlank()) {
             AsyncImage(
