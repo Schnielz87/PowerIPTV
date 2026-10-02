@@ -81,6 +81,7 @@ class AppContainer(private val app: Application) {
     val resume = com.poweriptv.app.data.ResumeRepository(app)
     val cast = CastManager(app)
     val ai = AiRecommender({ http }, secure, settings, parental, json)
+    val ageRatings = com.poweriptv.app.data.AgeRatingRepository({ http }, secure, json)
 
     /** Aktuell ausgewaehlte Quelle (Profil). */
     var source: ContentSource? = null

@@ -161,6 +161,8 @@ class XtreamSource(
             backdrop = (info["backdrop_path"] as? JsonArray)?.firstOrNull()?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
                 ?: info.str("backdrop_path"),
             containerExtension = movie?.str("container_extension") ?: item.containerExtension,
+            age = info.str("age") ?: info.str("mpaa_rating") ?: info.str("certification"),
+            tmdbId = info.str("tmdb_id") ?: info.str("tmdb"),
         )
     }
 
@@ -218,6 +220,8 @@ class XtreamSource(
             cover = info.str("cover") ?: item.logo,
             backdrop = seriesBackdrop,
             episodes = episodes.toSortedMap().mapValues { (_, v) -> v.sortedBy { it.episodeNum } },
+            age = info.str("age") ?: info.str("mpaa_rating") ?: info.str("certification"),
+            tmdbId = info.str("tmdb_id") ?: info.str("tmdb"),
         )
     }
 

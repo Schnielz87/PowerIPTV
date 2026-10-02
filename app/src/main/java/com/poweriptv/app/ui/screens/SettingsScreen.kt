@@ -184,6 +184,36 @@ fun SettingsScreen(
                 aiStatus?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) }
             }
 
+            SettingsSection("Altersfreigaben (FSK)") {
+                var tmdbInput by remember { mutableStateOf("") }
+                var tmdbStatus by remember { mutableStateOf<String?>(if (container.ageRatings.hasApiKey()) "TMDB verbunden – offizielle FSK wird angezeigt" else null) }
+                Text(
+                    "Die FSK wird auf der Film-/Serienseite angezeigt. Ohne Schluessel nur, wenn dein Anbieter eine Altersangabe liefert. " +
+                        "Fuer die offizielle deutsche FSK bei (fast) allen Titeln: kostenlosen Schluessel bei themoviedb.org anlegen " +
+                        "(Konto → Einstellungen → API) und hier eintragen.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = tmdbInput, onValueChange = { tmdbInput = it },
+                    label = { Text(if (container.ageRatings.hasApiKey()) "Neuer TMDB-API-Schluessel" else "TMDB-API-Schluessel") },
+                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = PasswordVisualTransformation(),
+                )
+                Row {
+                    TextButton(onClick = {
+                        if (tmdbInput.isNotBlank()) container.ageRatings.setApiKey(tmdbInput)
+                        tmdbInput = ""
+                        tmdbStatus = "Pruefe Verbindung..."
+                        scope.launch { tmdbStatus = runCatching { container.ageRatings.test() }.getOrElse { "Fehler: ${it.message}" } }
+                    }) { Text("Speichern & testen") }
+                    if (container.ageRatings.hasApiKey()) TextButton(onClick = {
+                        container.ageRatings.setApiKey(null); tmdbStatus = "Verbindung entfernt"
+                    }) { Text("Trennen") }
+                }
+                tmdbStatus?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) }
+            }
+
             val isTv = LocalIsTv.current
             if (!isTv) SettingsSection("Darstellung") {
                 val orientation by s.orientation.collectAsState()

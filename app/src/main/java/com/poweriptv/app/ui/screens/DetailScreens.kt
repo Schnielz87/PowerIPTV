@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -80,7 +82,7 @@ private fun FavoriteButton(container: AppContainer, item: ContentItem) {
 }
 
 @Composable
-private fun Header(title: String, cover: String?, backdrop: String?, lines: List<String>, extra: @Composable () -> Unit) {
+private fun Header(title: String, cover: String?, backdrop: String?, lines: List<String>, ageRating: com.poweriptv.app.data.AgeRating? = null, extra: @Composable () -> Unit) {
     val config = androidx.compose.ui.platform.LocalConfiguration.current
     // Tablet & Fernseher: Hintergrundbild deutlich groesser, Inhalt unten auf dem Bild – Handy bleibt wie bisher
     val tablet = config.smallestScreenWidthDp >= 600 || com.poweriptv.app.util.LocalIsTv.current
@@ -121,10 +123,42 @@ private fun Header(title: String, cover: String?, backdrop: String?, lines: List
             }
             Spacer(Modifier.width(if (tablet) 24.dp else 16.dp))
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(title, style = if (tablet) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        title, style = if (tablet) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f, fill = false),
+                    )
+                    ageRating?.let { Spacer(Modifier.width(12.dp)); FskBadge(it, if (tablet) 40.dp else 32.dp) }
+                }
                 lines.forEach { Text(it, style = if (tablet) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 Spacer(Modifier.height(8.dp))
                 extra()
+            }
+        }
+    }
+}
+
+/** FSK-Kennzeichen in den offiziellen Farben (0 weiss, 6 gelb, 12 gruen, 16 blau, 18 rot). */
+@Composable
+private fun FskBadge(r: com.poweriptv.app.data.AgeRating, size: androidx.compose.ui.unit.Dp) {
+    val (bg, fg) = when (r.fsk) {
+        0 -> androidx.compose.ui.graphics.Color.White to androidx.compose.ui.graphics.Color.Black
+        6 -> androidx.compose.ui.graphics.Color(0xFFFFE500) to androidx.compose.ui.graphics.Color.Black
+        12 -> androidx.compose.ui.graphics.Color(0xFF00A651) to androidx.compose.ui.graphics.Color.White
+        16 -> androidx.compose.ui.graphics.Color(0xFF0095DA) to androidx.compose.ui.graphics.Color.White
+        18 -> androidx.compose.ui.graphics.Color(0xFFE30613) to androidx.compose.ui.graphics.Color.White
+        else -> androidx.compose.ui.graphics.Color(0xFF555B66) to androidx.compose.ui.graphics.Color.White
+    }
+    Box(
+        Modifier.heightIn(min = size).widthIn(min = size).clip(RoundedCornerShape(6.dp)).background(bg).padding(horizontal = 4.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            if (r.fsk != null) {
+                Text("FSK", color = fg, fontSize = (size.value * 0.24f).sp, fontWeight = FontWeight.Bold, lineHeight = (size.value * 0.26f).sp)
+                Text("${r.fsk}", color = fg, fontSize = (size.value * 0.46f).sp, fontWeight = FontWeight.Black, lineHeight = (size.value * 0.5f).sp)
+            } else {
+                Text(r.label, color = fg, fontSize = (size.value * 0.34f).sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -138,9 +172,12 @@ fun MovieDetailScreen(container: AppContainer, onBack: () -> Unit) {
     val context = LocalContext.current
     var info by remember { mutableStateOf<MovieInfo?>(null) }
     var loading by remember { mutableStateOf(true) }
+    var ageRating by remember { mutableStateOf<com.poweriptv.app.data.AgeRating?>(null) }
     LaunchedEffect(item.key) {
         info = runCatching { source.movieInfo(item) }.getOrNull()
         loading = false
+        val i = info
+        ageRating = container.ageRatings.resolve(false, item.name, i?.releaseDate ?: item.year?.toString(), i?.tmdbId, i?.age)
     }
 
     Scaffold(
@@ -155,6 +192,7 @@ fun MovieDetailScreen(container: AppContainer, onBack: () -> Unit) {
                     title = item.name,
                     cover = i?.cover ?: item.logo,
                     backdrop = i?.backdrop,
+                    ageRating = ageRating,
                     lines = listOfNotNull(
                         i?.genre?.let { "Genre: $it" },
                         i?.releaseDate?.let { "Erscheinungsdatum: $it" },
@@ -204,11 +242,14 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
     var season by rememberSaveable { mutableStateOf<Int?>(null) }
+    var ageRating by remember { mutableStateOf<com.poweriptv.app.data.AgeRating?>(null) }
     LaunchedEffect(item.key) {
         runCatching { source.seriesInfo(item) }
             .onSuccess { info = it; season = season ?: it?.episodes?.keys?.firstOrNull() }
             .onFailure { error = it.message }
         loading = false
+        val i = info
+        ageRating = container.ageRatings.resolve(true, item.name, i?.releaseDate ?: item.year?.toString(), i?.tmdbId, i?.age)
     }
 
     Scaffold(
@@ -227,6 +268,7 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
                             title = item.name,
                             cover = i.cover,
                             backdrop = i.backdrop,
+                            ageRating = ageRating,
                             lines = listOfNotNull(
                                 i.genre?.let { "Genre: $it" },
                                 i.releaseDate?.let { "Erscheinungsdatum: $it" },

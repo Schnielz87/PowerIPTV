@@ -62,6 +62,9 @@ data class MovieInfo(
     val cover: String?,
     val backdrop: String?,
     val containerExtension: String?,
+    /** Altersangabe des Anbieters ("age"/"mpaa_rating") und TMDB-ID (fuer die FSK). */
+    val age: String? = null,
+    val tmdbId: String? = null,
 )
 
 data class Episode(
@@ -87,6 +90,8 @@ data class SeriesInfo(
     val cover: String?,
     val backdrop: String?,
     val episodes: Map<Int, List<Episode>>,
+    val age: String? = null,
+    val tmdbId: String? = null,
 )
 
 data class EpgEntry(
