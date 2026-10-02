@@ -138,6 +138,7 @@ fun PosterCard(title: String, image: String?, onClick: () -> Unit, modifier: Mod
     Column(
         modifier
             .clip(RoundedCornerShape(10.dp))
+            .tvFocus(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
             .padding(4.dp)
     ) {

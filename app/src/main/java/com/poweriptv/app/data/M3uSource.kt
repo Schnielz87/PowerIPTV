@@ -20,6 +20,7 @@ class M3uSource(
 
     private val mutex = Mutex()
     private var parsed: Map<ContentType, List<ContentItem>>? = null
+    private var headerEpgUrl: String? = null
 
     private suspend fun data(): Map<ContentType, List<ContentItem>> = mutex.withLock {
         parsed?.let { return it }
@@ -36,9 +37,10 @@ class M3uSource(
                 }
             }
         }
-        if (result.values.all { it.isEmpty() }) throw IOException("Keine Kanaele in der Playlist gefunden")
-        parsed = result
-        result
+        if (result.items.values.all { it.isEmpty() }) throw IOException("Keine Kanaele in der Playlist gefunden")
+        parsed = result.items
+        headerEpgUrl = result.epgUrl
+        result.items
     }
 
     /** Laedt und prueft die Playlist. */
@@ -62,10 +64,19 @@ class M3uSource(
         parsed = null
     }
 
+    override suspend fun epgUrl(): String? {
+        if (profile.epgUrl.isNotBlank()) return profile.epgUrl
+        data()
+        return headerEpgUrl
+    }
+
     companion object {
         private val attrRegex = Regex("""([\w-]+)="([^"]*)"""")
 
-        fun parse(reader: BufferedReader): Map<ContentType, List<ContentItem>> {
+        class Result(val items: Map<ContentType, List<ContentItem>>, val epgUrl: String?)
+
+        fun parse(reader: BufferedReader): Result {
+            var epgUrl: String? = null
             val out = mapOf(
                 ContentType.LIVE to mutableListOf<ContentItem>(),
                 ContentType.MOVIE to mutableListOf(),
@@ -79,6 +90,10 @@ class M3uSource(
                 val line = raw.trim()
                 when {
                     line.isEmpty() -> Unit
+                    line.startsWith("#EXTM3U", ignoreCase = true) -> {
+                        val a = attrRegex.findAll(line).associate { it.groupValues[1].lowercase() to it.groupValues[2] }
+                        epgUrl = (a["url-tvg"] ?: a["x-tvg-url"])?.split(",")?.firstOrNull()?.trim()?.ifBlank { null }
+                    }
                     line.startsWith("#EXTINF", ignoreCase = true) -> {
                         val header = line.substringBefore(",", line)
                         attrs = attrRegex.findAll(header).associate { it.groupValues[1].lowercase() to it.groupValues[2] }
@@ -102,13 +117,14 @@ class M3uSource(
                                 url = url,
                                 epgChannelId = attrs["tvg-id"],
                                 number = attrs["tvg-chno"]?.toIntOrNull(),
+                                archiveDays = attrs["catchup-days"]?.toIntOrNull() ?: attrs["tvg-rec"]?.toIntOrNull() ?: 0,
                             )
                         )
                         attrs = emptyMap(); title = null; group = null
                     }
                 }
             }
-            return out
+            return Result(out, epgUrl)
         }
 
         /** Titel = Text nach dem letzten Komma ausserhalb von Anfuehrungszeichen. */

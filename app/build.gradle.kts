@@ -13,17 +13,31 @@ android {
         applicationId = "com.poweriptv.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        // Build-Nummer von GitHub Actions -> jede Release-APK hat eine hoehere Version
+        val build = (System.getenv("BUILD_NUMBER") ?: "1").toInt()
+        versionCode = 100 + build
+        versionName = "1.1.$build"
+    }
+
+    signingConfigs {
+        // Fester Signatur-Schluessel aus GitHub-Secrets (siehe README) -> Updates ohne Neuinstallation
+        val ksPath = System.getenv("SIGNING_KEYSTORE_PATH")
+        if (!ksPath.isNullOrBlank() && file(ksPath).exists()) {
+            create("release") {
+                storeFile = file(ksPath)
+                storePassword = System.getenv("SIGNING_STORE_PASSWORD")
+                keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+                keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Fuer ein installierbares Release-APK ohne eigenen Keystore wird der Debug-Key genutzt.
-            // Fuer den Play Store einen eigenen signingConfig hinterlegen.
-            signingConfig = signingConfigs.getByName("debug")
+            // Eigener Schluessel falls vorhanden, sonst Debug-Key (installierbar, aber Updates nur nach Neuinstallation)
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 

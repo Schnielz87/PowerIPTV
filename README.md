@@ -8,7 +8,14 @@ mit **eingebautem VPN**, **Offline-Downloads** und **eigenen Favoritenlisten**.
 | Bereich | Details |
 |---|---|
 | **Zugaenge** | Xtream Codes API (Server/Benutzer/Passwort), M3U-URL, lokale M3U-Datei · mehrere Benutzer · M3U-Link mit Zugangsdaten → Umwandlung in Xtream |
-| **Live TV** | Kategorien, Kanalliste mit Logos, Suche, EPG (Jetzt/Danach), Kanal vor/zurueck (auch per Fernbedienung CH+/CH-) |
+| **Live TV** | Kategorien, Kanalliste mit Logos, Suche, EPG (Jetzt/Danach), Kanal vor/zurueck, Direktwahl per Zifferntasten |
+| **TV-Guide (EPG)** | Lueckenloses Timeline-Raster (Kanaele × Zeit), XMLTV vom Server (Xtream `xmltv.php`) oder `url-tvg`, Kanalgruppen-Filter, Jetzt-Markierung |
+| **Catch-up / Timeshift** | Live pausieren und zeitversetzt weiterschauen (lokaler Puffer), vergangene Sendungen per Server-Archiv (Xtream `tv_archive`) |
+| **Aufnahmen (PVR)** | Sofort-Aufnahme im Player, geplante Aufnahmen aus dem EPG, mehrere parallel, laeuft im Hintergrund, auch nach Neustart |
+| **Multi-Screen** | Bis zu 4 Kanaele gleichzeitig (2er- oder 4er-Ansicht), Ton per Auswahl; zusaetzlich Bild-in-Bild |
+| **Kindersicherung** | PIN, gesperrte Kategorien, automatische Sperre fuer Erwachseneninhalte, PIN-Schutz fuer Einstellungen |
+| **KI-Empfehlungen** | ChatGPT-Anbindung (OpenAI-API-Schluessel): personalisierte Vorschlaege aus Verlauf + Favoriten, nur Titel aus deinem Angebot |
+| **Fernbedienungen** | Android TV, Fire TV, Gamepads: deutlicher Fokus-Rahmen, CH+/CH-, Zifferntasten, INFO/GUIDE/MENU, Aufnahme-/Farbtasten, Medientasten |
 | **Filme** | Poster-Raster, Detailseite (Handlung, Genre, Besetzung, Bewertung), Abspielen, Download |
 | **Serien** | Staffeln & Episoden, automatische naechste Episode, Download einzelner Episoden |
 | **Favoriten & Listen** | Herz-Favoriten + beliebig viele eigene Listen (anlegen, umbenennen, loeschen) |
@@ -19,12 +26,34 @@ mit **eingebautem VPN**, **Offline-Downloads** und **eigenen Favoritenlisten**.
 
 ## APK herunterladen
 
-Jeder Push baut automatisch die APK (GitHub Actions):
+Jede neue Version erscheint automatisch unter **Releases**:
 
-1. Im Repo auf **Actions** → letzter Lauf von **„APK bauen“** klicken
-2. Unten bei **Artifacts** → **PowerIPTV-APK** herunterladen und entpacken
-3. `PowerIPTV.apk` aufs Handy/TV kopieren und installieren
-   (Installation aus „unbekannten Quellen“ erlauben)
+1. Im Repo auf **Releases** tippen → oberster Eintrag **„PowerIPTV v1.1.x (neueste Version)“**
+2. Unter **Assets** die Datei `PowerIPTV-v1.1.x.apk` herunterladen
+3. Installieren („Installation aus unbekannten Quellen“ erlauben)
+
+### Updates ohne Neuinstallation (einmalig einrichten)
+
+Android installiert Updates nur, wenn jede Version mit demselben Schluessel signiert ist.
+Dafuer einmalig einen Schluessel erzeugen und als GitHub-Secret hinterlegen:
+
+```bash
+keytool -genkeypair -keystore release.jks -alias poweriptv -keyalg RSA -keysize 2048 -validity 10000
+base64 -w0 release.jks > release.jks.b64
+```
+
+Im Repo unter *Settings → Secrets and variables → Actions* anlegen:
+`SIGNING_KEYSTORE_BASE64` (Inhalt von `release.jks.b64`), `SIGNING_STORE_PASSWORD`,
+`SIGNING_KEY_ALIAS` (`poweriptv`), `SIGNING_KEY_PASSWORD`.
+Ohne diese Secrets wird mit einem wechselnden Debug-Schluessel signiert (dann vor einem Update die alte Version deinstallieren).
+
+## KI-Empfehlungen (ChatGPT) einrichten
+
+1. Auf https://platform.openai.com → *API keys* einen Schluessel erstellen (ein ChatGPT-Plus-Abo enthaelt **keine** API-Nutzung; die API wird separat nach Verbrauch abgerechnet)
+2. In der App: **Einstellungen → KI-Empfehlungen** → Schluessel einfuegen → *Speichern & testen*
+3. Startseite → **KI-Empfehlungen**
+
+Modell und API-Adresse sind einstellbar (auch OpenAI-kompatible Anbieter).
 
 ## VPN einrichten
 

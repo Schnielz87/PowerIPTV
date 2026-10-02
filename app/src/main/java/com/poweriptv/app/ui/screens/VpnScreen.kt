@@ -51,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.poweriptv.app.AppContainer
 import com.poweriptv.app.ui.components.PowerTopBar
+import com.poweriptv.app.parental.PinDialog
 import com.poweriptv.app.ui.theme.Danger
 import com.poweriptv.app.ui.theme.Success
 import com.poweriptv.app.ui.theme.Warning
@@ -60,6 +61,11 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun VpnScreen(container: AppContainer, onBack: () -> Unit, onConnect: () -> Unit) {
+    var unlocked by remember { mutableStateOf(!container.parental.settingsNeedPin()) }
+    if (!unlocked) {
+        PinDialog(container.parental, message = "Die Einstellungen sind mit einer PIN geschuetzt", onDismiss = onBack, onSuccess = { unlocked = true })
+        return
+    }
     val vpn = container.vpn
     val s = container.settings
     val context = LocalContext.current

@@ -53,6 +53,7 @@ import com.poweriptv.app.data.FavoritesRepository
 import com.poweriptv.app.ui.components.ErrorBox
 import com.poweriptv.app.ui.components.PowerTopBar
 import com.poweriptv.app.ui.components.startPlayback
+import com.poweriptv.app.ui.components.tvFocus
 
 /** Favoriten & eigene Listen. */
 @Composable
@@ -105,6 +106,7 @@ fun FavoritesScreen(container: AppContainer, onBack: () -> Unit, onOpenDetail: (
                             .fillMaxWidth()
                             .padding(vertical = 4.dp)
                             .clip(RoundedCornerShape(10.dp))
+                            .tvFocus(RoundedCornerShape(10.dp), 1.02f)
                             .background(MaterialTheme.colorScheme.surface)
                             .clickable {
                                 if (item.type == ContentType.LIVE || !source.supportsDetails) {

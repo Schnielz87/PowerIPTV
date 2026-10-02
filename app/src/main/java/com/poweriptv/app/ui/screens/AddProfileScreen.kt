@@ -63,6 +63,7 @@ fun AddProfileScreen(container: AppContainer, editId: String?, onDone: () -> Uni
     var pass by rememberSaveable { mutableStateOf(existing?.password ?: "") }
     var m3u by rememberSaveable { mutableStateOf(existing?.m3uUrl ?: "") }
     var localFile by rememberSaveable { mutableStateOf(existing?.localFile ?: "") }
+    var epgUrl by rememberSaveable { mutableStateOf(existing?.epgUrl ?: "") }
     var showPass by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -92,6 +93,7 @@ fun AddProfileScreen(container: AppContainer, editId: String?, onDone: () -> Uni
         password = pass,
         m3uUrl = m3u.trim(),
         localFile = localFile,
+        epgUrl = epgUrl.trim(),
     )
 
     fun save(validate: Boolean) {
@@ -205,6 +207,19 @@ fun AddProfileScreen(container: AppContainer, editId: String?, onDone: () -> Uni
                     if (localFile.isNotBlank()) Text("Datei ist importiert.", color = MaterialTheme.colorScheme.primary)
                 }
             }
+
+            OutlinedTextField(
+                value = epgUrl, onValueChange = { epgUrl = it },
+                label = { Text("EPG-URL (XMLTV, optional)") },
+                supportingText = {
+                    Text(
+                        if (type == ProfileType.XTREAM) "Leer lassen = EPG automatisch vom Server (xmltv.php)"
+                        else "Leer lassen = url-tvg aus der Playlist verwenden"
+                    )
+                },
+                singleLine = true, modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            )
 
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             info?.takeIf { error == null }?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }

@@ -64,6 +64,8 @@ import com.poweriptv.app.ui.components.LoadingBox
 import com.poweriptv.app.ui.components.PosterCard
 import com.poweriptv.app.ui.components.PowerTopBar
 import com.poweriptv.app.ui.components.startPlayback
+import com.poweriptv.app.ui.components.tvFocus
+import com.poweriptv.app.parental.PinDialog
 
 private const val ALL = "__all__"
 private const val FAV = "__fav__"
@@ -86,13 +88,25 @@ fun BrowseScreen(
     var query by rememberSaveable { mutableStateOf("") }
     var showSearch by rememberSaveable { mutableStateOf(false) }
     var reload by remember { mutableIntStateOf(0) }
+    var pinFor by remember { mutableStateOf<Category?>(null) }
+    val parentalOn by container.parental.enabled.collectAsState()
+    val parentalUnlocked by container.parental.sessionUnlocked.collectAsState()
+    val lockedIds = remember(categories, parentalOn, parentalUnlocked) {
+        container.parental.lockedIds(source.profile.id, type, categories.orEmpty())
+    }
+    fun selectCategory(c: Category) {
+        if (c.id != ALL && c.id != FAV && container.parental.requiresPin(source.profile.id, type, c)) pinFor = c
+        else selected = c.id
+    }
 
     LaunchedEffect(reload) {
         error = null
         runCatching { source.categories(type) }
             .onSuccess {
                 categories = it
-                if (selected == null) selected = it.firstOrNull()?.id ?: ALL
+                if (selected == null) selected = it.firstOrNull { c ->
+                    !container.parental.requiresPin(source.profile.id, type, c)
+                }?.id ?: ALL
             }
             .onFailure { error = it.message ?: "Fehler beim Laden" }
     }
@@ -108,8 +122,8 @@ fun BrowseScreen(
             .onFailure { error = it.message ?: "Fehler beim Laden" }
     }
 
-    val filtered = remember(items, query) {
-        val list = items.orEmpty()
+    val filtered = remember(items, query, lockedIds) {
+        val list = items.orEmpty().filterNot { it.categoryId in lockedIds }
         if (query.isBlank()) list else list.filter { it.name.contains(query.trim(), ignoreCase = true) }
     }
 
@@ -193,14 +207,15 @@ fun BrowseScreen(
                         items(allCats, key = { it.id }) { c ->
                             val sel = c.id == selected
                             Text(
-                                c.name,
+                                (if (c.id in lockedIds) "🔒 " else "") + c.name,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal,
                                 color = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { selected = c.id }
+                                    .tvFocus(RoundedCornerShape(6.dp), 1f)
+                                    .clickable { selectCategory(c) }
                                     .background(if (sel) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface)
                                     .padding(horizontal = 16.dp, vertical = 12.dp),
                             )
@@ -217,8 +232,8 @@ fun BrowseScreen(
                         items(allCats, key = { it.id }) { c ->
                             FilterChip(
                                 selected = c.id == selected,
-                                onClick = { selected = c.id },
-                                label = { Text(c.name, maxLines = 1) },
+                                onClick = { selectCategory(c) },
+                                label = { Text((if (c.id in lockedIds) "🔒 " else "") + c.name, maxLines = 1) },
                             )
                         }
                     }
@@ -226,6 +241,10 @@ fun BrowseScreen(
                 }
             }
         }
+    }
+
+    pinFor?.let { c ->
+        PinDialog(container.parental, onDismiss = { pinFor = null }, onSuccess = { selected = c.id; pinFor = null })
     }
 }
 
@@ -236,8 +255,9 @@ private fun ChannelRow(item: ContentItem, isFavorite: Boolean, onToggleFavorite:
             .fillMaxWidth()
             .padding(vertical = 3.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.surface)
+            .tvFocus(RoundedCornerShape(10.dp), 1.02f)
             .clickable(onClick = onClick)
+            .background(MaterialTheme.colorScheme.surface)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

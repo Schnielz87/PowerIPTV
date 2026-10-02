@@ -59,6 +59,7 @@ import com.poweriptv.app.ui.components.ErrorBox
 import com.poweriptv.app.ui.components.LoadingBox
 import com.poweriptv.app.ui.components.PowerTopBar
 import com.poweriptv.app.ui.components.startPlayback
+import com.poweriptv.app.ui.components.tvFocus
 
 @Composable
 private fun FavoriteButton(container: AppContainer, item: ContentItem) {
@@ -224,6 +225,7 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
                                 .fillMaxWidth()
                                 .padding(horizontal = 12.dp, vertical = 4.dp)
                                 .clip(RoundedCornerShape(10.dp))
+                                .tvFocus(RoundedCornerShape(10.dp), 1.02f)
                                 .background(MaterialTheme.colorScheme.surface)
                                 .clickable {
                                     val entries = episodes.map {

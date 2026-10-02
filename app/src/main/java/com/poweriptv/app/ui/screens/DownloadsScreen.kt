@@ -52,6 +52,7 @@ import com.poweriptv.app.ui.components.ErrorBox
 import com.poweriptv.app.ui.components.PowerTopBar
 import com.poweriptv.app.ui.components.formatBytes
 import com.poweriptv.app.ui.components.startPlayback
+import com.poweriptv.app.ui.components.tvFocus
 
 @Composable
 fun DownloadsScreen(container: AppContainer, onBack: () -> Unit) {
@@ -78,6 +79,7 @@ fun DownloadsScreen(container: AppContainer, onBack: () -> Unit) {
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)
                         .clip(RoundedCornerShape(10.dp))
+                        .tvFocus(RoundedCornerShape(10.dp), 1.02f)
                         .background(MaterialTheme.colorScheme.surface)
                         .clickable(enabled = e.status == DownloadStatus.COMPLETED) {
                             val done = sorted.filter { it.status == DownloadStatus.COMPLETED }

@@ -29,6 +29,7 @@ class XtreamSource(
     private val base = normalizeServer(profile.serverUrl)
     private val user = enc(profile.username)
     private val pass = enc(profile.password)
+    @Volatile private var serverTimezone: String? = null
     private val catCache = ConcurrentHashMap<ContentType, List<Category>>()
     private val itemCache = ConcurrentHashMap<String, List<ContentItem>>()
 
@@ -52,6 +53,7 @@ class XtreamSource(
         val root = call(null) as? JsonObject ?: throw IOException("Ungueltige Server-Antwort")
         val info = root.obj("user_info") ?: throw IOException("Ungueltige Server-Antwort")
         if (info.int("auth") != 1) throw IOException("Benutzername oder Passwort falsch")
+        root.obj("server_info")?.str("timezone")?.let { serverTimezone = it }
         return parseAccount(info)
     }
 
@@ -99,6 +101,7 @@ class XtreamSource(
                     logo = o.str("stream_icon"),
                     epgChannelId = o.str("epg_channel_id"),
                     number = o.int("num"),
+                    archiveDays = if (o.int("tv_archive") == 1) (o.int("tv_archive_duration") ?: 1) else 0,
                 )
                 ContentType.MOVIE -> ContentItem(
                     id = o.str("stream_id") ?: return@mapNotNull null,
@@ -206,6 +209,21 @@ class XtreamSource(
 
     override fun clearCache() {
         catCache.clear(); itemCache.clear()
+    }
+
+    override suspend fun epgUrl(): String? = profile.epgUrl.ifBlank {
+        "$base/xmltv.php?username=$user&password=$pass"
+    }
+
+    /** Xtream-Timeshift-API: /timeshift/{user}/{pass}/{dauer_min}/{yyyy-MM-dd:HH-mm}/{stream_id}.ts */
+    override fun catchupUrl(item: ContentItem, start: Long, end: Long): String? {
+        if (item.type != ContentType.LIVE || item.archiveDays <= 0) return null
+        val oldest = System.currentTimeMillis() - item.archiveDays * 24L * 3600_000L
+        if (start < oldest || start > System.currentTimeMillis()) return null
+        val tz = serverTimezone?.let { TimeZone.getTimeZone(it) } ?: TimeZone.getDefault()
+        val fmt = SimpleDateFormat("yyyy-MM-dd:HH-mm", Locale.US).apply { timeZone = tz }
+        val minutes = ((end - start) / 60_000L).coerceAtLeast(1)
+        return "$base/timeshift/$user/$pass/$minutes/${fmt.format(java.util.Date(start))}/${item.id}.ts"
     }
 
     private fun decodeB64(s: String?): String? = s?.let {

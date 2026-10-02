@@ -3,9 +3,12 @@ package com.poweriptv.app
 import android.app.Application
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import com.poweriptv.app.ai.AiRecommender
 import com.poweriptv.app.data.ContentItem
 import com.poweriptv.app.data.ContentSource
+import com.poweriptv.app.data.EpgRepository
 import com.poweriptv.app.data.FavoritesRepository
+import com.poweriptv.app.data.HistoryRepository
 import com.poweriptv.app.data.M3uSource
 import com.poweriptv.app.data.Profile
 import com.poweriptv.app.data.ProfileRepository
@@ -14,6 +17,8 @@ import com.poweriptv.app.data.SecureStore
 import com.poweriptv.app.data.SettingsRepository
 import com.poweriptv.app.data.XtreamSource
 import com.poweriptv.app.download.DownloadRepository
+import com.poweriptv.app.parental.ParentalControl
+import com.poweriptv.app.record.RecordingRepository
 import com.poweriptv.app.vpn.VpnGuardInterceptor
 import com.poweriptv.app.vpn.VpnManager
 import kotlinx.serialization.json.Json
@@ -55,6 +60,11 @@ class AppContainer(app: Application) {
         .build()
 
     val downloads = DownloadRepository(app, json) { http }
+    val epg = EpgRepository(app) { http }
+    val parental = ParentalControl(app)
+    val recordings = RecordingRepository(app, json)
+    val history = HistoryRepository(app, json)
+    val ai = AiRecommender({ http }, secure, settings, parental, json)
 
     /** Aktuell ausgewaehlte Quelle (Profil). */
     var source: ContentSource? = null
@@ -74,8 +84,10 @@ class AppContainer(app: Application) {
 
     fun activate(profile: Profile?) {
         source = profile?.let { createSource(it) }
+        epg.clear()
         settings.setLastProfileId(profile?.id)
         favorites.bind(profile?.id)
+        history.bind(profile?.id)
     }
 
     init {

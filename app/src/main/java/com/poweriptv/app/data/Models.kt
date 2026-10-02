@@ -17,6 +17,8 @@ data class Profile(
     val m3uUrl: String = "",
     /** Pfad der importierten lokalen M3U-Datei im App-Speicher. */
     val localFile: String = "",
+    /** Optionale XMLTV-EPG-URL (ueberschreibt die automatisch erkannte). */
+    val epgUrl: String = "",
 )
 
 @Serializable
@@ -38,6 +40,8 @@ data class ContentItem(
     val rating: String? = null,
     val epgChannelId: String? = null,
     val number: Int? = null,
+    /** Tage im Server-Archiv (Catch-up / Timeshift), 0 = kein Archiv. */
+    val archiveDays: Int = 0,
 ) {
     val key: String get() = "${type.name}:$id"
 }

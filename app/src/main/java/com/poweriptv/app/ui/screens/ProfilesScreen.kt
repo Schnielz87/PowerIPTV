@@ -45,6 +45,7 @@ import com.poweriptv.app.AppContainer
 import com.poweriptv.app.data.Profile
 import com.poweriptv.app.data.ProfileType
 import com.poweriptv.app.ui.components.BrandTopBar
+import com.poweriptv.app.ui.components.tvFocus
 import com.poweriptv.app.ui.components.PortivaLogo
 import com.poweriptv.app.ui.components.VpnBadge
 import com.poweriptv.app.ui.theme.Accent
@@ -109,6 +110,7 @@ fun ProfilesScreen(
                         Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(14.dp))
+                            .tvFocus(RoundedCornerShape(14.dp), 1.02f)
                             .background(MaterialTheme.colorScheme.surface)
                             .clickable {
                                 container.activate(p)

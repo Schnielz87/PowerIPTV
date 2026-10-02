@@ -40,6 +40,11 @@ import com.poweriptv.app.BuildConfigInfo
 import com.poweriptv.app.data.LiveFormat
 import com.poweriptv.app.data.SettingsRepository
 import com.poweriptv.app.ui.components.PowerTopBar
+import com.poweriptv.app.ui.components.tvFocus
+import com.poweriptv.app.parental.PinDialog
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
@@ -59,7 +64,7 @@ fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) 
 @Composable
 fun SwitchRow(title: String, subtitle: String?, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(enabled = enabled) { onChange(!checked) }.padding(vertical = 4.dp),
+        Modifier.fillMaxWidth().tvFocus().clickable(enabled = enabled) { onChange(!checked) }.padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -72,8 +77,40 @@ fun SwitchRow(title: String, subtitle: String?, checked: Boolean, enabled: Boole
 }
 
 @Composable
-fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onVpn: () -> Unit) {
+private fun NavRow(title: String, subtitle: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().tvFocus().clickable(onClick = onClick).padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
+    }
+}
+
+@Composable
+fun SettingsScreen(
+    container: AppContainer,
+    onBack: () -> Unit,
+    onVpn: () -> Unit,
+    onParental: () -> Unit,
+    onRecordings: () -> Unit,
+) {
+    var unlocked by remember { mutableStateOf(!container.parental.settingsNeedPin()) }
+    if (!unlocked) {
+        PinDialog(container.parental, message = "Die Einstellungen sind mit einer PIN geschuetzt", onDismiss = onBack, onSuccess = { unlocked = true })
+        return
+    }
     val s = container.settings
+    val scope = rememberCoroutineScope()
+    val aiModel by s.aiModel.collectAsState()
+    val aiUrl by s.aiBaseUrl.collectAsState()
+    var keyInput by remember { mutableStateOf("") }
+    var modelInput by remember { mutableStateOf(aiModel) }
+    var urlInput by remember { mutableStateOf(aiUrl) }
+    var aiStatus by remember { mutableStateOf<String?>(if (container.ai.hasApiKey()) "ChatGPT-Konto verbunden" else null) }
     val liveFormat by s.liveFormat.collectAsState()
     val ua by s.userAgent.collectAsState()
     var uaInput by remember { mutableStateOf(ua) }
@@ -88,7 +125,7 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onVpn: () -> Uni
         ) {
             SettingsSection("Sicherheit") {
                 Row(
-                    Modifier.fillMaxWidth().clickable(onClick = onVpn).padding(vertical = 8.dp),
+                    Modifier.fillMaxWidth().tvFocus().clickable(onClick = onVpn).padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
@@ -101,6 +138,46 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onVpn: () -> Uni
                     }
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
                 }
+                NavRow("Kindersicherung", "PIN, gesperrte Kategorien, Erwachseneninhalte", onParental)
+                NavRow("Aufnahmen", "Geplante und fertige Aufnahmen verwalten", onRecordings)
+            }
+
+            SettingsSection("KI-Empfehlungen (ChatGPT)") {
+                Text(
+                    "Verbinde dein ChatGPT/OpenAI-Konto ueber einen API-Schluessel (platform.openai.com → API keys). " +
+                        "Uebertragen werden nur Titel aus Verlauf, Favoriten und Katalog – keine Zugangsdaten.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = keyInput, onValueChange = { keyInput = it },
+                    label = { Text(if (container.ai.hasApiKey()) "Neuer API-Schluessel (sk-...)" else "API-Schluessel (sk-...)") },
+                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = PasswordVisualTransformation(),
+                )
+                OutlinedTextField(
+                    value = modelInput, onValueChange = { modelInput = it },
+                    label = { Text("Modell") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = urlInput, onValueChange = { urlInput = it },
+                    label = { Text("API-Adresse (OpenAI-kompatibel)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                )
+                Row {
+                    TextButton(onClick = {
+                        if (keyInput.isNotBlank()) container.ai.setApiKey(keyInput)
+                        s.setAiModel(modelInput); s.setAiBaseUrl(urlInput)
+                        keyInput = ""
+                        aiStatus = "Pruefe Verbindung..."
+                        scope.launch {
+                            aiStatus = runCatching { container.ai.testConnection() }.getOrElse { "Fehler: ${it.message}" }
+                        }
+                    }) { Text("Speichern & testen") }
+                    if (container.ai.hasApiKey()) TextButton(onClick = {
+                        container.ai.setApiKey(null); aiStatus = "Verbindung entfernt"
+                    }) { Text("Trennen") }
+                }
+                aiStatus?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) }
             }
 
             SettingsSection("Live-TV Stream-Format (Xtream)") {

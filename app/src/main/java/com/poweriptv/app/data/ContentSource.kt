@@ -19,4 +19,10 @@ interface ContentSource {
     fun episodeUrl(episode: Episode): String
 
     fun clearCache()
+
+    /** XMLTV-Quelle fuer den EPG (Xtream: xmltv.php, M3U: url-tvg / eigene URL). */
+    suspend fun epgUrl(): String?
+
+    /** Catch-up-URL fuer eine vergangene Sendung (nur wenn der Kanal ein Server-Archiv hat). */
+    fun catchupUrl(item: ContentItem, start: Long, end: Long): String? = null
 }

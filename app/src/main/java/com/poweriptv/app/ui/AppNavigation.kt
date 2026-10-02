@@ -11,6 +11,10 @@ import com.poweriptv.app.data.ContentType
 import com.poweriptv.app.ui.screens.AddProfileScreen
 import com.poweriptv.app.ui.screens.BrowseScreen
 import com.poweriptv.app.ui.screens.DownloadsScreen
+import com.poweriptv.app.ui.screens.EpgGridScreen
+import com.poweriptv.app.ui.screens.ParentalScreen
+import com.poweriptv.app.ui.screens.RecommendationsScreen
+import com.poweriptv.app.ui.screens.RecordingsScreen
 import com.poweriptv.app.ui.screens.FavoritesScreen
 import com.poweriptv.app.ui.screens.HomeScreen
 import com.poweriptv.app.ui.screens.MovieDetailScreen
@@ -30,6 +34,10 @@ object Routes {
     const val SETTINGS = "settings"
     const val VPN = "vpn"
     const val DOWNLOADS = "downloads"
+    const val EPG = "epg"
+    const val RECORDINGS = "recordings"
+    const val PARENTAL = "parental"
+    const val RECOMMENDATIONS = "recommendations"
 
     fun addProfile(id: String? = null) = if (id == null) "addProfile" else "addProfile?id=$id"
     fun browse(type: ContentType) = "browse/${type.name}"
@@ -72,6 +80,13 @@ fun AppNavigation(container: AppContainer, onConnectVpn: () -> Unit) {
                 onSettings = { nav.navigate(Routes.SETTINGS) },
                 onVpn = { nav.navigate(Routes.VPN) },
                 onDownloads = { nav.navigate(Routes.DOWNLOADS) },
+                onEpg = { nav.navigate(Routes.EPG) },
+                onRecordings = { nav.navigate(Routes.RECORDINGS) },
+                onRecommendations = { nav.navigate(Routes.RECOMMENDATIONS) },
+                onOpenDetail = { item ->
+                    container.selectedItem = item
+                    nav.navigate(if (item.type == ContentType.SERIES) Routes.SERIES else Routes.MOVIE)
+                },
                 onSwitchProfile = {
                     nav.navigate(Routes.PROFILES) { popUpTo(Routes.HOME) { inclusive = true } }
                 },
@@ -102,7 +117,27 @@ fun AppNavigation(container: AppContainer, onConnectVpn: () -> Unit) {
             )
         }
         composable(Routes.SETTINGS) {
-            SettingsScreen(container, onBack = { nav.popBackStack() }, onVpn = { nav.navigate(Routes.VPN) })
+            SettingsScreen(
+                container,
+                onBack = { nav.popBackStack() },
+                onVpn = { nav.navigate(Routes.VPN) },
+                onParental = { nav.navigate(Routes.PARENTAL) },
+                onRecordings = { nav.navigate(Routes.RECORDINGS) },
+            )
+        }
+        composable(Routes.EPG) { EpgGridScreen(container, onBack = { nav.popBackStack() }) }
+        composable(Routes.RECORDINGS) { RecordingsScreen(container, onBack = { nav.popBackStack() }) }
+        composable(Routes.PARENTAL) { ParentalScreen(container, onBack = { nav.popBackStack() }) }
+        composable(Routes.RECOMMENDATIONS) {
+            RecommendationsScreen(
+                container,
+                onBack = { nav.popBackStack() },
+                onOpenDetail = { item ->
+                    container.selectedItem = item
+                    nav.navigate(if (item.type == ContentType.SERIES) Routes.SERIES else Routes.MOVIE)
+                },
+                onOpenSettings = { nav.navigate(Routes.SETTINGS) },
+            )
         }
         composable(Routes.DOWNLOADS) { DownloadsScreen(container, onBack = { nav.popBackStack() }) }
         composable(Routes.VPN) {

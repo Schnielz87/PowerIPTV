@@ -1,14 +1,18 @@
-name: APK bauen
+name: APK bauen & veroeffentlichen
 
 on:
   push:
     branches: ["**"]
-  pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
     steps:
       - uses: actions/checkout@v4
 
@@ -19,18 +23,50 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: APK bauen (Debug + Release)
+      - name: Signatur-Schluessel aus Secrets (optional)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "SIGNING_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            echo "Eigener Signatur-Schluessel wird verwendet."
+          else
+            echo "Kein Signatur-Secret gesetzt – APK wird mit Debug-Schluessel signiert."
+          fi
+
+      - name: APK bauen
+        env:
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleDebug assembleRelease
+          ./gradlew --no-daemon assembleRelease
 
       - name: APK umbenennen
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/debug/app-debug.apk out/PowerIPTV-debug.apk
-          cp app/build/outputs/apk/release/app-release.apk out/PowerIPTV.apk
+          cp app/build/outputs/apk/release/app-release.apk "out/PowerIPTV-v1.1.${BUILD_NUMBER}.apk"
 
       - uses: actions/upload-artifact@v4
         with:
           name: PowerIPTV-APK
           path: out/*.apk
+
+      # Jede erfolgreiche Version erscheint unter "Releases" – dort einfach die APK antippen.
+      - name: Release veroeffentlichen
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.1.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: PowerIPTV v1.1.${{ github.run_number }} (neueste Version)
+          make_latest: "true"
+          files: out/*.apk
+          body: |
+            **Portiva – PowerIPTV** · Build ${{ github.run_number }}
+
+            📲 **Installation:** Unten bei *Assets* auf `PowerIPTV-v1.1.${{ github.run_number }}.apk` tippen,
+            herunterladen und installieren („Installation aus unbekannten Quellen“ erlauben).
+
+            Commit: ${{ github.sha }}
