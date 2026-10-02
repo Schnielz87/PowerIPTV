@@ -184,6 +184,82 @@ fun SettingsScreen(
                 aiStatus?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) }
             }
 
+            SettingsSection("Sichern & Wiederherstellen") {
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                var withSecrets by remember { mutableStateOf(true) }
+                var backupPw by remember { mutableStateOf("") }
+                var backupStatus by remember { mutableStateOf<String?>(null) }
+                var pendingRestore by remember { mutableStateOf<String?>(null) }
+                fun restart() {
+                    val i = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)
+                        ?.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    if (i != null) ctx.startActivity(i)
+                    Runtime.getRuntime().exit(0)
+                }
+                fun doRestore(text: String) {
+                    scope.launch {
+                        backupStatus = "Stelle wieder her..."
+                        val r = runCatching {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { container.backup.restore(text, backupPw.ifBlank { null }) }
+                        }
+                        r.onSuccess {
+                            pendingRestore = null
+                            backupStatus = "Wiederhergestellt – App startet neu"
+                            kotlinx.coroutines.delay(1200); restart()
+                        }.onFailure { backupStatus = "Fehler: ${it.message}" }
+                    }
+                }
+                val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                    androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json"),
+                ) { uri ->
+                    if (uri == null) return@rememberLauncherForActivityResult
+                    scope.launch {
+                        backupStatus = "Sichere..."
+                        backupStatus = runCatching {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { container.backup.export(uri, withSecrets, backupPw.ifBlank { null }) }
+                            if (backupPw.isBlank() && withSecrets) "Gesichert (unverschluesselt – Datei enthaelt Zugangsdaten, sicher aufbewahren!)"
+                            else "Sicherung erstellt"
+                        }.getOrElse { "Fehler: ${it.message}" }
+                    }
+                }
+                val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                    androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+                ) { uri ->
+                    if (uri == null) return@rememberLauncherForActivityResult
+                    scope.launch {
+                        val text = runCatching { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { container.backup.readText(uri) } }
+                            .getOrElse { backupStatus = "Fehler: ${it.message}"; return@launch }
+                        pendingRestore = text
+                        if (container.backup.isEncrypted(text) && backupPw.isBlank()) backupStatus = "Diese Sicherung ist verschluesselt – Passwort eingeben und \"Wiederherstellen\" tippen"
+                        else backupStatus = "Sicherung geladen – \"Wiederherstellen\" tippen (aktuelle Einstellungen werden ueberschrieben)"
+                    }
+                }
+                Text(
+                    "Profile, Favoriten, Listen, Verlauf, Weiterschauen, Kategorien, Kindersicherung und Einstellungen als Datei sichern – " +
+                        "z.B. fuer den Umzug vom Handy auf den Fire TV.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                SwitchRow("Zugangsdaten mitsichern", "Profile (Benutzer/Passwort), VPN-Konfiguration und API-Schluessel", withSecrets) { withSecrets = it }
+                OutlinedTextField(
+                    value = backupPw, onValueChange = { backupPw = it },
+                    label = { Text("Passwort (optional, verschluesselt die Datei)") },
+                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = PasswordVisualTransformation(),
+                )
+                Row {
+                    TextButton(onClick = {
+                        val name = "PowerIPTV-Sicherung-" + java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.GERMANY).format(java.util.Date()) + ".json"
+                        runCatching { exportLauncher.launch(name) }.onFailure { backupStatus = "Dateiauswahl ist auf diesem Geraet nicht verfuegbar" }
+                    }) { Text("Sicherung erstellen") }
+                    TextButton(onClick = {
+                        runCatching { importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream", "*/*")) }
+                            .onFailure { backupStatus = "Dateiauswahl ist auf diesem Geraet nicht verfuegbar" }
+                    }) { Text("Sicherung laden") }
+                    pendingRestore?.let { t -> TextButton(onClick = { doRestore(t) }) { Text("Wiederherstellen") } }
+                }
+                backupStatus?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) }
+            }
+
             SettingsSection("Altersfreigaben (FSK)") {
                 var tmdbInput by remember { mutableStateOf("") }
                 var tmdbStatus by remember { mutableStateOf<String?>(if (container.ageRatings.hasApiKey()) "TMDB verbunden – offizielle FSK wird angezeigt" else null) }

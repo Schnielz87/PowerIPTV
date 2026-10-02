@@ -244,6 +244,8 @@ fun BrowseScreen(
                         modifier = Modifier.width(sidebarWidth).fillMaxHeight(),
                         title = title,
                         onBack = onBack,
+                        prefs = container.categoryPrefs,
+                        prefsScope = "${container.source?.profile?.id}|${type.name}",
                     )
                 }
                 Column(Modifier.weight(1f).fillMaxHeight()) {
@@ -397,6 +399,8 @@ fun BrowseScreen(
                     onLanguage = { container.settings.setCategoryLanguage(it) },
                     onSelect = ::selectCategory,
                     modifier = Modifier.fillMaxWidth().height(520.dp),
+                    prefs = container.categoryPrefs,
+                    prefsScope = "${container.source?.profile?.id}|${type.name}",
                 )
             }
         }

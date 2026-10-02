@@ -81,6 +81,8 @@ class AppContainer(private val app: Application) {
     /** Sleep-Timer: Zeitpunkt, an dem die Wiedergabe endet (0 = aus). */
     @Volatile var sleepUntil = 0L
     val history = HistoryRepository(app, json)
+    val categoryPrefs = com.poweriptv.app.data.CategoryPrefs(app)
+    val backup by lazy { com.poweriptv.app.data.BackupManager(app, secure, json) }
     val resume = com.poweriptv.app.data.ResumeRepository(app)
     val cast = CastManager(app)
     val ai = AiRecommender({ http }, secure, settings, parental, json)

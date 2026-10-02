@@ -42,6 +42,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -81,17 +90,27 @@ fun CategorySidebar(
     modifier: Modifier = Modifier,
     title: String? = null,
     onBack: (() -> Unit)? = null,
+    /** Ausblenden/Anheften (null = nicht verfuegbar). */
+    prefs: com.poweriptv.app.data.CategoryPrefs? = null,
+    prefsScope: String = "",
 ) {
+    val prefsVersion by (prefs?.version ?: remember { kotlinx.coroutines.flow.MutableStateFlow(0) }).collectAsState()
+    var showHidden by remember { mutableStateOf(false) }
+    var menuFor by remember { mutableStateOf<String?>(null) }
+    val hiddenIds = remember(prefsVersion, prefsScope) { prefs?.hidden(prefsScope).orEmpty() }
+    val pinnedIds = remember(prefsVersion, prefsScope) { prefs?.pinned(prefsScope).orEmpty() }
     var catQuery by remember { mutableStateOf("") }
     var showCatSearch by remember { mutableStateOf(false) }
     var langMenu by remember { mutableStateOf(false) }
     val languages = remember(categories) { detectLanguages(categories) }
     val activeLang = language.takeIf { it in languages } ?: ""
-    val visible = remember(categories, activeLang, catQuery) {
-        categories.filter { c ->
+    val visible = remember(categories, activeLang, catQuery, prefsVersion, showHidden) {
+        val filtered = categories.filter { c ->
             (activeLang.isEmpty() || categoryLanguage(c.name) == activeLang) &&
-                (catQuery.isBlank() || c.name.contains(catQuery.trim(), ignoreCase = true))
+                (catQuery.isBlank() || c.name.contains(catQuery.trim(), ignoreCase = true)) &&
+                (showHidden || c.id !in hiddenIds)
         }
+        prefs?.arrange(prefsScope, filtered) { it.id } ?: filtered
     }
 
     Column(modifier.background(MaterialTheme.colorScheme.surface)) {
@@ -167,21 +186,72 @@ fun CategorySidebar(
             }
             items(visible, key = { it.id }) { c ->
                 val label = if (activeLang.isNotEmpty()) stripLanguage(c.name) else c.name
-                SidebarRow(Icons.Filled.Folder, label, selected == c.id, c.id in lockedIds) { onSelect(c) }
+                val pinned = c.id in pinnedIds
+                val hidden = c.id in hiddenIds
+                Box {
+                    SidebarRow(
+                        if (pinned) Icons.Filled.PushPin else if (hidden) Icons.Filled.VisibilityOff else Icons.Filled.Folder,
+                        label, selected == c.id, c.id in lockedIds,
+                        dimmed = hidden,
+                        onLongClick = if (prefs != null) ({ menuFor = c.id }) else null,
+                    ) { onSelect(c) }
+                    // Lange druecken / Menue-Taste: anheften oder ausblenden
+                    DropdownMenu(expanded = menuFor == c.id, onDismissRequest = { menuFor = null }) {
+                        DropdownMenuItem(
+                            text = { Text(if (pinned) "Nicht mehr oben anheften" else "📌 Oben anheften") },
+                            onClick = { prefs?.setPinned(prefsScope, c.id, !pinned); menuFor = null },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(if (hidden) "Wieder einblenden" else "Ausblenden") },
+                            onClick = { prefs?.setHidden(prefsScope, c.id, !hidden); menuFor = null },
+                        )
+                    }
+                }
+            }
+            if (prefs != null && hiddenIds.isNotEmpty()) item {
+                SidebarRow(
+                    if (showHidden) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                    if (showHidden) "Ausgeblendete verbergen" else "Ausgeblendete anzeigen (${hiddenIds.size})",
+                    false, false, dimmed = true,
+                ) { showHidden = !showHidden }
+            }
+            if (prefs != null) item {
+                Text(
+                    "Tipp: Kategorie lange druecken (TV: OK halten oder Menue-Taste) zum Anheften oder Ausblenden.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                )
             }
         }
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun SidebarRow(icon: ImageVector, label: String, selected: Boolean, locked: Boolean, onClick: () -> Unit) {
+private fun SidebarRow(
+    icon: ImageVector,
+    label: String,
+    selected: Boolean,
+    locked: Boolean,
+    dimmed: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
+    onClick: () -> Unit,
+) {
     Row(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 6.dp, vertical = 1.dp)
             .clip(RoundedCornerShape(8.dp))
             .tvFocus(RoundedCornerShape(8.dp), 1f)
-            .clickable(onClick = onClick)
+            .then(
+                if (onLongClick != null) Modifier.onPreviewKeyEvent { e ->
+                    // Menue-Taste der Fernbedienung oeffnet das Kontextmenue
+                    if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && e.key == androidx.compose.ui.input.key.Key.Menu) { onLongClick(); true } else false
+                } else Modifier
+            )
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .alpha(if (dimmed) 0.55f else 1f)
             .background(if (selected) BrandCyan.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surface)
             .padding(horizontal = 6.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
