@@ -4,6 +4,7 @@ import android.app.Application
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import com.poweriptv.app.ai.AiRecommender
+import com.poweriptv.app.cast.CastManager
 import com.poweriptv.app.data.CachedSource
 import com.poweriptv.app.data.ContentItem
 import com.poweriptv.app.data.PlayerEngine
@@ -44,6 +45,7 @@ class PowerIptvApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        container.cast.init() // Google Cast (nur mit Google-Play-Diensten, nicht auf TV-Geraeten)
     }
 
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
@@ -76,6 +78,7 @@ class AppContainer(private val app: Application) {
     val parental = ParentalControl(app)
     val recordings = RecordingRepository(app, json)
     val history = HistoryRepository(app, json)
+    val cast = CastManager(app)
     val ai = AiRecommender({ http }, secure, settings, parental, json)
 
     /** Aktuell ausgewaehlte Quelle (Profil). */

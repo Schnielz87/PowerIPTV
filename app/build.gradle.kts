@@ -95,6 +95,10 @@ dependencies {
     // VPN (offizielle WireGuard Tunnel-Library)
     implementation("com.wireguard.android:tunnel:1.0.20230706")
 
+    // Google Cast (Chromecast / Google TV)
+    implementation("com.google.android.gms:play-services-cast-framework:21.5.0")
+    implementation("androidx.mediarouter:mediarouter:1.7.0")
+
     // VLC als Kompatibilitaets-Player (MPEG-2, HEVC, Interlaced, ...)
     implementation("org.videolan.android:libvlc-all:3.6.0")
     // libVLC zieht eine alte Fragment-Version mit -> aktuelle erzwingen (ActivityResult-APIs)

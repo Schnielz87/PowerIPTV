@@ -79,6 +79,8 @@ import com.poweriptv.app.data.ContentItem
 import com.poweriptv.app.data.ContentType
 import com.poweriptv.app.player.MultiViewActivity
 import com.poweriptv.app.ui.components.BrandTopBar
+import com.poweriptv.app.ui.components.CastButton
+import com.poweriptv.app.ui.components.CastingBar
 import com.poweriptv.app.ui.components.VpnBadge
 import com.poweriptv.app.ui.components.startPlayback
 import com.poweriptv.app.ui.components.tvFocus
@@ -116,6 +118,7 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             BrandTopBar(subtitle = source?.profile?.name, actions = {
+                CastButton(container)
                 IconButton(onClick = onSearch, modifier = Modifier.tvFocus()) { Icon(Icons.Filled.Search, "Suche") }
                 IconButton(onClick = { container.refreshPlaylist(force = true) }, enabled = !refreshing, modifier = Modifier.tvFocus()) {
                     if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
@@ -133,6 +136,7 @@ fun HomeScreen(
                 Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
+                CastingBar(container, Modifier.fillMaxWidth())
                 if (refreshing) {
                     Row(
                         Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))

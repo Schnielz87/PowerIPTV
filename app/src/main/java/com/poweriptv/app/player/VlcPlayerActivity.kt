@@ -53,6 +53,8 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.poweriptv.app.PlayEntry
+import com.poweriptv.app.ui.components.CastButton
+import com.poweriptv.app.ui.components.CastingBar
 import com.poweriptv.app.PowerIptvApp
 import com.poweriptv.app.data.VideoScale
 import com.poweriptv.app.ui.theme.BrandCyan
@@ -151,6 +153,7 @@ class VlcPlayerActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                     )
                     if (buffering && error == null) CircularProgressIndicator(Modifier.align(Alignment.Center), color = BrandCyan)
+                    CastingBar(container, Modifier.align(Alignment.Center), onStop = { mediaPlayer.play() })
                     if (showOverlay) {
                         Overlay()
                         if (current()?.live != true) SeekBar(Modifier.align(Alignment.BottomCenter))
@@ -200,6 +203,7 @@ class VlcPlayerActivity : ComponentActivity() {
             IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { togglePause() }) {
                 Icon(if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, "Wiedergabe", tint = Color.White)
             }
+            CastButton(container, current(), current()?.item?.logo, tint = Color.White, onCasting = { mediaPlayer.pause() })
             IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { cycleScale() }) { Icon(Icons.Filled.AspectRatio, "Bildformat", tint = Color.White) }
             if (container.playQueue.size > 1) {
                 IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { next() }) { Icon(Icons.Filled.SkipNext, "Naechster", tint = Color.White) }

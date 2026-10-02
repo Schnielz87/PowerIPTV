@@ -74,6 +74,8 @@ import android.content.Intent
 import androidx.media3.common.C
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import com.poweriptv.app.data.PlayerEngine
+import com.poweriptv.app.ui.components.CastButton
+import com.poweriptv.app.ui.components.CastingBar
 import com.poweriptv.app.ui.components.vlcCategoryKey
 import android.content.res.Configuration
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -255,6 +257,11 @@ class PlayerActivity : ComponentActivity() {
                         }
                     }
                     if (showOverlay) TopOverlay()
+                    CastingBar(
+                        container,
+                        Modifier.align(Alignment.BottomCenter).padding(bottom = 72.dp),
+                        onStop = { withSwitch { player.play() } }, // zurueck aufs Handy
+                    )
                     if (numberInput.isNotEmpty()) {
                         Text(
                             numberInput, color = Color.White, fontSize = 48.sp, fontWeight = FontWeight.Bold,
@@ -324,6 +331,9 @@ class PlayerActivity : ComponentActivity() {
                     Spacer(Modifier.width(8.dp))
                     OutlinedButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { goLive() }) { Text("LIVE", color = Danger, fontWeight = FontWeight.Bold) }
                 }
+                CastButton(container, entry, entry?.item?.logo, tint = Color.White, onCasting = {
+                    withSwitch { player.pause() } // lokal pausieren, laeuft jetzt auf dem TV
+                })
                 IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { cycleVideoScale() }) {
                     Icon(Icons.Filled.AspectRatio, "Bildformat", tint = Color.White)
                 }

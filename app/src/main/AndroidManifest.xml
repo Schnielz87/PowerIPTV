@@ -90,6 +90,11 @@
             android:screenOrientation="sensorLandscape"
             android:theme="@style/Theme.PowerIPTV.Fullscreen" />
 
+        <!-- Google Cast (Chromecast / Google TV) -->
+        <meta-data
+            android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
+            android:value="com.poweriptv.app.cast.CastOptionsProvider" />
+
         <!-- VpnService der WireGuard GoBackend-Engine -->
         <service
             android:name="com.wireguard.android.backend.GoBackend$VpnService"
