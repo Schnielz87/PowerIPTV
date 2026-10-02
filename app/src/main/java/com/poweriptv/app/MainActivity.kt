@@ -14,7 +14,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.poweriptv.app.ui.AppNavigation
+import com.poweriptv.app.ui.theme.Background
+import com.poweriptv.app.util.DeviceInfo
+import com.poweriptv.app.util.LocalIsTv
 import com.poweriptv.app.ui.components.SplashScreen
 import com.poweriptv.app.ui.theme.PowerTheme
 import com.poweriptv.app.vpn.VpnState
@@ -41,9 +51,11 @@ class MainActivity : ComponentActivity() {
     }
 
     /** Im Querformat Status- und Navigationsleiste ausblenden (per Wischen wieder sichtbar). */
+    private val isTv by lazy { DeviceInfo.isTv(this) }
+
     private fun applySystemBars(orientation: Int) {
         val controller = WindowInsetsControllerCompat(window, window.decorView)
-        if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+        if (isTv || orientation == Configuration.ORIENTATION_LANDSCAPE) {
             controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             controller.hide(WindowInsetsCompat.Type.systemBars())
         } else {
@@ -62,7 +74,8 @@ class MainActivity : ComponentActivity() {
         // Bildschirmausrichtung aus den Einstellungen (Standard: Querformat)
         lifecycleScope.launch {
             container.settings.orientation.collect {
-                requestedOrientation = when (container.settings.orientationEnum()) {
+                // Fernseher: immer Querformat
+                requestedOrientation = if (isTv) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else when (container.settings.orientationEnum()) {
                     Orientation.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                     Orientation.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
                     Orientation.AUTO -> ActivityInfo.SCREEN_ORIENTATION_FULL_USER
@@ -78,9 +91,15 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             PowerTheme {
-                var splash by rememberSaveable { mutableStateOf(true) }
-                if (splash) SplashScreen(onFinished = { splash = false })
-                else AppNavigation(container = container, onConnectVpn = ::connectVpn)
+                CompositionLocalProvider(LocalIsTv provides isTv) {
+                    // TV: Sicherheitsrand gegen Overscan (auf manchen Fernsehern werden die Raender abgeschnitten)
+                    val safeArea = if (isTv) Modifier.padding(horizontal = 24.dp, vertical = 12.dp) else Modifier
+                    Box(Modifier.fillMaxSize().background(Background).then(safeArea)) {
+                        var splash by rememberSaveable { mutableStateOf(true) }
+                        if (splash) SplashScreen(onFinished = { splash = false })
+                        else AppNavigation(container = container, onConnectVpn = ::connectVpn)
+                    }
+                }
             }
         }
     }

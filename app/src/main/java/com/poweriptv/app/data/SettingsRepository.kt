@@ -9,6 +9,13 @@ enum class LiveFormat(val ext: String, val label: String) {
     HLS("m3u8", "HLS (.m3u8)"),
 }
 
+/** Bildformat im Player. */
+enum class VideoScale(val label: String) {
+    FIT("Auto (Original-Seitenverhaeltnis)"),
+    ZOOM("Zoom (Bildschirm fuellen, Raender abschneiden)"),
+    FILL("Strecken (ganzer Bildschirm)"),
+}
+
 enum class Orientation(val label: String) {
     LANDSCAPE("Querformat"),
     PORTRAIT("Hochformat"),
@@ -32,6 +39,8 @@ class SettingsRepository(context: Context) {
     private val _aiModel = str(K_AI_MODEL, DEFAULT_AI_MODEL)
     private val _orientation = str(K_ORIENTATION, Orientation.LANDSCAPE.name)
     private val _language = str(K_LANGUAGE, "")
+    private val _afr = bool(K_AFR, true)
+    private val _resize = str(K_RESIZE, VideoScale.FIT.name)
     private val _aiBaseUrl = str(K_AI_URL, DEFAULT_AI_URL)
 
     /** Kill-Switch: Kein Datenverkehr der App ohne aktives VPN. */
@@ -51,6 +60,10 @@ class SettingsRepository(context: Context) {
     val orientation: StateFlow<String> = _orientation
     /** Bevorzugtes Sprach-Praefix der Kategorien (z.B. "DE"), leer = alle. */
     val categoryLanguage: StateFlow<String> = _language
+    /** Bildwiederholrate des Fernsehers an das Video anpassen (AFR). */
+    val autoFrameRate: StateFlow<Boolean> = _afr
+    /** Bildformat im Player. */
+    val videoScale: StateFlow<String> = _resize
 
     fun setVpnRequired(v: Boolean) = putBool(K_VPN_REQUIRED, v, _vpnRequired)
     fun setVpnAutoConnect(v: Boolean) = putBool(K_VPN_AUTO, v, _vpnAutoConnect)
@@ -60,6 +73,9 @@ class SettingsRepository(context: Context) {
     fun setUserAgent(v: String) = putStr(K_UA, v.ifBlank { DEFAULT_UA }, _userAgent)
     fun setOrientation(v: Orientation) = putStr(K_ORIENTATION, v.name, _orientation)
     fun orientationEnum(): Orientation = runCatching { Orientation.valueOf(_orientation.value) }.getOrDefault(Orientation.LANDSCAPE)
+    fun setAutoFrameRate(v: Boolean) = putBool(K_AFR, v, _afr)
+    fun setVideoScale(v: VideoScale) = putStr(K_RESIZE, v.name, _resize)
+    fun videoScaleEnum(): VideoScale = runCatching { VideoScale.valueOf(_resize.value) }.getOrDefault(VideoScale.FIT)
     fun setCategoryLanguage(v: String) = putStr(K_LANGUAGE, v, _language)
     fun setAiModel(v: String) = putStr(K_AI_MODEL, v.trim().ifBlank { DEFAULT_AI_MODEL }, _aiModel)
     fun setAiBaseUrl(v: String) = putStr(K_AI_URL, v.trim().trimEnd('/').ifBlank { DEFAULT_AI_URL }, _aiBaseUrl)
@@ -84,6 +100,8 @@ class SettingsRepository(context: Context) {
         const val DEFAULT_AI_URL = "https://api.openai.com/v1"
         private const val K_AI_MODEL = "ai_model"
         private const val K_ORIENTATION = "orientation"
+        private const val K_AFR = "auto_frame_rate"
+        private const val K_RESIZE = "video_scale"
         private const val K_LANGUAGE = "category_language"
         private const val K_AI_URL = "ai_base_url"
         private const val K_VPN_REQUIRED = "vpn_required"

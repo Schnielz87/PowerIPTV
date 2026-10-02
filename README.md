@@ -50,6 +50,26 @@ Im Repo unter *Settings → Secrets and variables → Actions* anlegen:
 `SIGNING_KEY_ALIAS` (`poweriptv`), `SIGNING_KEY_PASSWORD`.
 Ohne diese Secrets wird mit einem wechselnden Debug-Schluessel signiert (dann vor einem Update die alte Version deinstallieren).
 
+## Fire TV / Android TV
+
+Eine APK fuer alles: Die App erkennt Fernseher und TV-Sticks automatisch (Fire TV, Android TV, Google TV)
+und schaltet in den TV-Modus: immer Querformat, Vollbild, Sicherheitsrand gegen Overscan,
+Bedienung komplett per Fernbedienung, Suchfelder oeffnen die Tastatur erst nach „OK“.
+
+**Bildformate:** Videos werden automatisch im richtigen Seitenverhaeltnis angezeigt (Auto / Zoom / Strecken,
+im Player per blauer Taste umschaltbar). **AFR:** Die Bildwiederholrate des Fernsehers wird an das Video
+angepasst (z.B. 50 Hz fuer TV, 24 Hz fuer Filme). Auf Fire TV zusaetzlich *Einstellungen → Display & Ton →
+Display → Originalbildfrequenz anpassen* aktivieren.
+
+**Installation auf dem Fire TV Stick:**
+1. Fire TV: *Einstellungen → Mein Fire TV → Entwickleroptionen → Apps unbekannter Herkunft* fuer die App „Downloader“ erlauben
+   (Entwickleroptionen erscheinen nach 7× Klick auf *Info → Fire TV Stick*)
+2. App **Downloader** (Amazon Appstore) installieren
+3. Im Downloader den APK-Link eingeben (siehe unten) → herunterladen → installieren
+
+Hinweis: Solange dieses Repository **privat** ist, kann der Fire TV die Datei nicht direkt von GitHub laden.
+Alternativen: App „Send Files to TV“ (Handy → Fire TV), oder die APK auf einen eigenen Speicher/Link legen.
+
 ## KI-Empfehlungen (ChatGPT) einrichten
 
 1. Auf https://platform.openai.com → *API keys* einen Schluessel erstellen (ein ChatGPT-Plus-Abo enthaelt **keine** API-Nutzung; die API wird separat nach Verbrauch abgerechnet)

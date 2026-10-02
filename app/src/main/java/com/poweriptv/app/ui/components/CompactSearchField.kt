@@ -20,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,14 +28,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poweriptv.app.ui.theme.BrandCyan
+import com.poweriptv.app.util.LocalIsTv
 
-/** Flaches Suchfeld (40 dp hoch) fuer kompakte Layouts im Querformat. */
+/**
+ * Flaches Suchfeld (40 dp hoch) fuer kompakte Layouts.
+ * Auf dem Fernseher wird das Feld erst nach "OK" editierbar – beim Navigieren
+ * mit der Fernbedienung oeffnet sich so keine Bildschirmtastatur.
+ */
 @Composable
 fun CompactSearchField(
     value: String,
@@ -42,15 +49,29 @@ fun CompactSearchField(
     placeholder: String,
     modifier: Modifier = Modifier,
     height: Dp = 40.dp,
-    focusRequester: FocusRequester? = null,
 ) {
+    val isTv = LocalIsTv.current
     var focused by remember { mutableStateOf(false) }
+    var rowFocused by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf(!isTv) }
+    val innerFocus = remember { FocusRequester() }
+    LaunchedEffect(editing) {
+        if (isTv && editing) runCatching { innerFocus.requestFocus() }
+    }
     val shape = RoundedCornerShape(10.dp)
+    val highlight = focused || rowFocused
+
     Row(
         modifier
             .height(height)
+            .then(
+                if (isTv && !editing) Modifier
+                    .onFocusChanged { rowFocused = it.isFocused }
+                    .clickable { editing = true }
+                else Modifier
+            )
             .background(MaterialTheme.colorScheme.surface, shape)
-            .border(1.dp, if (focused) BrandCyan else MaterialTheme.colorScheme.surfaceVariant, shape)
+            .border(if (rowFocused) 3.dp else 1.dp, if (highlight) BrandCyan else MaterialTheme.colorScheme.surfaceVariant, shape)
             .padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -68,8 +89,13 @@ fun CompactSearchField(
                 cursorBrush = SolidColor(BrandCyan),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .onFocusChanged { focused = it.isFocused }
-                    .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
+                    .focusRequester(innerFocus)
+                    .focusProperties { canFocus = editing }
+                    .onFocusChanged {
+                        val wasFocused = focused
+                        focused = it.isFocused
+                        if (isTv && wasFocused && !it.isFocused) editing = false
+                    },
             )
         }
         if (value.isNotEmpty()) {

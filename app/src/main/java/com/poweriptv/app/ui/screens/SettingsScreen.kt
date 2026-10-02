@@ -39,6 +39,8 @@ import com.poweriptv.app.AppContainer
 import com.poweriptv.app.BuildConfigInfo
 import com.poweriptv.app.data.LiveFormat
 import com.poweriptv.app.data.Orientation
+import com.poweriptv.app.data.VideoScale
+import com.poweriptv.app.util.LocalIsTv
 import com.poweriptv.app.data.SettingsRepository
 import com.poweriptv.app.ui.components.PowerTopBar
 import com.poweriptv.app.ui.components.tvFocus
@@ -181,7 +183,8 @@ fun SettingsScreen(
                 aiStatus?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) }
             }
 
-            SettingsSection("Darstellung") {
+            val isTv = LocalIsTv.current
+            if (!isTv) SettingsSection("Darstellung") {
                 val orientation by s.orientation.collectAsState()
                 Text("Bildschirmausrichtung", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Orientation.entries.forEach { o ->
@@ -208,6 +211,24 @@ fun SettingsScreen(
             }
 
             SettingsSection("Player") {
+                val afr by s.autoFrameRate.collectAsState()
+                val scale by s.videoScale.collectAsState()
+                SwitchRow(
+                    "Bildwiederholrate automatisch anpassen (AFR)",
+                    "Der Fernseher schaltet passend zum Video um (z.B. 50 Hz fuer TV, 24 Hz fuer Filme) – kein Ruckeln. " +
+                        "Auf Fire TV zusaetzlich unter Einstellungen → Display → \"Originalbildfrequenz anpassen\" aktivieren.",
+                    afr,
+                ) { s.setAutoFrameRate(it) }
+                Text("Bildformat (im Player auch per blauer Taste wechselbar)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                VideoScale.entries.forEach { v ->
+                    Row(
+                        Modifier.fillMaxWidth().tvFocus().clickable { s.setVideoScale(v) },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = scale == v.name, onClick = { s.setVideoScale(v) })
+                        Text(v.label)
+                    }
+                }
                 OutlinedTextField(
                     value = uaInput,
                     onValueChange = { uaInput = it },

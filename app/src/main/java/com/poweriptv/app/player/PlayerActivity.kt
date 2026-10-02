@@ -68,6 +68,11 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.PlayerView
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.common.Tracks
+import androidx.compose.material.icons.filled.AspectRatio
+import com.poweriptv.app.data.VideoScale
+import com.poweriptv.app.util.DeviceInfo
 import com.poweriptv.app.PlayEntry
 import com.poweriptv.app.PowerIptvApp
 import com.poweriptv.app.data.EpgEntry
@@ -109,6 +114,8 @@ class PlayerActivity : ComponentActivity() {
     private var pausedAt = 0L
     private var timeshiftDelay by mutableLongStateOf(0L)
     private var switchingSource = false
+    private val isTv by lazy { DeviceInfo.isTv(this) }
+    private var videoScale by mutableStateOf(VideoScale.FIT)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -135,6 +142,10 @@ class PlayerActivity : ComponentActivity() {
                 if (state == Player.STATE_ENDED && current()?.live != true && hasNext()) next()
             }
 
+            override fun onTracksChanged(tracks: Tracks) {
+                matchFrameRate()
+            }
+
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                 if (switchingSource || reason != Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) return
                 if (current()?.live != true) return
@@ -143,6 +154,7 @@ class PlayerActivity : ComponentActivity() {
             }
         })
 
+        videoScale = container.settings.videoScaleEnum()
         play(container.playIndex)
 
         setContent {
@@ -155,12 +167,14 @@ class PlayerActivity : ComponentActivity() {
                                 player = this@PlayerActivity.player
                                 keepScreenOn = true
                                 setShowSubtitleButton(true)
+                                resizeMode = resizeModeFor(videoScale)
                                 setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { v ->
                                     showOverlay = v == View.VISIBLE
                                 })
                                 playerView = this
                             }
                         },
+                        update = { it.resizeMode = resizeModeFor(videoScale) },
                         modifier = Modifier.fillMaxSize(),
                     )
                     if (showOverlay) TopOverlay()
@@ -229,6 +243,9 @@ class PlayerActivity : ComponentActivity() {
                     Spacer(Modifier.width(8.dp))
                     OutlinedButton(onClick = { goLive() }) { Text("LIVE", color = Danger, fontWeight = FontWeight.Bold) }
                 }
+                IconButton(onClick = { cycleVideoScale() }) {
+                    Icon(Icons.Filled.AspectRatio, "Bildformat", tint = Color.White)
+                }
                 if (entry?.live == true) {
                     IconButton(onClick = { showRecordDialog = true }) {
                         Icon(Icons.Filled.FiberManualRecord, "Aufnehmen", tint = Danger)
@@ -285,6 +302,55 @@ class PlayerActivity : ComponentActivity() {
     private fun formatDelay(ms: Long): String {
         val s = ms / 1000
         return if (s >= 3600) "%d:%02d:%02d".format(s / 3600, (s / 60) % 60, s % 60) else "%02d:%02d".format(s / 60, s % 60)
+    }
+
+    // ---------- Bildformat & Bildwiederholrate ----------
+
+    private fun resizeModeFor(v: VideoScale) = when (v) {
+        VideoScale.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+        VideoScale.ZOOM -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+        VideoScale.FILL -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+    }
+
+    private fun cycleVideoScale() {
+        val all = VideoScale.entries
+        videoScale = all[(all.indexOf(videoScale) + 1) % all.size]
+        playerView?.resizeMode = resizeModeFor(videoScale)
+        container.settings.setVideoScale(videoScale)
+        toast = "Bildformat: ${videoScale.label}"
+    }
+
+    /**
+     * AFR: Display-Modus mit passender Bildwiederholrate waehlen
+     * (gleiche Aufloesung, Rate = ganzzahliges Vielfaches der Video-FPS, z.B. 25 fps -> 50 Hz).
+     */
+    private fun matchFrameRate() {
+        if (!container.settings.autoFrameRate.value || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        val fps = player.videoFormat?.frameRate ?: return
+        if (fps <= 0f) return
+        @Suppress("DEPRECATION")
+        val display = windowManager.defaultDisplay ?: return
+        val current = display.mode
+        val best = display.supportedModes
+            .filter { it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight }
+            .mapNotNull { m ->
+                val ratio = m.refreshRate / fps
+                val n = kotlin.math.round(ratio)
+                if (n < 1f) null else m to kotlin.math.abs(ratio - n)
+            }
+            .filter { it.second < 0.01f }
+            .minByOrNull { it.first.refreshRate }
+            ?.first ?: return
+        if (best.modeId != current.modeId && window.attributes.preferredDisplayModeId != best.modeId) {
+            window.attributes = window.attributes.apply { preferredDisplayModeId = best.modeId }
+            toast = "Bildwiederholrate: %.0f Hz (Video %.2f fps)".format(best.refreshRate, fps)
+        }
+    }
+
+    private fun resetDisplayMode() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && window.attributes.preferredDisplayModeId != 0) {
+            window.attributes = window.attributes.apply { preferredDisplayModeId = 0 }
+        }
     }
 
     private fun current(): PlayEntry? = container.playQueue.getOrNull(container.playIndex)
@@ -397,6 +463,7 @@ class PlayerActivity : ComponentActivity() {
             }
             KeyEvent.KEYCODE_MEDIA_RECORD, KeyEvent.KEYCODE_PROG_RED -> if (live) { showRecordDialog = true; return true }
             KeyEvent.KEYCODE_PROG_GREEN -> if (timeshiftActive) { goLive(); return true }
+            KeyEvent.KEYCODE_PROG_BLUE, KeyEvent.KEYCODE_TV_ZOOM_MODE, KeyEvent.KEYCODE_ZOOM_IN -> { cycleVideoScale(); return true }
             KeyEvent.KEYCODE_BUTTON_B -> { finish(); return true }
             KeyEvent.KEYCODE_MEDIA_PAUSE -> if (live && !timeshiftActive) { startTimeshift(); return true }
             KeyEvent.KEYCODE_MEDIA_PLAY -> if (timeshiftActive && !playingBuffer) { playTimeshiftBuffer(); return true }
@@ -421,7 +488,8 @@ class PlayerActivity : ComponentActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && player.isPlaying) {
+        // Bild-in-Bild nur auf Handy/Tablet (Fire TV unterstuetzt es fuer Fremd-Apps nicht)
+        if (!isTv && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && player.isPlaying) {
             runCatching {
                 enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(Rational(16, 9)).build())
             }
@@ -434,6 +502,7 @@ class PlayerActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        resetDisplayMode()
         stopTimeshift()
         player.release()
         super.onDestroy()

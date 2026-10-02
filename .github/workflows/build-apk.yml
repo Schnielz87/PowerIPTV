@@ -48,6 +48,8 @@ jobs:
         run: |
           mkdir -p out
           cp app/build/outputs/apk/release/app-release.apk "out/PowerIPTV-v1.1.${BUILD_NUMBER}.apk"
+          # Fester Dateiname -> gleichbleibender Link .../releases/latest/download/PowerIPTV.apk (z.B. fuer Fire TV "Downloader")
+          cp app/build/outputs/apk/release/app-release.apk "out/PowerIPTV.apk"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -66,7 +68,10 @@ jobs:
           body: |
             **Portiva – PowerIPTV** · Build ${{ github.run_number }}
 
-            📲 **Installation:** Unten bei *Assets* auf `PowerIPTV-v1.1.${{ github.run_number }}.apk` tippen,
+            📲 **Handy/Tablet:** Unten bei *Assets* auf `PowerIPTV-v1.1.${{ github.run_number }}.apk` tippen,
             herunterladen und installieren („Installation aus unbekannten Quellen“ erlauben).
+
+            📺 **Fire TV / Android TV:** Dieselbe APK – die App erkennt den Fernseher automatisch.
+            (`PowerIPTV.apk` ist identisch, nur mit festem Dateinamen fuer einen gleichbleibenden Download-Link.)
 
             Commit: ${{ github.sha }}
