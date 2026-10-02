@@ -33,33 +33,73 @@ import com.poweriptv.app.data.VideoScale
 import com.poweriptv.app.ui.components.tvFocus
 import kotlinx.coroutines.delay
 
-/** Auswahl "Bildformat" im Player (Zahnrad oben rechts). */
+/** Eine waehlbare Audio- oder Untertitelspur. */
+data class TrackOption(val key: String, val label: String, val selected: Boolean)
+
+/**
+ * Einstellungen im Player (Zahnrad oben rechts bzw. Menue-Taste):
+ * Audiospur, Untertitel und Bildformat.
+ */
 @Composable
-fun VideoFormatDialog(current: VideoScale, onSelect: (VideoScale) -> Unit, onDismiss: () -> Unit) {
+fun PlayerSettingsDialog(
+    audio: List<TrackOption>,
+    subtitles: List<TrackOption>,
+    format: VideoScale,
+    onAudio: (TrackOption) -> Unit,
+    onSubtitle: (TrackOption) -> Unit,
+    onFormat: (VideoScale) -> Unit,
+    onDismiss: () -> Unit,
+) {
     val focus = remember { FocusRequester() }
+    var firstFocusSet = false
+    @Composable
+    fun Option(label: String, selected: Boolean, onClick: () -> Unit) {
+        val req = if (!firstFocusSet && selected) { firstFocusSet = true; Modifier.focusRequester(focus) } else Modifier
+        Row(
+            Modifier.fillMaxWidth().then(req)
+                .tvFocus(RoundedCornerShape(8.dp))
+                .clickable { onClick(); onDismiss() }
+                .padding(vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RadioButton(selected = selected, onClick = { onClick(); onDismiss() })
+            Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+        }
+    }
+    @Composable
+    fun Header(t: String) {
+        Text(t, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 10.dp, bottom = 2.dp))
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Bildformat") },
+        title = { Text("Einstellungen") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                VideoScale.entries.forEach { v ->
-                    Row(
-                        Modifier.fillMaxWidth()
-                            .then(if (v == current) Modifier.focusRequester(focus) else Modifier)
-                            .tvFocus(RoundedCornerShape(8.dp))
-                            .clickable { onSelect(v); onDismiss() }
-                            .padding(vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(selected = v == current, onClick = { onSelect(v); onDismiss() })
-                        Text(v.label, fontWeight = if (v == current) FontWeight.Bold else FontWeight.Normal)
-                    }
-                }
+                Header("Audiospur")
+                if (audio.size <= 1) {
+                    Text(audio.firstOrNull()?.label ?: "Keine Auswahl verfuegbar", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else audio.forEach { a -> Option(a.label, a.selected) { onAudio(a) } }
+                Header("Untertitel")
+                if (subtitles.none { it.key != OFF_KEY }) {
+                    Text("Keine Untertitel verfuegbar", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else subtitles.forEach { t -> Option(t.label, t.selected) { onSubtitle(t) } }
+                Header("Bildformat")
+                VideoScale.entries.forEach { v -> Option(v.label, v == format) { onFormat(v) } }
             }
         },
         confirmButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50)), onClick = onDismiss) { Text("Schliessen") } },
     )
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+}
+
+/** Schluessel fuer "Untertitel aus". */
+const val OFF_KEY = "off"
+
+/** Sprachcode -> deutscher Name ("de" -> "Deutsch"); unbekannt -> null. */
+fun languageName(code: String?): String? {
+    val c = code?.trim()?.takeIf { it.isNotEmpty() && it != "und" && !it.equals("null", true) } ?: return null
+    return runCatching { java.util.Locale.forLanguageTag(c).getDisplayLanguage(java.util.Locale.GERMAN) }.getOrNull()
+        ?.takeIf { it.isNotBlank() && !it.equals(c, true) }?.replaceFirstChar { it.uppercase() } ?: c.uppercase()
 }
 
 /** Kurze Einblendung des aktiven Bildformats (oben mittig, ca. 2 s). */

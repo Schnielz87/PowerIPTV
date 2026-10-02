@@ -40,6 +40,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -120,6 +122,10 @@ class PlayerActivity : ComponentActivity() {
     private var lastInteraction by mutableLongStateOf(System.currentTimeMillis())
     private var showRecordDialog by mutableStateOf(false)
     private var showFormatDialog by mutableStateOf(false)
+    /** Zahnrad oben rechts – per Fernbedienung (Hoch) erreichbar. */
+    private val gearFocus = androidx.compose.ui.focus.FocusRequester()
+    /** Fokus liegt auf einem Knopf der oberen Leiste -> nicht automatisch ausblenden. */
+    private var gearHasFocus = false
     /** Kurz eingeblendetes aktives Bildformat. */
     private var formatBadge by mutableStateOf<String?>(null)
     /** Vorschaubilder beim Spulen (pro Titel) und aktuelle Spulposition. */
@@ -242,7 +248,7 @@ class PlayerActivity : ComponentActivity() {
                                 layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                                 player = this@PlayerActivity.player
                                 keepScreenOn = true
-                                setShowSubtitleButton(true)
+                                setShowSubtitleButton(false) // Untertitel jetzt im Zahnrad-Menue oben rechts
                                 resizeMode = resizeModeFor(videoScale)
                                 setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { v ->
                                     showOverlay = v == View.VISIBLE
@@ -364,7 +370,15 @@ class PlayerActivity : ComponentActivity() {
                         }
                     }
                     FormatBadge(formatBadge) { formatBadge = null }
-                    if (showFormatDialog) VideoFormatDialog(videoScale, onSelect = { changeVideoScale(it) }, onDismiss = { showFormatDialog = false })
+                    if (showFormatDialog) PlayerSettingsDialog(
+                        audio = trackOptions(C.TRACK_TYPE_AUDIO),
+                        subtitles = trackOptions(C.TRACK_TYPE_TEXT),
+                        format = videoScale,
+                        onAudio = { selectTrack(C.TRACK_TYPE_AUDIO, it) },
+                        onSubtitle = { selectTrack(C.TRACK_TYPE_TEXT, it) },
+                        onFormat = { changeVideoScale(it) },
+                        onDismiss = { showFormatDialog = false; lastInteraction = System.currentTimeMillis() },
+                    )
                     if (showRecordDialog) RecordDialog(
                         container, current(),
                         onMessage = { toast = it },
@@ -392,7 +406,7 @@ class PlayerActivity : ComponentActivity() {
                 }
             }
         }
-        Column(Modifier.fillMaxWidth().background(Color(0x99000000)).padding(horizontal = 16.dp, vertical = 10.dp)) {
+        Column(Modifier.fillMaxWidth().onFocusChanged { gearHasFocus = it.hasFocus }.background(Color(0x99000000)).padding(horizontal = 16.dp, vertical = 10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // Zurueck zur Uebersicht
                 IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { closePlayer() }) {
@@ -416,8 +430,8 @@ class PlayerActivity : ComponentActivity() {
                 CastButton(container, entry, entry?.item?.logo, tint = Color.White, onCasting = {
                     withSwitch { player.pause() } // lokal pausieren, laeuft jetzt auf dem TV
                 })
-                IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { showFormatDialog = true }) {
-                    Icon(Icons.Filled.Settings, "Bildformat", tint = Color.White)
+                IconButton(modifier = Modifier.focusRequester(gearFocus).tvFocus(CircleShape, 1.15f), onClick = { showFormatDialog = true }) {
+                    Icon(Icons.Filled.Settings, "Einstellungen (Audio, Untertitel, Bildformat)", tint = Color.White)
                 }
                 if (entry?.live == true) {
                     IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { showRecordDialog = true }) {
@@ -511,6 +525,46 @@ class PlayerActivity : ComponentActivity() {
         val v = player.videoSize
         val natural = if (v.width > 0 && v.height > 0) v.width * v.pixelWidthHeightRatio / v.height else 0f
         frame.post { frame.setAspectRatio(forced ?: natural) }
+    }
+
+    // ---------- Audio & Untertitel ----------
+
+    private fun trackOptions(type: Int): List<TrackOption> {
+        val list = mutableListOf<TrackOption>()
+        var anySelected = false
+        player.currentTracks.groups.forEachIndexed { g, group ->
+            if (group.type != type) return@forEachIndexed
+            for (t in 0 until group.length) {
+                if (!group.isTrackSupported(t)) continue
+                val f = group.getTrackFormat(t)
+                val parts = listOfNotNull(
+                    f.label?.takeIf { it.isNotBlank() },
+                    languageName(f.language).takeIf { f.label.isNullOrBlank() },
+                    f.channelCount.takeIf { type == C.TRACK_TYPE_AUDIO && it > 0 }?.let { if (it >= 6) "5.1" else if (it == 2) "Stereo" else "$it Kanaele" },
+                    f.sampleMimeType?.substringAfter('/')?.uppercase()?.takeIf { type == C.TRACK_TYPE_AUDIO },
+                )
+                val sel = group.isTrackSelected(t)
+                anySelected = anySelected || sel
+                list += TrackOption("$g:$t", parts.joinToString(" · ").ifBlank { "Spur ${list.size + 1}" }, sel)
+            }
+        }
+        if (type == C.TRACK_TYPE_TEXT) list.add(0, TrackOption(OFF_KEY, "Aus", !anySelected))
+        return list
+    }
+
+    private fun selectTrack(type: Int, option: TrackOption) {
+        val params = player.trackSelectionParameters.buildUpon()
+        if (option.key == OFF_KEY) {
+            params.setTrackTypeDisabled(type, true)
+            toast = "Untertitel aus"
+        } else {
+            val (g, t) = option.key.split(":").map { it.toInt() }
+            val group = player.currentTracks.groups.getOrNull(g) ?: return
+            params.setTrackTypeDisabled(type, false)
+                .setOverrideForType(androidx.media3.common.TrackSelectionOverride(group.mediaTrackGroup, t))
+            toast = (if (type == C.TRACK_TYPE_AUDIO) "Audio: " else "Untertitel: ") + option.label
+        }
+        player.trackSelectionParameters = params.build()
     }
 
     private fun changeVideoScale(v: VideoScale) {
@@ -725,6 +779,16 @@ class PlayerActivity : ComponentActivity() {
                 KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> { player.playWhenReady = !player.playWhenReady; playerView?.showController(); return true }
             }
         }
+        // Runter aus der oberen Leiste -> zurueck in die Player-Steuerung
+        if (event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN && gearHasFocus) {
+            playerView?.showController(); playerView?.requestFocus(); gearHasFocus = false; return true
+        }
+        // Hoch aus der unteren Steuerung (nichts mehr darueber) -> Zahnrad/obere Leiste
+        if (event.keyCode == KeyEvent.KEYCODE_DPAD_UP && controllerVisible && playerView?.hasFocus() == true) {
+            val next = currentFocus?.focusSearch(View.FOCUS_UP)
+            val insidePlayer = next != null && generateSequence(next.parent) { it.parent }.any { it === playerView }
+            if (!insidePlayer) { showOverlay = true; runCatching { gearFocus.requestFocus() }; return true }
+        }
         when (event.keyCode) {
             KeyEvent.KEYCODE_CHANNEL_UP, KeyEvent.KEYCODE_PAGE_UP -> { next(); return true }
             KeyEvent.KEYCODE_CHANNEL_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> { previous(); return true }
@@ -732,7 +796,9 @@ class PlayerActivity : ComponentActivity() {
             KeyEvent.KEYCODE_DPAD_DOWN -> if (live && !controllerVisible) { previous(); return true }
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_BUTTON_A ->
                 if (!controllerVisible) { playerView?.showController(); return true }
-            KeyEvent.KEYCODE_INFO, KeyEvent.KEYCODE_GUIDE, KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_BUTTON_Y -> {
+            // Menue-Taste: Einstellungen (Audio, Untertitel, Bildformat)
+            KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SETTINGS, KeyEvent.KEYCODE_CAPTIONS -> { showFormatDialog = true; return true }
+            KeyEvent.KEYCODE_INFO, KeyEvent.KEYCODE_GUIDE, KeyEvent.KEYCODE_BUTTON_Y -> {
                 if (controllerVisible) playerView?.hideController() else playerView?.showController()
                 return true
             }
@@ -802,6 +868,7 @@ class PlayerActivity : ComponentActivity() {
     /** Beide Leisten (oben: eigene, unten: Player-Steuerung) gemeinsam ausblenden. */
     private fun hideOverlay() {
         showOverlay = false
+        gearHasFocus = false
         playerView?.hideController()
         playerView?.requestFocus() // Auswahl zurueck aufs Bild -> Tasten wirken direkt
     }

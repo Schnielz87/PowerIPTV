@@ -51,6 +51,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -103,6 +104,8 @@ class VlcPlayerActivity : ComponentActivity() {
     private var lastInteraction = System.currentTimeMillis()
     /** Vom Nutzer pausiert -> Leiste bleibt stehen. */
     private var userPaused = false
+    /** Ein Knopf der Leiste hat den Fokus -> Links/Rechts/OK bedienen die Knoepfe statt zu spulen. */
+    private var controlFocused = false
     private var formatBadge by mutableStateOf<String?>(null)
     /** Vorschaubilder beim Spulen (pro Titel). */
     private var scrubPreview by mutableStateOf<ScrubPreview?>(null)
@@ -200,7 +203,18 @@ class VlcPlayerActivity : ComponentActivity() {
                     if (buffering && error == null) CircularProgressIndicator(Modifier.align(Alignment.Center), color = BrandCyan)
                     CastingBar(container, Modifier.align(Alignment.Center), onStop = { mediaPlayer.play() })
                     FormatBadge(formatBadge) { formatBadge = null }
-                    if (showFormatDialog) VideoFormatDialog(scale, onSelect = { changeScale(it) }, onDismiss = { showFormatDialog = false })
+                    if (showFormatDialog) PlayerSettingsDialog(
+                        audio = vlcTracks(audio = true),
+                        subtitles = vlcTracks(audio = false),
+                        format = scale,
+                        onAudio = { o -> o.key.toIntOrNull()?.let { mediaPlayer.setAudioTrack(it) }; toast = "Audio: ${o.label}" },
+                        onSubtitle = { o ->
+                            mediaPlayer.setSpuTrack(if (o.key == OFF_KEY) -1 else o.key.toIntOrNull() ?: -1)
+                            toast = if (o.key == OFF_KEY) "Untertitel aus" else "Untertitel: ${o.label}"
+                        },
+                        onFormat = { changeScale(it) },
+                        onDismiss = { showFormatDialog = false; lastInteraction = System.currentTimeMillis() },
+                    )
                     if (showRecordDialog) RecordDialog(
                         container, current(),
                         onMessage = { toast = it },
@@ -267,13 +281,13 @@ class VlcPlayerActivity : ComponentActivity() {
                 delay(500)
                 val idle = System.currentTimeMillis() - maxOf(lastInteraction, pendingSeekAt) > 5000
                 val busy = userPaused || dragging != null || showFormatDialog || showRecordDialog || error != null
-                if (idle && !busy) showOverlay = false
+                if (idle && !busy) { showOverlay = false; controlFocused = false }
             }
         }
         val live = current()?.live == true
         val multi = container.playQueue.size > 1
         // Gleiches Layout wie der Standard-Player: oben Titel & Optionen, mittig Spulen/Play/Pause
-        Box(Modifier.fillMaxSize().background(Color(0x66000000))) {
+        Box(Modifier.fillMaxSize().onFocusChanged { controlFocused = it.hasFocus }.background(Color(0x66000000))) {
             Row(
                 Modifier.fillMaxWidth().background(Color(0x99000000)).padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -288,7 +302,7 @@ class VlcPlayerActivity : ComponentActivity() {
                         Icon(Icons.Filled.FiberManualRecord, "Aufnehmen", tint = com.poweriptv.app.ui.theme.Danger)
                     }
                 }
-                IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { showFormatDialog = true }) { Icon(Icons.Filled.Settings, "Bildformat", tint = Color.White) }
+                IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { showFormatDialog = true }) { Icon(Icons.Filled.Settings, "Einstellungen (Audio, Untertitel, Bildformat)", tint = Color.White) }
             }
             Row(
                 Modifier.align(Alignment.Center),
@@ -488,6 +502,17 @@ class VlcPlayerActivity : ComponentActivity() {
         }
     }
 
+    /** Audio-/Untertitelspuren von VLC ("Disable" = Aus). */
+    private fun vlcTracks(audio: Boolean): List<TrackOption> {
+        val tracks = runCatching { if (audio) mediaPlayer.audioTracks else mediaPlayer.spuTracks }.getOrNull().orEmpty()
+        val current = runCatching { if (audio) mediaPlayer.audioTrack else mediaPlayer.spuTrack }.getOrDefault(-1)
+        val list = tracks.filter { it.id >= 0 }.mapIndexed { i, t ->
+            val name = t.name?.takeIf { it.isNotBlank() } ?: "Spur ${i + 1}"
+            TrackOption(t.id.toString(), name.replace("Track", "Spur"), t.id == current)
+        }
+        return if (audio) list else listOf(TrackOption(OFF_KEY, "Aus", current < 0)) + list
+    }
+
     private fun changeScale(v: VideoScale) {
         scale = v
         applyScale()
@@ -513,13 +538,13 @@ class VlcPlayerActivity : ComponentActivity() {
         if (!live) {
             val step = seekStep
             when (event.keyCode) {
-                // Links/Rechts spulen IMMER (auch bei eingeblendeter Leiste)
-                KeyEvent.KEYCODE_DPAD_LEFT -> { seekBy(-step); return true }
-                KeyEvent.KEYCODE_DPAD_RIGHT -> { seekBy(step); return true }
+                // Links/Rechts spulen – ausser ein Knopf der Leiste ist angewaehlt (dann normal navigieren)
+                KeyEvent.KEYCODE_DPAD_LEFT -> if (!(showOverlay && controlFocused)) { seekBy(-step); return true }
+                KeyEvent.KEYCODE_DPAD_RIGHT -> if (!(showOverlay && controlFocused)) { seekBy(step); return true }
                 KeyEvent.KEYCODE_MEDIA_REWIND -> { seekBy(-step); return true }
                 KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { seekBy(step); return true }
                 // OK: Leiste einblenden, zweites OK = Pause/Weiter
-                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_BUTTON_A -> {
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_BUTTON_A -> if (!(showOverlay && controlFocused)) {
                     if (!showOverlay) showOverlay = true else togglePause()
                     return true
                 }
@@ -534,7 +559,9 @@ class VlcPlayerActivity : ComponentActivity() {
                 if (!showOverlay) { showOverlay = true; return true }
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE -> { togglePause(); return true }
             KeyEvent.KEYCODE_PROG_BLUE, KeyEvent.KEYCODE_TV_ZOOM_MODE -> { cycleScale(); return true }
-            KeyEvent.KEYCODE_INFO, KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_GUIDE -> { showOverlay = !showOverlay; return true }
+            // Menue-Taste: Einstellungen (Audio, Untertitel, Bildformat)
+            KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SETTINGS, KeyEvent.KEYCODE_CAPTIONS -> { showFormatDialog = true; return true }
+            KeyEvent.KEYCODE_INFO, KeyEvent.KEYCODE_GUIDE -> { showOverlay = !showOverlay; return true }
             KeyEvent.KEYCODE_BUTTON_B -> { closePlayer(); return true }
             KeyEvent.KEYCODE_MEDIA_RECORD, KeyEvent.KEYCODE_PROG_RED -> if (live) { showRecordDialog = true; return true }
         }
