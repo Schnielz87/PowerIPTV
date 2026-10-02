@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
@@ -97,6 +98,8 @@ class VlcPlayerActivity : ComponentActivity() {
     /** Waehrend der Nutzer den Regler zieht, keine Positions-Updates. */
     private var dragging by mutableStateOf<Float?>(null)
     private var showRecordDialog by mutableStateOf(false)
+    private var showFormatDialog by mutableStateOf(false)
+    private var formatBadge by mutableStateOf<String?>(null)
     /** Vorschaubilder beim Spulen (pro Titel). */
     private var scrubPreview by mutableStateOf<ScrubPreview?>(null)
     /** Live-Bild kommt aus der laufenden Aufnahme (spart eine Verbindung zum Anbieter). */
@@ -186,6 +189,8 @@ class VlcPlayerActivity : ComponentActivity() {
                     )
                     if (buffering && error == null) CircularProgressIndicator(Modifier.align(Alignment.Center), color = BrandCyan)
                     CastingBar(container, Modifier.align(Alignment.Center), onStop = { mediaPlayer.play() })
+                    FormatBadge(formatBadge) { formatBadge = null }
+                    if (showFormatDialog) VideoFormatDialog(scale, onSelect = { setScale(it) }, onDismiss = { showFormatDialog = false })
                     if (showRecordDialog) RecordDialog(
                         container, current(),
                         onMessage = { toast = it },
@@ -248,7 +253,7 @@ class VlcPlayerActivity : ComponentActivity() {
     private fun Overlay() {
         LaunchedEffect(showOverlay, title, pendingSeekAt, dragging) {
             delay(5000)
-            if (playing && dragging == null) showOverlay = false
+            if (playing && dragging == null && !showFormatDialog) showOverlay = false
         }
         val live = current()?.live == true
         val multi = container.playQueue.size > 1
@@ -268,7 +273,7 @@ class VlcPlayerActivity : ComponentActivity() {
                         Icon(Icons.Filled.FiberManualRecord, "Aufnehmen", tint = com.poweriptv.app.ui.theme.Danger)
                     }
                 }
-                IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { cycleScale() }) { Icon(Icons.Filled.AspectRatio, "Bildformat", tint = Color.White) }
+                IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { showFormatDialog = true }) { Icon(Icons.Filled.Settings, "Bildformat", tint = Color.White) }
             }
             Row(
                 Modifier.align(Alignment.Center),
@@ -458,19 +463,25 @@ class VlcPlayerActivity : ComponentActivity() {
     }
 
     private fun applyScale() {
+        // Feste Formate (16:9, 4:3 …): VLC-Seitenverhaeltnis erzwingen, sonst das des Videos
+        mediaPlayer.aspectRatio = scale.vlcRatio
         mediaPlayer.videoScale = when (scale) {
-            VideoScale.FIT -> MediaPlayer.ScaleType.SURFACE_BEST_FIT
             VideoScale.ZOOM -> MediaPlayer.ScaleType.SURFACE_FIT_SCREEN
             VideoScale.FILL -> MediaPlayer.ScaleType.SURFACE_FILL
+            else -> MediaPlayer.ScaleType.SURFACE_BEST_FIT
         }
+    }
+
+    private fun setScale(v: VideoScale) {
+        scale = v
+        applyScale()
+        container.settings.setVideoScale(v)
+        formatBadge = v.short
     }
 
     private fun cycleScale() {
         val all = VideoScale.entries
-        scale = all[(all.indexOf(scale) + 1) % all.size]
-        applyScale()
-        container.settings.setVideoScale(scale)
-        toast = "Bildformat: ${scale.label}"
+        setScale(all[(all.indexOf(scale) + 1) % all.size])
     }
 
     private fun closePlayer() {

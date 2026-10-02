@@ -17,10 +17,15 @@ enum class PlayerEngine(val label: String) {
 }
 
 /** Bildformat im Player. */
-enum class VideoScale(val label: String) {
-    FIT("Auto (Original-Seitenverhaeltnis)"),
-    ZOOM("Zoom (Bildschirm fuellen, Raender abschneiden)"),
-    FILL("Strecken (ganzer Bildschirm)"),
+/** Bildformate im Player. [ratio] = erzwungenes Seitenverhaeltnis (Bild wird darauf angepasst). */
+enum class VideoScale(val label: String, val short: String, val ratio: Float? = null, val vlcRatio: String? = null) {
+    FIT("Auto (Original-Seitenverhaeltnis)", "Original"),
+    ZOOM("Zoom (Bildschirm fuellen, Raender abschneiden)", "Zoom"),
+    FILL("Strecken (ganzer Bildschirm)", "Strecken"),
+    R16_9("16:9 (Breitbild)", "16:9", 16f / 9f, "16:9"),
+    R4_3("4:3 (altes TV-Format)", "4:3", 4f / 3f, "4:3"),
+    R21_9("21:9 (Kino-Breitbild)", "21:9", 21f / 9f, "21:9"),
+    R185("1,85:1 (Kino)", "1,85:1", 1.85f, "185:100"),
 }
 
 enum class Orientation(val label: String) {

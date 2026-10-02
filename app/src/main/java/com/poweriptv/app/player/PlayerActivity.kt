@@ -84,6 +84,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.common.Tracks
 import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.Settings
 import com.poweriptv.app.data.VideoScale
 import com.poweriptv.app.util.DeviceInfo
 import com.poweriptv.app.PlayEntry
@@ -118,6 +119,9 @@ class PlayerActivity : ComponentActivity() {
     /** Letzte Bedienung (Taste/Tipp) – 5 s danach blendet sich die Leiste automatisch aus. */
     private var lastInteraction by mutableLongStateOf(System.currentTimeMillis())
     private var showRecordDialog by mutableStateOf(false)
+    private var showFormatDialog by mutableStateOf(false)
+    /** Kurz eingeblendetes aktives Bildformat. */
+    private var formatBadge by mutableStateOf<String?>(null)
     /** Vorschaubilder beim Spulen (pro Titel) und aktuelle Spulposition. */
     private var scrubPreview by mutableStateOf<ScrubPreview?>(null)
     private var scrubPos by mutableStateOf<Long?>(null)
@@ -275,6 +279,11 @@ class PlayerActivity : ComponentActivity() {
                                         }
                                     })
                                 playerView = this
+                                // Nach PlayerView registriert -> setzt feste Formate nach jeder Videogroessen-Aenderung erneut
+                                this@PlayerActivity.player.addListener(object : Player.Listener {
+                                    override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) = applyAspect()
+                                })
+                                applyAspect()
                             }
                         },
                         update = { it.resizeMode = resizeModeFor(videoScale) },
@@ -284,7 +293,7 @@ class PlayerActivity : ComponentActivity() {
                     LaunchedEffect(showOverlay, lastInteraction) {
                         if (!showOverlay) return@LaunchedEffect
                         delay(5000)
-                        if (player.isPlaying && error == null && !showRecordDialog && scrubPos == null) {
+                        if (player.isPlaying && error == null && !showRecordDialog && !showFormatDialog && scrubPos == null) {
                             showOverlay = false
                             playerView?.hideController()
                             playerView?.requestFocus() // Auswahl zurueck aufs Bild -> Tasten wirken direkt
@@ -346,6 +355,8 @@ class PlayerActivity : ComponentActivity() {
                             if (blockedRec == null) Button(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { play(container.playIndex) }) { Text("Erneut versuchen") }
                         }
                     }
+                    FormatBadge(formatBadge) { formatBadge = null }
+                    if (showFormatDialog) VideoFormatDialog(videoScale, onSelect = { setVideoScale(it) }, onDismiss = { showFormatDialog = false })
                     if (showRecordDialog) RecordDialog(
                         container, current(),
                         onMessage = { toast = it },
@@ -397,8 +408,8 @@ class PlayerActivity : ComponentActivity() {
                 CastButton(container, entry, entry?.item?.logo, tint = Color.White, onCasting = {
                     withSwitch { player.pause() } // lokal pausieren, laeuft jetzt auf dem TV
                 })
-                IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { cycleVideoScale() }) {
-                    Icon(Icons.Filled.AspectRatio, "Bildformat", tint = Color.White)
+                IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { showFormatDialog = true }) {
+                    Icon(Icons.Filled.Settings, "Bildformat", tint = Color.White)
                 }
                 if (entry?.live == true) {
                     IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { showRecordDialog = true }) {
@@ -477,17 +488,34 @@ class PlayerActivity : ComponentActivity() {
     // ---------- Bildformat & Bildwiederholrate ----------
 
     private fun resizeModeFor(v: VideoScale) = when (v) {
-        VideoScale.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
         VideoScale.ZOOM -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
         VideoScale.FILL -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+        else -> AspectRatioFrameLayout.RESIZE_MODE_FIT // Original + feste Formate (16:9, 4:3 …)
+    }
+
+    /**
+     * Feste Formate (16:9, 4:3, 21:9 …): Bildflaeche auf dieses Seitenverhaeltnis setzen.
+     * Sonst das echte Seitenverhaeltnis des Videos (PlayerView setzt es bei jeder Videogroesse neu).
+     */
+    private fun applyAspect() {
+        val frame = playerView?.findViewById<AspectRatioFrameLayout>(androidx.media3.ui.R.id.exo_content_frame) ?: return
+        val forced = videoScale.ratio
+        val v = player.videoSize
+        val natural = if (v.width > 0 && v.height > 0) v.width * v.pixelWidthHeightRatio / v.height else 0f
+        frame.post { frame.setAspectRatio(forced ?: natural) }
+    }
+
+    private fun setVideoScale(v: VideoScale) {
+        videoScale = v
+        playerView?.resizeMode = resizeModeFor(v)
+        applyAspect()
+        container.settings.setVideoScale(v)
+        formatBadge = v.short
     }
 
     private fun cycleVideoScale() {
         val all = VideoScale.entries
-        videoScale = all[(all.indexOf(videoScale) + 1) % all.size]
-        playerView?.resizeMode = resizeModeFor(videoScale)
-        container.settings.setVideoScale(videoScale)
-        toast = "Bildformat: ${videoScale.label}"
+        setVideoScale(all[(all.indexOf(videoScale) + 1) % all.size])
     }
 
     /**
