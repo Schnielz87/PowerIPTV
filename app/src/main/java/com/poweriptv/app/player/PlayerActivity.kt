@@ -146,6 +146,8 @@ class PlayerActivity : ComponentActivity() {
         val renderers = DefaultRenderersFactory(this).setEnableDecoderFallback(true)
         player = ExoPlayer.Builder(this, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
+            .setSeekBackIncrementMs(10_000)
+            .setSeekForwardIncrementMs(30_000)
             .build()
         player.addListener(object : Player.Listener {
             override fun onPlayerError(e: PlaybackException) {
@@ -200,6 +202,9 @@ class PlayerActivity : ComponentActivity() {
                                 setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { v ->
                                     showOverlay = v == View.VISIBLE
                                 })
+                                setShowRewindButton(true)
+                                setShowFastForwardButton(true)
+                                isFocusable = true
                                 playerView = this
                             }
                         },
@@ -355,6 +360,29 @@ class PlayerActivity : ComponentActivity() {
         return true
     }
 
+    // ---------- Spulen ----------
+
+    /** 30 s pro Tastendruck, beim Gedrueckthalten immer schneller (bis 5 min). */
+    private fun seekStep(repeat: Int): Long = when {
+        repeat < 5 -> 30_000L
+        repeat < 15 -> 60_000L
+        repeat < 30 -> 120_000L
+        else -> 300_000L
+    }
+
+    private fun seekBy(deltaMs: Long) {
+        val duration = player.duration.takeIf { it > 0 } ?: return
+        val target = (player.currentPosition + deltaMs).coerceIn(0, duration - 1000)
+        withSwitch { player.seekTo(target) }
+        val sign = if (deltaMs >= 0) "⏩ +" else "⏪ −"
+        toast = "$sign${formatTime(kotlin.math.abs(deltaMs))}  ·  ${formatTime(target)} / ${formatTime(duration)}"
+    }
+
+    private fun formatTime(ms: Long): String {
+        val s = ms / 1000
+        return if (s >= 3600) "%d:%02d:%02d".format(s / 3600, (s / 60) % 60, s % 60) else "%d:%02d".format(s / 60, s % 60)
+    }
+
     // ---------- Bildformat & Bildwiederholrate ----------
 
     private fun resizeModeFor(v: VideoScale) = when (v) {
@@ -501,6 +529,17 @@ class PlayerActivity : ComponentActivity() {
         if (event.action != KeyEvent.ACTION_DOWN) return super.dispatchKeyEvent(event)
         val live = current()?.live == true
         val controllerVisible = playerView?.isControllerFullyVisible == true
+        // Filme/Serien: Spulen direkt per Fernbedienung (unabhaengig vom Fokus)
+        if (!live) {
+            val step = seekStep(event.repeatCount)
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_LEFT -> if (!controllerVisible) { seekBy(-step / 3); return true }
+                KeyEvent.KEYCODE_DPAD_RIGHT -> if (!controllerVisible) { seekBy(step); return true }
+                KeyEvent.KEYCODE_MEDIA_REWIND -> { seekBy(-step); return true }
+                KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { seekBy(step); return true }
+                KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> { player.playWhenReady = !player.playWhenReady; playerView?.showController(); return true }
+            }
+        }
         when (event.keyCode) {
             KeyEvent.KEYCODE_CHANNEL_UP, KeyEvent.KEYCODE_PAGE_UP -> { next(); return true }
             KeyEvent.KEYCODE_CHANNEL_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> { previous(); return true }

@@ -29,6 +29,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -77,6 +79,10 @@ class VlcPlayerActivity : ComponentActivity() {
     private var showOverlay by mutableStateOf(true)
     private var toast by mutableStateOf<String?>(null)
     private var scale = VideoScale.FIT
+    private var position by mutableStateOf(0L)
+    private var length by mutableStateOf(0L)
+    /** Waehrend der Nutzer den Regler zieht, keine Positions-Updates. */
+    private var dragging by mutableStateOf<Float?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -136,7 +142,10 @@ class VlcPlayerActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                     )
                     if (buffering && error == null) CircularProgressIndicator(Modifier.align(Alignment.Center), color = BrandCyan)
-                    if (showOverlay) Overlay()
+                    if (showOverlay) {
+                        Overlay()
+                        if (current()?.live != true) SeekBar(Modifier.align(Alignment.BottomCenter))
+                    }
                     toast?.let { msg ->
                         LaunchedEffect(msg) { delay(2500); toast = null }
                         Text(
@@ -187,6 +196,61 @@ class VlcPlayerActivity : ComponentActivity() {
                 IconButton(onClick = { next() }) { Icon(Icons.Filled.SkipNext, "Naechster", tint = Color.White) }
             }
         }
+    }
+
+    /** Zeitleiste mit Schieberegler (Filme/Serien). */
+    @androidx.compose.runtime.Composable
+    private fun SeekBar(modifier: Modifier) {
+        LaunchedEffect(Unit) {
+            while (true) {
+                if (dragging == null) {
+                    position = mediaPlayer.time.coerceAtLeast(0)
+                    length = mediaPlayer.length.coerceAtLeast(0)
+                }
+                delay(500)
+            }
+        }
+        if (length <= 0) return
+        Row(
+            modifier.fillMaxWidth().background(Color(0x99000000)).padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val shown = dragging?.let { (it * length).toLong() } ?: position
+            Text(formatTime(shown), color = Color.White, style = MaterialTheme.typography.labelMedium)
+            Slider(
+                value = dragging ?: (position.toFloat() / length).coerceIn(0f, 1f),
+                onValueChange = { dragging = it; showOverlay = true },
+                onValueChangeFinished = {
+                    dragging?.let { mediaPlayer.time = (it * length).toLong() }
+                    dragging = null
+                },
+                modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+                colors = SliderDefaults.colors(thumbColor = BrandCyan, activeTrackColor = BrandCyan),
+            )
+            Text(formatTime(length), color = Color.White, style = MaterialTheme.typography.labelMedium)
+        }
+    }
+
+    private fun formatTime(ms: Long): String {
+        val s = ms / 1000
+        return if (s >= 3600) "%d:%02d:%02d".format(s / 3600, (s / 60) % 60, s % 60) else "%d:%02d".format(s / 60, s % 60)
+    }
+
+    private fun seekStep(repeat: Int): Long = when {
+        repeat < 5 -> 30_000L
+        repeat < 15 -> 60_000L
+        repeat < 30 -> 120_000L
+        else -> 300_000L
+    }
+
+    private fun seekBy(deltaMs: Long) {
+        val len = mediaPlayer.length.takeIf { it > 0 } ?: return
+        if (!mediaPlayer.isSeekable) { toast = "Dieser Stream unterstuetzt kein Spulen"; return }
+        val target = (mediaPlayer.time + deltaMs).coerceIn(0, len - 1000)
+        mediaPlayer.time = target
+        position = target
+        val sign = if (deltaMs >= 0) "⏩ +" else "⏪ −"
+        toast = "$sign${formatTime(kotlin.math.abs(deltaMs))}  ·  ${formatTime(target)} / ${formatTime(len)}"
     }
 
     private fun current(): PlayEntry? = container.playQueue.getOrNull(container.playIndex)
@@ -251,6 +315,15 @@ class VlcPlayerActivity : ComponentActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return super.dispatchKeyEvent(event)
         val live = current()?.live == true
+        if (!live) {
+            val step = seekStep(event.repeatCount)
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_LEFT -> if (!showOverlay) { seekBy(-step / 3); return true }
+                KeyEvent.KEYCODE_DPAD_RIGHT -> if (!showOverlay) { seekBy(step); return true }
+                KeyEvent.KEYCODE_MEDIA_REWIND -> { seekBy(-step); return true }
+                KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { seekBy(step); return true }
+            }
+        }
         when (event.keyCode) {
             KeyEvent.KEYCODE_CHANNEL_UP, KeyEvent.KEYCODE_PAGE_UP -> { next(); return true }
             KeyEvent.KEYCODE_CHANNEL_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> { previous(); return true }
