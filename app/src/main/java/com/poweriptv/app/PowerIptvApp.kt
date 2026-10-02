@@ -6,6 +6,8 @@ import coil.ImageLoaderFactory
 import com.poweriptv.app.ai.AiRecommender
 import com.poweriptv.app.data.CachedSource
 import com.poweriptv.app.data.ContentItem
+import com.poweriptv.app.data.PlayerEngine
+import org.videolan.libvlc.LibVLC
 import com.poweriptv.app.data.ContentType
 import com.poweriptv.app.ui.components.ContentFilter
 import kotlinx.coroutines.CancellationException
@@ -104,6 +106,28 @@ class AppContainer(private val app: Application) {
         if (setting > 0) return setting
         val max = runCatching { source?.accountInfo()?.maxConnections?.toIntOrNull() }.getOrNull()
         return (max ?: 1).coerceIn(1, DownloadRepository.MAX_CONNECTIONS)
+    }
+
+    /**
+     * VLC-Engine: einmal laden und fuer jede Wiedergabe wiederverwenden
+     * (der Neustart pro Film kostete spuerbar Zeit).
+     */
+    val vlc: LibVLC by lazy {
+        LibVLC(
+            app,
+            arrayListOf(
+                "--http-reconnect",
+                "--deinterlace=1",
+                "--deinterlace-mode=yadif",
+                "--no-stats",
+            ),
+        )
+    }
+
+    /** VLC im Hintergrund vorladen, damit der erste Start schnell ist. */
+    fun prewarmVlc() {
+        if (settings.playerEngineEnum() == PlayerEngine.EXO) return
+        scope.launch(Dispatchers.Default) { runCatching { vlc } }
     }
 
     /** App-weiter Scope (laeuft unabhaengig vom aktuellen Bildschirm). */

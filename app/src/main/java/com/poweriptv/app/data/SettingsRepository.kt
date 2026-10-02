@@ -97,7 +97,15 @@ class SettingsRepository(context: Context) {
         set += url.hashCode().toString()
         prefs.edit().putStringSet(K_VLC_STREAMS, set).apply()
     }
-    fun clearVlcStreams() = prefs.edit().remove(K_VLC_STREAMS).apply()
+    fun clearVlcStreams() = prefs.edit().remove(K_VLC_STREAMS).remove(K_VLC_CATEGORIES).apply()
+
+    /** Kategorien, in denen schon ein Titel VLC brauchte -> weitere Titel direkt mit VLC starten. */
+    fun categoryNeedsVlc(key: String) = key in (prefs.getStringSet(K_VLC_CATEGORIES, emptySet()) ?: emptySet())
+    fun markCategoryNeedsVlc(key: String) {
+        val set = (prefs.getStringSet(K_VLC_CATEGORIES, emptySet()) ?: emptySet()).toMutableSet()
+        set += key
+        prefs.edit().putStringSet(K_VLC_CATEGORIES, set).apply()
+    }
     fun setDownloadConnections(v: Int) {
         prefs.edit().putInt(K_DL_CONN, v).apply(); _dlConnections.value = v
     }
@@ -130,6 +138,7 @@ class SettingsRepository(context: Context) {
         private const val K_AFR = "auto_frame_rate"
         private const val K_ENGINE = "player_engine"
         private const val K_VLC_STREAMS = "vlc_streams"
+        private const val K_VLC_CATEGORIES = "vlc_categories"
         private const val K_DL_CONN = "download_connections"
         private const val K_RESIZE = "video_scale"
         private const val K_LANGUAGE = "category_language"

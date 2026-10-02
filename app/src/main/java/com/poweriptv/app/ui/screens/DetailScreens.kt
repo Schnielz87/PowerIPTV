@@ -234,7 +234,7 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
                                 .background(MaterialTheme.colorScheme.surface)
                                 .clickable {
                                     val entries = episodes.map {
-                                        PlayEntry("${item.name} – S${it.season}E${it.episodeNum} ${it.title}", source.episodeUrl(it), null, live = false)
+                                        PlayEntry("${item.name} – S${it.season}E${it.episodeNum} ${it.title}", source.episodeUrl(it), item, live = false)
                                     }
                                     container.history.add(item) // Serie im Verlauf "Zuletzt gesehen: Serien"
                                     startPlayback(context, container, entries, index)

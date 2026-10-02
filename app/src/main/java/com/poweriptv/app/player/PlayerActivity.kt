@@ -74,6 +74,7 @@ import android.content.Intent
 import androidx.media3.common.C
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import com.poweriptv.app.data.PlayerEngine
+import com.poweriptv.app.ui.components.vlcCategoryKey
 import android.content.res.Configuration
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.lifecycle.Lifecycle
@@ -356,6 +357,10 @@ class PlayerActivity : ComponentActivity() {
         switchedToVlc = true
         val entry = current() ?: return false
         container.settings.markNeedsVlc(entry.url)
+        // Filme/Serien: ganze Kategorie merken (gleiches Dateiformat) -> naechster Titel startet direkt mit VLC
+        entry.item?.takeIf { !entry.live && it.categoryId.isNotBlank() }?.let {
+            container.settings.markCategoryNeedsVlc(vlcCategoryKey(container.source?.profile?.id, it))
+        }
         stopPlayback()
         startActivity(Intent(this, VlcPlayerActivity::class.java).putExtra(VlcPlayerActivity.EXTRA_INFO, "Kompatibilitaetsmodus (VLC)"))
         finish()

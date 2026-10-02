@@ -71,6 +71,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         applySystemBars(resources.configuration.orientation)
+        container.prewarmVlc()
         // Bildschirmausrichtung aus den Einstellungen (Standard: Querformat)
         lifecycleScope.launch {
             container.settings.orientation.collect {

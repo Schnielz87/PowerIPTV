@@ -186,6 +186,10 @@ fun PosterCard(title: String, image: String?, onClick: () -> Unit, modifier: Mod
     }
 }
 
+/** Schluessel "Kategorie braucht VLC" (pro Zugang und Bereich). */
+fun vlcCategoryKey(profileId: String?, item: com.poweriptv.app.data.ContentItem) =
+    "${profileId ?: ""}|${item.type.name}|${item.categoryId}"
+
 /** Startet den Player mit einer Wiedergabeliste. */
 fun startPlayback(context: Context, container: AppContainer, entries: List<PlayEntry>, index: Int) {
     if (entries.isEmpty()) return
@@ -195,7 +199,11 @@ fun startPlayback(context: Context, container: AppContainer, entries: List<PlayE
     val useVlc = when (container.settings.playerEngineEnum()) {
         PlayerEngine.VLC -> true
         PlayerEngine.EXO -> false
-        PlayerEngine.AUTO -> container.settings.needsVlc(url)
+        PlayerEngine.AUTO -> container.settings.needsVlc(url) ||
+            entries[container.playIndex].let { e ->
+                !e.live && e.item?.categoryId?.isNotBlank() == true &&
+                    container.settings.categoryNeedsVlc(vlcCategoryKey(container.source?.profile?.id, e.item!!))
+            }
     }
     context.startActivity(Intent(context, if (useVlc) VlcPlayerActivity::class.java else PlayerActivity::class.java))
 }

@@ -100,16 +100,7 @@ class VlcPlayerActivity : ComponentActivity() {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
 
-        libVlc = LibVLC(
-            this,
-            arrayListOf(
-                "--http-user-agent=${container.settings.userAgent.value}",
-                "--network-caching=1500",
-                "--http-reconnect",
-                "--deinterlace=1",
-                "--deinterlace-mode=yadif",
-            ),
-        )
+        libVlc = container.vlc // app-weit vorgeladen
         mediaPlayer = MediaPlayer(libVlc)
         mediaPlayer.setEventListener { event ->
             when (event.type) {
@@ -278,7 +269,9 @@ class VlcPlayerActivity : ComponentActivity() {
         val uri = if (local) Uri.fromFile(File(entry.url)) else Uri.parse(entry.url)
         val media = Media(libVlc, uri).apply {
             setHWDecoderEnabled(true, false) // Hardware wenn moeglich, sonst automatisch Software
-            addOption(":network-caching=1500")
+            // Live: groesserer Puffer gegen Ruckler; Filme/Serien: schneller Start
+            addOption(if (entry.live) ":network-caching=1500" else ":network-caching=1000")
+            if (local) addOption(":file-caching=300")
             addOption(":http-user-agent=${container.settings.userAgent.value}")
         }
         mediaPlayer.media = media
@@ -353,7 +346,7 @@ class VlcPlayerActivity : ComponentActivity() {
             mediaPlayer.stop()
             mediaPlayer.detachViews()
             mediaPlayer.release()
-            libVlc.release()
+            // libVlc NICHT freigeben – wird app-weit wiederverwendet
         }
         super.onDestroy()
     }
