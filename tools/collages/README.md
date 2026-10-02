@@ -16,7 +16,12 @@ Wichtiges Motiv eher am Rand – die Mitte wird fuer Icon und Schrift abgedunkel
 Bildschirm (Handy hoch/quer, TV) links/rechts oder oben/unten etwas beschnitten.
 Keine Icons oder Schrift ins Bild einbauen – die kommen von der App.
 
-**Neu erzeugen (stilisierte Version ohne echte Logos/Plakate):**
+**Aktuell verwendet:** Ausschnitte (obere Bildhaelfte, ohne Icon/Schrift) aus dem Portiva-Entwurf
+mit echten Senderlogos und Film-/Serien-Covern. Hinweis: Logos und Cover sind Marken bzw.
+urheberrechtlich geschuetzte Werke Dritter – fuer eine oeffentliche Verbreitung der App die
+stilisierte Variante verwenden (siehe unten).
+
+**Alternative: stilisierte Version ohne echte Logos/Plakate neu erzeugen:**
 ```
 cd tools/collages
 NODE_PATH=$(npm root -g) node generate.js   # rendert collage.html per Chromium/Playwright
