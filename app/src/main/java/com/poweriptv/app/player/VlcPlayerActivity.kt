@@ -99,6 +99,10 @@ class VlcPlayerActivity : ComponentActivity() {
     private var dragging by mutableStateOf<Float?>(null)
     private var showRecordDialog by mutableStateOf(false)
     private var showFormatDialog by mutableStateOf(false)
+    /** Letzte Bedienung (Tippen/Taste) – fuer das automatische Ausblenden der Leiste. */
+    private var lastInteraction = System.currentTimeMillis()
+    /** Vom Nutzer pausiert -> Leiste bleibt stehen. */
+    private var userPaused = false
     private var formatBadge by mutableStateOf<String?>(null)
     /** Vorschaubilder beim Spulen (pro Titel). */
     private var scrubPreview by mutableStateOf<ScrubPreview?>(null)
@@ -110,6 +114,12 @@ class VlcPlayerActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Zurueck: ist die Leiste eingeblendet, erst diese ausblenden – erst danach den Player schliessen
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (showOverlay) showOverlay = false else closePlayer()
+            }
+        })
         // Immer nur ein Player
         PlayerActivity.closeActive()
         active?.get()?.takeIf { it !== this }?.finish()
@@ -168,7 +178,7 @@ class VlcPlayerActivity : ComponentActivity() {
                         // Einmal tippen: Leiste ein/aus. Doppelt rechts: +10 s, doppelt links: -10 s
                         .pointerInput(Unit) {
                             detectTapGestures(
-                                onTap = { showOverlay = !showOverlay },
+                                onTap = { lastInteraction = System.currentTimeMillis(); showOverlay = !showOverlay },
                                 onDoubleTap = { offset ->
                                     if (current()?.live != true) {
                                         if (offset.x > size.width / 2) seekBy(10_000) else seekBy(-10_000)
@@ -251,9 +261,14 @@ class VlcPlayerActivity : ComponentActivity() {
 
     @androidx.compose.runtime.Composable
     private fun Overlay() {
-        LaunchedEffect(showOverlay, title, pendingSeekAt, dragging) {
-            delay(5000)
-            if (playing && dragging == null && !showFormatDialog) showOverlay = false
+        // 5 s nach der letzten Bedienung ausblenden (Schleife: klappt auch nach Puffern sicher)
+        LaunchedEffect(showOverlay) {
+            while (showOverlay) {
+                delay(500)
+                val idle = System.currentTimeMillis() - maxOf(lastInteraction, pendingSeekAt) > 5000
+                val busy = userPaused || dragging != null || showFormatDialog || showRecordDialog || error != null
+                if (idle && !busy) showOverlay = false
+            }
         }
         val live = current()?.live == true
         val multi = container.playQueue.size > 1
@@ -317,7 +332,7 @@ class VlcPlayerActivity : ComponentActivity() {
             Text(formatTime(shown), color = Color.White, style = MaterialTheme.typography.labelMedium)
             Slider(
                 value = dragging ?: (position.toFloat() / length).coerceIn(0f, 1f),
-                onValueChange = { dragging = it; showOverlay = true; scrubPreview?.request((it * length).toLong()) },
+                onValueChange = { dragging = it; showOverlay = true; lastInteraction = System.currentTimeMillis(); scrubPreview?.request((it * length).toLong()) },
                 onValueChangeFinished = {
                     scrubPreview?.pause()
                     dragging?.let { mediaPlayer.time = (it * length).toLong() }
@@ -459,6 +474,7 @@ class VlcPlayerActivity : ComponentActivity() {
     private fun previous() = play(container.playIndex - 1)
 
     private fun togglePause() {
+        userPaused = mediaPlayer.isPlaying
         if (mediaPlayer.isPlaying) mediaPlayer.pause() else mediaPlayer.play()
     }
 
@@ -492,6 +508,7 @@ class VlcPlayerActivity : ComponentActivity() {
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return super.dispatchKeyEvent(event)
+        lastInteraction = System.currentTimeMillis()
         val live = current()?.live == true
         if (!live) {
             val step = seekStep

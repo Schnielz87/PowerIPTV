@@ -145,6 +145,12 @@ class PlayerActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Zurueck: sind die Leisten eingeblendet, erst diese ausblenden – erst danach den Player schliessen
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (showOverlay || playerView?.isControllerFullyVisible == true) hideOverlay() else closePlayer()
+            }
+        })
         // Immer nur EIN Player: ein evtl. noch laufender (z.B. im Mini-Fenster) wird beendet
         active?.get()?.takeIf { it !== this }?.let { old ->
             old.stopPlayback()
@@ -241,6 +247,7 @@ class PlayerActivity : ComponentActivity() {
                                 setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { v ->
                                     showOverlay = v == View.VISIBLE
                                 })
+                                controllerShowTimeoutMs = 0 // Ausblenden steuert die App selbst (s. hideOverlay)
                                 setShowRewindButton(true)
                                 setShowFastForwardButton(true)
                                 isFocusable = true
@@ -290,13 +297,14 @@ class PlayerActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                     )
                     // Leiste 5 s nach der letzten Bedienung ausblenden (ausser bei Pause/Fehler/Dialog)
-                    LaunchedEffect(showOverlay, lastInteraction) {
-                        if (!showOverlay) return@LaunchedEffect
-                        delay(5000)
-                        if (player.isPlaying && error == null && !showRecordDialog && !showFormatDialog && scrubPos == null) {
-                            showOverlay = false
-                            playerView?.hideController()
-                            playerView?.requestFocus() // Auswahl zurueck aufs Bild -> Tasten wirken direkt
+                    // Leiste 5 s nach der letzten Bedienung ausblenden – einzige Stelle, die das steuert.
+                    // Laeuft als Schleife, damit sie auch nach Puffern/Haengern sicher verschwindet.
+                    LaunchedEffect(showOverlay) {
+                        while (showOverlay) {
+                            delay(500)
+                            val idle = System.currentTimeMillis() - lastInteraction > 5000
+                            val busy = !player.playWhenReady || error != null || showRecordDialog || showFormatDialog || scrubPos != null
+                            if (idle && !busy) hideOverlay()
                         }
                     }
                     if (showOverlay) TopOverlay()
@@ -791,6 +799,13 @@ class PlayerActivity : ComponentActivity() {
     }
 
     /** Player schliessen und zur Uebersicht zurueck. */
+    /** Beide Leisten (oben: eigene, unten: Player-Steuerung) gemeinsam ausblenden. */
+    private fun hideOverlay() {
+        showOverlay = false
+        playerView?.hideController()
+        playerView?.requestFocus() // Auswahl zurueck aufs Bild -> Tasten wirken direkt
+    }
+
     private fun closePlayer() {
         stopPlayback()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode) finishAndRemoveTask() else finish()
