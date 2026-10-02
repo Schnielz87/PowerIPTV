@@ -115,10 +115,15 @@ class VlcPlayerActivity : ComponentActivity() {
         mediaPlayer.setEventListener { event ->
             when (event.type) {
                 MediaPlayer.Event.Buffering -> buffering = event.buffering < 100f
-                MediaPlayer.Event.Playing -> { playing = true; buffering = false; error = null }
+                MediaPlayer.Event.Playing -> { playing = true; buffering = false; error = null; if (mediaPlayer.length > 0) applyResume() }
                 MediaPlayer.Event.Paused, MediaPlayer.Event.Stopped -> playing = false
                 MediaPlayer.Event.EncounteredError -> { error = "Wiedergabe fehlgeschlagen (VLC)"; buffering = false }
-                MediaPlayer.Event.EndReached -> if (current()?.live != true && hasNext()) runOnUiThread { next() }
+                MediaPlayer.Event.EndReached -> if (current()?.live != true) runOnUiThread {
+                    current()?.let { container.resume.clear(it.url) } // zu Ende gesehen
+                    resumeTarget = -1L
+                    if (hasNext()) next()
+                }
+                MediaPlayer.Event.LengthChanged -> applyResume()
             }
         }
         scale = container.settings.videoScaleEnum()
@@ -249,11 +254,26 @@ class VlcPlayerActivity : ComponentActivity() {
         return if (s >= 3600) "%d:%02d:%02d".format(s / 3600, (s / 60) % 60, s % 60) else "%d:%02d".format(s / 60, s % 60)
     }
 
-    private fun seekStep(repeat: Int): Long = when {
-        repeat < 5 -> 30_000L
-        repeat < 15 -> 60_000L
-        repeat < 30 -> 120_000L
-        else -> 300_000L
+    /** Immer 10 s pro Tastendruck / Doppeltipp. Groessere Spruenge: Zeitleiste nutzen. */
+    private val seekStep = 10_000L
+
+    /** Startposition fuer "Weiterschauen" (wird gesetzt, sobald VLC die Laenge kennt). */
+    private var resumeTarget = -1L
+
+    private fun applyResume() {
+        val t = resumeTarget
+        if (t <= 0) return
+        resumeTarget = -1L
+        runOnUiThread { mediaPlayer.time = t; position = t; pendingSeek = t; pendingSeekAt = System.currentTimeMillis() }
+    }
+
+    /** Position des laufenden Films/der Episode merken (Weiterschauen). */
+    private fun saveResume() {
+        val e = current() ?: return
+        if (e.live || resumeTarget > 0) return // noch nicht an die gemerkte Stelle gesprungen
+        val len = runCatching { mediaPlayer.length }.getOrDefault(0L)
+        val time = runCatching { mediaPlayer.time }.getOrDefault(0L)
+        if (len > 0) container.resume.save(e.url, time, len)
     }
 
     /** Letztes Sprungziel: VLC meldet die neue Position verzoegert -> Mehrfachdruck summieren. */
@@ -280,6 +300,7 @@ class VlcPlayerActivity : ComponentActivity() {
     private fun hasNext() = container.playIndex < container.playQueue.lastIndex
 
     private fun play(index: Int) {
+        saveResume()
         val queue = container.playQueue
         if (queue.isEmpty()) { finish(); return }
         container.playIndex = (index + queue.size) % queue.size
@@ -304,6 +325,9 @@ class VlcPlayerActivity : ComponentActivity() {
             if (local) addOption(":file-caching=300")
             addOption(":http-user-agent=${container.settings.userAgent.value}")
         }
+        // Filme/Serien: an der zuletzt gesehenen Stelle weitermachen
+        resumeTarget = if (entry.live) -1L else container.resume.get(entry.url).takeIf { it > 0 } ?: -1L
+        if (resumeTarget > 0) toast = "▶ Weiter ab ${formatTime(resumeTarget)}"
         mediaPlayer.media = media
         media.release()
         mediaPlayer.play()
@@ -333,6 +357,7 @@ class VlcPlayerActivity : ComponentActivity() {
     }
 
     private fun closePlayer() {
+        saveResume()
         runCatching { mediaPlayer.stop() }
         finish()
     }
@@ -341,10 +366,10 @@ class VlcPlayerActivity : ComponentActivity() {
         if (event.action != KeyEvent.ACTION_DOWN) return super.dispatchKeyEvent(event)
         val live = current()?.live == true
         if (!live) {
-            val step = seekStep(event.repeatCount)
+            val step = seekStep
             when (event.keyCode) {
                 // Links/Rechts spulen IMMER (auch bei eingeblendeter Leiste)
-                KeyEvent.KEYCODE_DPAD_LEFT -> { seekBy(-step / 3); return true }
+                KeyEvent.KEYCODE_DPAD_LEFT -> { seekBy(-step); return true }
                 KeyEvent.KEYCODE_DPAD_RIGHT -> { seekBy(step); return true }
                 KeyEvent.KEYCODE_MEDIA_REWIND -> { seekBy(-step); return true }
                 KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { seekBy(step); return true }
@@ -372,6 +397,7 @@ class VlcPlayerActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+        saveResume()
         // Kein Bild-in-Bild im VLC-Modus -> beim Verlassen pausieren
         runCatching { mediaPlayer.pause() }
     }

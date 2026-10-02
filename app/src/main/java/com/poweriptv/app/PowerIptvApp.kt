@@ -78,6 +78,7 @@ class AppContainer(private val app: Application) {
     val parental = ParentalControl(app)
     val recordings = RecordingRepository(app, json)
     val history = HistoryRepository(app, json)
+    val resume = com.poweriptv.app.data.ResumeRepository(app)
     val cast = CastManager(app)
     val ai = AiRecommender({ http }, secure, settings, parental, json)
 

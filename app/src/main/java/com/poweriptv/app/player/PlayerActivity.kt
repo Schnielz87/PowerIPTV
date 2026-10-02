@@ -160,7 +160,7 @@ class PlayerActivity : ComponentActivity() {
         player = ExoPlayer.Builder(this, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
             .setSeekBackIncrementMs(10_000)
-            .setSeekForwardIncrementMs(30_000)
+            .setSeekForwardIncrementMs(10_000)
             .build()
         player.addListener(object : Player.Listener {
             override fun onPlayerError(e: PlaybackException) {
@@ -177,7 +177,10 @@ class PlayerActivity : ComponentActivity() {
 
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_READY) error = null
-                if (state == Player.STATE_ENDED && current()?.live != true && hasNext()) next()
+                if (state == Player.STATE_ENDED && current()?.live != true) {
+                    current()?.let { container.resume.clear(it.url) } // zu Ende gesehen
+                    if (hasNext()) next()
+                }
             }
 
             override fun onTracksChanged(tracks: Tracks) {
@@ -419,12 +422,15 @@ class PlayerActivity : ComponentActivity() {
 
     // ---------- Spulen ----------
 
-    /** 30 s pro Tastendruck, beim Gedrueckthalten immer schneller (bis 5 min). */
-    private fun seekStep(repeat: Int): Long = when {
-        repeat < 5 -> 30_000L
-        repeat < 15 -> 60_000L
-        repeat < 30 -> 120_000L
-        else -> 300_000L
+    /** Immer 10 s pro Tastendruck / Doppeltipp. Groessere Spruenge: Zeitleiste nutzen. */
+    private val seekStep = 10_000L
+
+    /** Position des laufenden Films/der Episode merken (Weiterschauen). */
+    private fun saveResume() {
+        val e = current() ?: return
+        if (e.live || playingBuffer || timeshiftActive) return
+        val dur = player.duration
+        if (dur > 0) container.resume.save(e.url, player.currentPosition, dur)
     }
 
     private fun seekBy(deltaMs: Long) {
@@ -493,6 +499,7 @@ class PlayerActivity : ComponentActivity() {
     private fun hasNext() = container.playIndex < container.playQueue.lastIndex
 
     private fun play(index: Int) {
+        saveResume()
         stopTimeshift()
         val queue = container.playQueue
         if (queue.isEmpty()) { finish(); return }
@@ -510,8 +517,11 @@ class PlayerActivity : ComponentActivity() {
         val uri = if (isLocal(entry.url)) Uri.fromFile(File(entry.url)) else Uri.parse(entry.url)
         val builder = MediaItem.Builder().setUri(uri)
         if (entry.url.contains(".m3u8", ignoreCase = true)) builder.setMimeType(MimeTypes.APPLICATION_M3U8)
+        // Filme/Serien: an der zuletzt gesehenen Stelle weitermachen
+        val resumeAt = if (entry.live) 0L else container.resume.get(entry.url)
+        if (resumeAt > 0) toast = "▶ Weiter ab ${formatTime(resumeAt)}"
         withSwitch {
-            player.setMediaItem(builder.build())
+            if (resumeAt > 0) player.setMediaItem(builder.build(), resumeAt) else player.setMediaItem(builder.build())
             player.prepare()
             player.playWhenReady = true
         }
@@ -589,9 +599,9 @@ class PlayerActivity : ComponentActivity() {
         val controllerVisible = playerView?.isControllerFullyVisible == true
         // Filme/Serien: Spulen direkt per Fernbedienung (unabhaengig vom Fokus)
         if (!live) {
-            val step = seekStep(event.repeatCount)
+            val step = seekStep
             when (event.keyCode) {
-                KeyEvent.KEYCODE_DPAD_LEFT -> if (!controllerVisible) { seekBy(-step / 3); return true }
+                KeyEvent.KEYCODE_DPAD_LEFT -> if (!controllerVisible) { seekBy(-step); return true }
                 KeyEvent.KEYCODE_DPAD_RIGHT -> if (!controllerVisible) { seekBy(step); return true }
                 KeyEvent.KEYCODE_MEDIA_REWIND -> { seekBy(-step); return true }
                 KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { seekBy(step); return true }
@@ -646,6 +656,7 @@ class PlayerActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+        saveResume()
         if (!(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)) withSwitch { player.pause() }
     }
 
@@ -662,6 +673,7 @@ class PlayerActivity : ComponentActivity() {
 
     /** Wiedergabe stoppen (Ton sofort aus). */
     private fun stopPlayback() {
+        saveResume()
         stopTimeshift()
         withSwitch {
             player.playWhenReady = false
