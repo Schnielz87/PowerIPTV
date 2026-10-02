@@ -43,7 +43,8 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun PortivaLogo(modifier: Modifier = Modifier) {
-    Image(painterResource(R.drawable.portiva_logo), contentDescription = "Portiva", modifier = modifier)
+    // Gleiches Logo wie das App-Icon (Film-Hintergrund + Portiva-P)
+    Image(painterResource(R.drawable.app_logo), contentDescription = "Portiva", modifier = modifier)
 }
 
 /** Schriftzug im Portiva-Stil: "PORTIVA" + "PowerIPTV" (statt "Portable KI-Mitarbeiter-Plattform"). */
