@@ -97,4 +97,6 @@ dependencies {
 
     // VLC als Kompatibilitaets-Player (MPEG-2, HEVC, Interlaced, ...)
     implementation("org.videolan.android:libvlc-all:3.6.0")
+    // libVLC zieht eine alte Fragment-Version mit -> aktuelle erzwingen (ActivityResult-APIs)
+    implementation("androidx.fragment:fragment-ktx:1.8.3")
 }
