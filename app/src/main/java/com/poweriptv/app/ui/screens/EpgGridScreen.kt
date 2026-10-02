@@ -359,6 +359,10 @@ private fun ProgrammeDialog(
     val fmt = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
     val catchup = if (p.end <= now || p.isLive(now)) source.catchupUrl(channel, p.start, p.end) else null
     var info by remember { mutableStateOf<String?>(null) }
+    var reminded by remember { mutableStateOf(container.reminders.has(channel.name, p.start)) }
+    val notifPermission = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+    ) { }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -382,6 +386,19 @@ private fun ProgrammeDialog(
                         onDismiss()
                         startPlayback(context, container, listOf(PlayEntry("${channel.name}: ${p.title} (Catch-up)", catchup, null, live = false)), 0)
                     }) { Text(if (p.isLive(now)) "Von Beginn an (Timeshift)" else "Nachtraeglich ansehen (Catch-up)") }
+                }
+                // Erinnerung: 5 Minuten vor Beginn benachrichtigen
+                if (p.start > now && !p.isGap) {
+                    OutlinedButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = {
+                        if (reminded) {
+                            container.reminders.remove(channel.name, p.start)
+                            reminded = false; info = "Erinnerung entfernt"
+                        } else {
+                            if (android.os.Build.VERSION.SDK_INT >= 33) notifPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                            container.reminders.add(p.title, channel.name, source.streamUrl(channel), p.start, channel.logo)
+                            reminded = true; info = "Erinnerung gesetzt – 5 Minuten vor Beginn"
+                        }
+                    }) { Text(if (reminded) "🔕 Erinnerung entfernen" else "🔔 Erinnern (5 Min. vorher)") }
                 }
                 if (p.end > now && !p.isGap) {
                     OutlinedButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = {

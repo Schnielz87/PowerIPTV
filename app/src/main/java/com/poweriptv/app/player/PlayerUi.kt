@@ -52,6 +52,16 @@ fun PlayerSettingsDialog(
     onSubtitle: (TrackOption) -> Unit,
     onFormat: (VideoScale) -> Unit,
     onDismiss: () -> Unit,
+    /** Wiedergabegeschwindigkeit (null = nicht verfuegbar, z.B. Live). */
+    speed: Float? = null,
+    onSpeed: (Float) -> Unit = {},
+    /** Sleep-Timer: verbleibende Minuten (null = aus). */
+    sleepMinutes: Int? = null,
+    onSleep: (Int) -> Unit = {},
+    subtitleSize: String = "NORMAL",
+    onSubtitleSize: (String) -> Unit = {},
+    subtitleBackground: Boolean = false,
+    onSubtitleBackground: (Boolean) -> Unit = {},
 ) {
     val focus = remember { FocusRequester() }
     var firstFocusSet = false
@@ -85,7 +95,24 @@ fun PlayerSettingsDialog(
                 Header("Untertitel")
                 if (subtitles.none { it.key != OFF_KEY }) {
                     Text("Keine Untertitel verfuegbar", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else subtitles.forEach { t -> Option(t.label, t.selected) { onSubtitle(t) } }
+                } else {
+                    subtitles.forEach { t -> Option(t.label, t.selected) { onSubtitle(t) } }
+                    Header("Untertitel-Groesse")
+                    listOf("KLEIN" to "Klein", "NORMAL" to "Normal", "GROSS" to "Gross", "SEHR_GROSS" to "Sehr gross").forEach { (k, l) ->
+                        Option(l, subtitleSize == k) { onSubtitleSize(k) }
+                    }
+                    Option(if (subtitleBackground) "Dunkler Hintergrund: an" else "Dunkler Hintergrund: aus", subtitleBackground) { onSubtitleBackground(!subtitleBackground) }
+                }
+                if (speed != null) {
+                    Header("Geschwindigkeit")
+                    listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f).forEach { v ->
+                        Option(if (v == 1f) "Normal (1×)" else "${v.toString().removeSuffix(".0")}×", kotlin.math.abs(speed - v) < 0.01f) { onSpeed(v) }
+                    }
+                }
+                Header(if (sleepMinutes != null) "Sleep-Timer (noch $sleepMinutes Min.)" else "Sleep-Timer")
+                listOf(0 to "Aus", 15 to "15 Minuten", 30 to "30 Minuten", 60 to "60 Minuten", 90 to "90 Minuten", 120 to "2 Stunden").forEach { (m, l) ->
+                    Option(l, if (m == 0) sleepMinutes == null else false) { onSleep(m) }
+                }
                 Header("Bildformat")
                 VideoScale.entries.forEach { v -> Option(v.label, v == format) { onFormat(v) } }
             }

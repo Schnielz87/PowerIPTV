@@ -77,6 +77,9 @@ class AppContainer(private val app: Application) {
     val epg = EpgRepository(app) { http }
     val parental = ParentalControl(app)
     val recordings = RecordingRepository(app, json)
+    val reminders = com.poweriptv.app.reminder.ReminderRepository(app, json)
+    /** Sleep-Timer: Zeitpunkt, an dem die Wiedergabe endet (0 = aus). */
+    @Volatile var sleepUntil = 0L
     val history = HistoryRepository(app, json)
     val resume = com.poweriptv.app.data.ResumeRepository(app)
     val cast = CastManager(app)

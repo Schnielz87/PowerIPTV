@@ -231,6 +231,7 @@ class VlcPlayerActivity : ComponentActivity() {
                                 val l = runCatching { mediaPlayer.length }.getOrDefault(0L)
                                 updateEpisodeFlow(t, l, playing)
                             }
+                            checkSleep()
                         }
                     }
                     if (showFormatDialog) PlayerSettingsDialog(
@@ -244,6 +245,15 @@ class VlcPlayerActivity : ComponentActivity() {
                         },
                         onFormat = { changeScale(it) },
                         onDismiss = { showFormatDialog = false; lastInteraction = System.currentTimeMillis() },
+                        speed = if (current()?.live == true) null else runCatching { mediaPlayer.rate }.getOrDefault(1f),
+                        onSpeed = { mediaPlayer.rate = it; toast = "Geschwindigkeit: ${it.toString().removeSuffix(".0")}×" },
+                        sleepMinutes = sleepMinutesLeft(),
+                        onSleep = { setSleep(it) },
+                        subtitleSize = container.settings.subtitleSize.value,
+                        // VLC uebernimmt Untertitel-Stil beim (Neu-)Start -> an gleicher Stelle neu starten
+                        onSubtitleSize = { container.settings.setSubtitleSize(it); play(container.playIndex) },
+                        subtitleBackground = container.settings.subtitleBackground.value,
+                        onSubtitleBackground = { container.settings.setSubtitleBackground(it); play(container.playIndex) },
                     )
                     if (showRecordDialog) RecordDialog(
                         container, current(),
@@ -507,6 +517,12 @@ class VlcPlayerActivity : ComponentActivity() {
             addOption(if (entry.live) ":network-caching=1500" else ":network-caching=1000")
             if (local) addOption(":file-caching=300")
             addOption(":http-user-agent=${container.settings.userAgent.value}")
+            // Untertitel-Stil (Groesse, dunkler Hintergrund)
+            addOption(":sub-text-scale=${(container.settings.subtitleScale() * 100).toInt()}")
+            if (container.settings.subtitleBackground.value) {
+                addOption(":freetype-background-opacity=176")
+                addOption(":freetype-background-color=0")
+            }
         }
         // Filme/Serien: an der zuletzt gesehenen Stelle weitermachen
         resumeTarget = if (entry.live) -1L else container.resume.get(entry.url).takeIf { it > 0 } ?: -1L
@@ -559,6 +575,25 @@ class VlcPlayerActivity : ComponentActivity() {
     /** Zum zuletzt gesehenen Sender springen. */
     private fun zapBack() {
         if (lastChannel in container.playQueue.indices) play(lastChannel) else toast = "Noch kein vorheriger Sender"
+    }
+
+    private var sleepWarned = false
+
+    private fun setSleep(minutes: Int) {
+        sleepWarned = false
+        container.sleepUntil = if (minutes <= 0) 0L else System.currentTimeMillis() + minutes * 60_000L
+        toast = if (minutes <= 0) "Sleep-Timer aus" else "Sleep-Timer: Wiedergabe endet in $minutes Minuten"
+    }
+
+    private fun sleepMinutesLeft(): Int? =
+        container.sleepUntil.takeIf { it > 0 }?.let { ((it - System.currentTimeMillis()) / 60_000L + 1).toInt().coerceAtLeast(1) }
+
+    /** Sleep-Timer pruefen: 1 Minute vorher warnen, dann Player schliessen. */
+    private fun checkSleep() {
+        val until = container.sleepUntil.takeIf { it > 0 } ?: return
+        val rem = until - System.currentTimeMillis()
+        if (rem <= 0) { container.sleepUntil = 0L; closePlayer(); return }
+        if (rem <= 60_000L && !sleepWarned) { sleepWarned = true; toast = "Sleep-Timer: Wiedergabe endet in 1 Minute" }
     }
 
     private fun skipIntro() {

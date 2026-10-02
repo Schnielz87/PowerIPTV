@@ -55,6 +55,8 @@ class SettingsRepository(context: Context) {
     private val _dlConnections = MutableStateFlow(prefs.getInt(K_DL_CONN, 0))
     private val _engine = str(K_ENGINE, PlayerEngine.AUTO.name)
     private val _scrub = str(K_SCRUB, "AUTO")
+    private val _subSize = str(K_SUB_SIZE, "NORMAL")
+    private val _subBg = bool(K_SUB_BG, false)
     private val _scrubBlocked = bool(K_SCRUB_BLOCKED, false)
     private val _resize = str(K_RESIZE, VideoScale.FIT.name)
     private val _aiBaseUrl = str(K_AI_URL, DEFAULT_AI_URL)
@@ -82,6 +84,13 @@ class SettingsRepository(context: Context) {
     val playerEngine: StateFlow<String> = _engine
     /** Vorschaubilder beim Spulen (Thumbnail-Scrubbing). */
     val scrubPreview: StateFlow<String> = _scrub
+    /** Untertitel: Groesse (KLEIN/NORMAL/GROSS/SEHR_GROSS) und dunkler Hintergrund. */
+    val subtitleSize: StateFlow<String> = _subSize
+    val subtitleBackground: StateFlow<Boolean> = _subBg
+    fun setSubtitleSize(v: String) = putStr(K_SUB_SIZE, v, _subSize)
+    fun setSubtitleBackground(v: Boolean) = putBool(K_SUB_BG, v, _subBg)
+    /** Skalierung der Untertitel (1.0 = normal). */
+    fun subtitleScale(): Float = when (_subSize.value) { "KLEIN" -> 0.8f; "GROSS" -> 1.3f; "SEHR_GROSS" -> 1.6f; else -> 1.0f }
     /** Anbieter hat beim Spulen mit Vorschau den Film abgebrochen -> Automatik schaltet Vorschau ab. */
     val scrubBlocked: StateFlow<Boolean> = _scrubBlocked
     fun setScrubBlocked(v: Boolean) = putBool(K_SCRUB_BLOCKED, v, _scrubBlocked)
@@ -152,6 +161,8 @@ class SettingsRepository(context: Context) {
         private const val K_AFR = "auto_frame_rate"
         private const val K_ENGINE = "player_engine"
         private const val K_SCRUB = "scrub_preview"
+        private const val K_SUB_SIZE = "subtitle_size"
+        private const val K_SUB_BG = "subtitle_bg"
         private const val K_SCRUB_BLOCKED = "scrub_preview_blocked"
         private const val K_VLC_STREAMS = "vlc_streams"
         private const val K_VLC_CATEGORIES = "vlc_categories"

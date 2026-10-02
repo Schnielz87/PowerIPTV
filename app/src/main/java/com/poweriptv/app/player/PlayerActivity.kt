@@ -310,6 +310,7 @@ class PlayerActivity : ComponentActivity() {
                                     override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) = applyAspect()
                                 })
                                 applyAspect()
+                                applySubtitleStyle()
                             }
                         },
                         update = { it.resizeMode = resizeModeFor(videoScale) },
@@ -394,6 +395,7 @@ class PlayerActivity : ComponentActivity() {
                         while (true) {
                             delay(500)
                             if (!watchingRecording && !timeshiftActive) updateEpisodeFlow(player.currentPosition, player.duration, player.isPlaying)
+                            checkSleep()
                         }
                     }
                     if (showFormatDialog) PlayerSettingsDialog(
@@ -404,6 +406,14 @@ class PlayerActivity : ComponentActivity() {
                         onSubtitle = { selectTrack(C.TRACK_TYPE_TEXT, it) },
                         onFormat = { changeVideoScale(it) },
                         onDismiss = { showFormatDialog = false; lastInteraction = System.currentTimeMillis() },
+                        speed = if (current()?.live == true || timeshiftActive) null else player.playbackParameters.speed,
+                        onSpeed = { player.setPlaybackSpeed(it); toast = "Geschwindigkeit: ${it.toString().removeSuffix(".0")}×" },
+                        sleepMinutes = sleepMinutesLeft(),
+                        onSleep = { setSleep(it) },
+                        subtitleSize = container.settings.subtitleSize.value,
+                        onSubtitleSize = { container.settings.setSubtitleSize(it); applySubtitleStyle() },
+                        subtitleBackground = container.settings.subtitleBackground.value,
+                        onSubtitleBackground = { container.settings.setSubtitleBackground(it); applySubtitleStyle() },
                     )
                     if (showRecordDialog) RecordDialog(
                         container, current(),
@@ -604,6 +614,42 @@ class PlayerActivity : ComponentActivity() {
     /** Zum zuletzt gesehenen Sender springen. */
     private fun zapBack() {
         if (lastChannel in container.playQueue.indices) play(lastChannel) else toast = "Noch kein vorheriger Sender"
+    }
+
+    private var sleepWarned = false
+
+    private fun setSleep(minutes: Int) {
+        sleepWarned = false
+        container.sleepUntil = if (minutes <= 0) 0L else System.currentTimeMillis() + minutes * 60_000L
+        toast = if (minutes <= 0) "Sleep-Timer aus" else "Sleep-Timer: Wiedergabe endet in $minutes Minuten"
+    }
+
+    private fun sleepMinutesLeft(): Int? =
+        container.sleepUntil.takeIf { it > 0 }?.let { ((it - System.currentTimeMillis()) / 60_000L + 1).toInt().coerceAtLeast(1) }
+
+    /** Sleep-Timer pruefen: 1 Minute vorher warnen, dann Player schliessen. */
+    private fun checkSleep() {
+        val until = container.sleepUntil.takeIf { it > 0 } ?: return
+        val rem = until - System.currentTimeMillis()
+        if (rem <= 0) { container.sleepUntil = 0L; closePlayer(); return }
+        if (rem <= 60_000L && !sleepWarned) { sleepWarned = true; toast = "Sleep-Timer: Wiedergabe endet in 1 Minute" }
+    }
+
+    /** Untertitel-Groesse und -Hintergrund aus den Einstellungen anwenden. */
+    private fun applySubtitleStyle() {
+        val sv = playerView?.subtitleView ?: return
+        val bg = container.settings.subtitleBackground.value
+        sv.setFractionalTextSize(androidx.media3.ui.SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * container.settings.subtitleScale())
+        sv.setStyle(
+            androidx.media3.ui.CaptionStyleCompat(
+                android.graphics.Color.WHITE,
+                if (bg) 0xB0000000.toInt() else android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT,
+                if (bg) androidx.media3.ui.CaptionStyleCompat.EDGE_TYPE_NONE else androidx.media3.ui.CaptionStyleCompat.EDGE_TYPE_OUTLINE,
+                android.graphics.Color.BLACK,
+                null,
+            ),
+        )
     }
 
     private fun skipIntro() {

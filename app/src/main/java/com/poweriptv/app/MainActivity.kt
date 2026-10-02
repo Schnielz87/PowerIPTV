@@ -31,6 +31,10 @@ import com.poweriptv.app.vpn.VpnState
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        const val EXTRA_PLAY_URL = "play_url"
+        const val EXTRA_PLAY_TITLE = "play_title"
+    }
 
     private val container get() = (application as PowerIptvApp).container
 
@@ -68,9 +72,23 @@ class MainActivity : ComponentActivity() {
         applySystemBars(newConfig.orientation)
     }
 
+    /** Aus einer Erinnerung: Sender direkt starten. */
+    private fun handlePlayIntent(intent: android.content.Intent?) {
+        val url = intent?.getStringExtra(EXTRA_PLAY_URL) ?: return
+        val title = intent.getStringExtra(EXTRA_PLAY_TITLE) ?: "Live TV"
+        intent.removeExtra(EXTRA_PLAY_URL)
+        com.poweriptv.app.ui.components.startPlayback(this, container, listOf(com.poweriptv.app.PlayEntry(title, url, null, live = true)), 0)
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        handlePlayIntent(intent)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         applySystemBars(resources.configuration.orientation)
+        if (savedInstanceState == null) handlePlayIntent(intent)
         container.prewarmVlc()
         // Bildschirmausrichtung aus den Einstellungen (Standard: Querformat)
         lifecycleScope.launch {

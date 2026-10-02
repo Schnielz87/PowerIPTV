@@ -71,6 +71,10 @@
         <receiver
             android:name=".record.RecordingAlarmReceiver"
             android:exported="false" />
+        <!-- EPG-Erinnerungen -->
+        <receiver
+            android:name=".reminder.ReminderReceiver"
+            android:exported="false" />
         <receiver
             android:name=".record.BootReceiver"
             android:exported="true">
