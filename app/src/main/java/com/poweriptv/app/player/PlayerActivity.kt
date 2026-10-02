@@ -232,7 +232,7 @@ class PlayerActivity : ComponentActivity() {
                 // Aufnahme ist zu Ende -> wieder normal live schauen
                 if (state == Player.STATE_ENDED && current()?.live == true && watchingRecording) { play(container.playIndex); return }
                 if (state == Player.STATE_ENDED && current()?.live != true) {
-                    current()?.let { container.resume.clear(it.url) } // zu Ende gesehen
+                    current()?.let { container.resume.markWatched(it.url, true) } // zu Ende gesehen
                     if (hasNext() && !nextCancelled) next()
                 }
             }

@@ -23,6 +23,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.GppBad
 import androidx.compose.material.icons.filled.GppGood
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.ui.focus.focusRequester
@@ -146,7 +148,16 @@ fun ErrorBox(message: String, onRetry: (() -> Unit)? = null, modifier: Modifier 
 }
 
 @Composable
-fun PosterCard(title: String, image: String?, onClick: () -> Unit, modifier: Modifier = Modifier, subtitle: String = "") {
+fun PosterCard(
+    title: String,
+    image: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    subtitle: String = "",
+    /** Bereits gesehen (gruener Haken) bzw. angefangen (Fortschrittsbalken). */
+    watched: Boolean = false,
+    progress: Float? = null,
+) {
     Column(
         modifier
             .clip(RoundedCornerShape(10.dp))
@@ -171,6 +182,7 @@ fun PosterCard(title: String, image: String?, onClick: () -> Unit, modifier: Mod
                     modifier = Modifier.fillMaxSize(),
                 )
             }
+            WatchedOverlay(watched, progress)
         }
         Text(
             title,
@@ -282,4 +294,24 @@ fun ResumePromptDialog(container: AppContainer) {
         },
     )
     LaunchedEffect(p) { runCatching { resumeFocus.requestFocus() } }
+}
+
+/** Gesehen-Haken oben rechts und Fortschrittsbalken unten auf einem Vorschaubild. */
+@Composable
+fun androidx.compose.foundation.layout.BoxScope.WatchedOverlay(watched: Boolean, progress: Float?) {
+    if (watched) {
+        Box(
+            Modifier.align(Alignment.TopEnd).padding(5.dp).size(22.dp)
+                .clip(androidx.compose.foundation.shape.CircleShape).background(Success),
+            contentAlignment = Alignment.Center,
+        ) { Icon(androidx.compose.material.icons.Icons.Filled.Check, "Gesehen", tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(15.dp)) }
+    }
+    if (progress != null && !watched) {
+        androidx.compose.material3.LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(4.dp),
+            color = com.poweriptv.app.ui.theme.BrandCyan,
+            trackColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f),
+        )
+    }
 }

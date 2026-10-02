@@ -368,7 +368,9 @@ fun BrowseScreen(
                                 )
                             }
                         }
-                        else -> LazyVerticalGrid(
+                        else -> {
+                          val resumeVersion by container.resume.version.collectAsState()
+                          LazyVerticalGrid(
                             columns = GridCells.Adaptive(if (wide) 130.dp else 110.dp),
                             contentPadding = PaddingValues(8.dp),
                         ) {
@@ -379,8 +381,12 @@ fun BrowseScreen(
                                         context, container,
                                         listOf(PlayEntry(item.name, source.streamUrl(item), item, live = false)), 0,
                                     )
-                                }, subtitle = listOfNotNull(item.year?.toString(), item.ratingValue?.let { "★ %.1f".format(it) }).joinToString("  "))
+                                }, subtitle = listOfNotNull(item.year?.toString(), item.ratingValue?.let { "★ %.1f".format(it) }).joinToString("  "),
+                                    watched = item.type == ContentType.MOVIE && resumeVersion >= 0 && container.resume.isWatched(source.streamUrl(item)),
+                                    progress = if (item.type == ContentType.MOVIE) container.resume.progress(source.streamUrl(item)) else null,
+                                )
                             }
+                          }
                         }
                     }
                 }

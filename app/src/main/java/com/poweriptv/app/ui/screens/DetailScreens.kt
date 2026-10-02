@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.poweriptv.app.ui.screens
 
 import androidx.compose.foundation.shape.CircleShape
@@ -28,6 +30,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
+import com.poweriptv.app.ui.components.WatchedOverlay
+import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -295,6 +302,19 @@ fun MovieDetailScreen(container: AppContainer, onBack: () -> Unit) {
                         Spacer(Modifier.width(8.dp))
                         AddToListButton(container, item)
                         Text("Liste", style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.width(8.dp))
+                        // Gesehen-Markierung (wird beim Zuendeschauen automatisch gesetzt)
+                        val rv by container.resume.version.collectAsState()
+                        val movieUrl = source.streamUrl(playable)
+                        val watched = rv >= 0 && container.resume.isWatched(movieUrl)
+                        IconButton(onClick = { container.resume.markWatched(movieUrl, !watched) }, modifier = Modifier.tvFocus(CircleShape)) {
+                            Icon(
+                                if (watched) Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked,
+                                if (watched) "Als ungesehen markieren" else "Als gesehen markieren",
+                                tint = if (watched) com.poweriptv.app.ui.theme.Success else MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                        Text(if (watched) "Gesehen" else "Ungesehen", style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -372,6 +392,9 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
                         }
                     }
                     itemsIndexed(episodes) { index, ep ->
+                        val rv by container.resume.version.collectAsState()
+                        val epUrlW = source.episodeUrl(ep)
+                        val epWatched = rv >= 0 && container.resume.isWatched(epUrlW)
                         Row(
                             Modifier
                                 .fillMaxWidth()
@@ -379,7 +402,10 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
                                 .clip(RoundedCornerShape(10.dp))
                                 .tvFocus(RoundedCornerShape(10.dp), 1.02f)
                                 .background(MaterialTheme.colorScheme.surface)
-                                .clickable {
+                                .combinedClickable(onLongClick = {
+                                    // Lange druecken: gesehen / ungesehen umschalten
+                                    container.resume.markWatched(epUrlW, !epWatched)
+                                }) {
                                     val entries = episodes.map {
                                         PlayEntry("${item.name} – S${it.season}E${it.episodeNum} ${it.title}", source.episodeUrl(it), item, live = false)
                                     }
@@ -394,7 +420,8 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
                                     .background(MaterialTheme.colorScheme.surfaceVariant),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                FallbackImage(ep.imageCandidates, Modifier.fillMaxSize())
+                                FallbackImage(ep.imageCandidates, Modifier.fillMaxSize().alpha(if (epWatched) 0.55f else 1f))
+                                WatchedOverlay(epWatched, null)
                                 // kleines Play-Symbol ueber dem Vorschaubild
                                 Box(
                                     Modifier.size(30.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.55f)),
@@ -407,7 +434,10 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
                                 if (container.resume.lastEpisode(item.key)?.first == epUrl) {
                                     Text("▶ Zuletzt gesehen", color = com.poweriptv.app.ui.theme.BrandCyan, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                                 }
-                                Text("${ep.episodeNum}. ${ep.title}", maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("${ep.episodeNum}. ${ep.title}", maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f, fill = false))
+                                    if (epWatched) Text("  ✓ Gesehen", color = com.poweriptv.app.ui.theme.Success, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                }
                                 container.resume.progress(epUrl)?.let { p ->
                                     androidx.compose.material3.LinearProgressIndicator(
                                         progress = { p },

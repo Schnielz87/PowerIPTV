@@ -8,6 +8,9 @@ import android.content.Context
  */
 class ResumeRepository(context: Context) {
     private val prefs = context.getSharedPreferences("resume", Context.MODE_PRIVATE)
+    private val _version = kotlinx.coroutines.flow.MutableStateFlow(0)
+    /** Aendert sich bei Gesehen-/Fortschritts-Aenderungen (fuer die Oberflaeche). */
+    val version: kotlinx.coroutines.flow.StateFlow<Int> = _version
 
     /** Gespeicherte Position in ms (0 = von vorne). */
     fun get(url: String): Long = prefs.getLong(url, 0L)
@@ -16,8 +19,10 @@ class ResumeRepository(context: Context) {
     fun save(url: String, positionMs: Long, durationMs: Long) {
         if (durationMs <= 0) return
         val nearEnd = positionMs >= durationMs - maxOf(60_000L, durationMs / 20)
-        if (positionMs < 30_000L || nearEnd) clear(url)
+        if (nearEnd) { clear(url); markWatched(url, true); return }
+        if (positionMs < 30_000L) clear(url)
         else prefs.edit().putLong(url, positionMs).putLong("$url|d", durationMs).apply()
+        _version.value++
     }
 
     /** Restzeit in ms (null = unbekannt). */
@@ -55,6 +60,15 @@ class ResumeRepository(context: Context) {
         val (a, b) = v.split(":").mapNotNull { it.toLongOrNull() }.takeIf { it.size == 2 } ?: return null
         return a to b
     }
+
+    /** Film/Folge als gesehen (oder wieder ungesehen) markieren. */
+    fun markWatched(url: String, watched: Boolean) {
+        prefs.edit().apply { if (watched) putBoolean("w|$url", true) else remove("w|$url") }.apply()
+        if (watched) clear(url)
+        _version.value++
+    }
+
+    fun isWatched(url: String) = prefs.getBoolean("w|$url", false)
 
     fun clear(url: String) {
         prefs.edit().remove(url).remove("$url|d").apply()

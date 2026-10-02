@@ -175,7 +175,7 @@ class VlcPlayerActivity : ComponentActivity() {
                 MediaPlayer.Event.EndReached -> if (current()?.live == true && watchingRecording) runOnUiThread {
                     play(container.playIndex) // Aufnahme beendet -> wieder normal live
                 } else if (current()?.live != true) runOnUiThread {
-                    current()?.let { container.resume.clear(it.url) } // zu Ende gesehen
+                    current()?.let { container.resume.markWatched(it.url, true) } // zu Ende gesehen
                     resumeTarget = -1L
                     if (hasNext() && !nextCancelled) next()
                 }

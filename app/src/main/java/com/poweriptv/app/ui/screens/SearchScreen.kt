@@ -146,6 +146,8 @@ fun SearchScreen(container: AppContainer, onBack: () -> Unit, onOpenDetail: (Con
                                             item.name, item.logo, onClick = { open(item, list) },
                                             modifier = Modifier.width(120.dp),
                                             subtitle = listOfNotNull(item.year?.toString(), item.ratingValue?.let { "★ %.1f".format(it) }).joinToString("  "),
+                                            watched = item.type == ContentType.MOVIE && container.source?.let { container.resume.isWatched(it.streamUrl(item)) } == true,
+                                            progress = if (item.type == ContentType.MOVIE) container.source?.let { container.resume.progress(it.streamUrl(item)) } else null,
                                         )
                                     }
                                 }
