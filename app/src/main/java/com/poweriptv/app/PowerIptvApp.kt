@@ -172,7 +172,12 @@ class AppContainer(private val app: Application) {
         settings.setLastProfileId(profile?.id)
         favorites.bind(profile?.id)
         history.bind(profile?.id)
+        maxConnections = null
+        source?.let { src -> scope.launch { maxConnections = runCatching { src.accountInfo()?.maxConnections?.toIntOrNull() }.getOrNull() } }
     }
+
+    /** Erlaubte gleichzeitige Verbindungen des Accounts (Xtream max_connections; null = unbekannt). */
+    @Volatile var maxConnections: Int? = null
 
     init {
         activate(profiles.get(settings.lastProfileId.value))

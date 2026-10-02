@@ -45,6 +45,10 @@ class RecordingService : Service() {
             this, NOTIFICATION_ID, notification("Aufnahme wird gestartet"),
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else 0,
         )
+        if (intent?.action == ACTION_STOP) {
+            // "Stoppen" in der Benachrichtigung: alle laufenden Aufnahmen beenden (werden gespeichert)
+            container.recordings.running().forEach { container.recordings.stop(it.id) }
+        }
         val id = intent?.getStringExtra(EXTRA_ID)
         if (id != null && jobs[id]?.isActive != true) {
             jobs[id] = scope.launch { record(id) }
@@ -126,6 +130,13 @@ class RecordingService : Service() {
         .setContentText(text)
         .setOngoing(true)
         .setOnlyAlertOnce(true)
+        .addAction(
+            android.R.drawable.ic_media_pause, "Aufnahme stoppen",
+            android.app.PendingIntent.getService(
+                this, 1, Intent(this, RecordingService::class.java).setAction(ACTION_STOP),
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+            ),
+        )
         .build()
 
     override fun onDestroy() {
@@ -135,6 +146,7 @@ class RecordingService : Service() {
 
     companion object {
         const val EXTRA_ID = "recording_id"
+        const val ACTION_STOP = "com.poweriptv.app.record.STOP"
         private const val CHANNEL = "recordings"
         private const val NOTIFICATION_ID = 4712
     }

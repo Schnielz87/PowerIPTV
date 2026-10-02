@@ -64,6 +64,12 @@ class RecordingRepository(private val context: Context, private val json: Json) 
     fun patch(id: String, f: (Recording) -> Recording) = mutate { list -> list.map { if (it.id == id) f(it) else it } }
     fun get(id: String) = _entries.value.firstOrNull { it.id == id }
 
+    /** Laufende Aufnahmen (jede belegt eine Verbindung zum Anbieter). */
+    fun running(): List<Recording> = _entries.value.filter { it.status == RecStatus.RECORDING }
+
+    /** Laufende Aufnahme genau dieses Senders (gleiche Stream-URL). */
+    fun activeFor(url: String): Recording? = running().firstOrNull { it.url == url }
+
     /** Plant eine Aufnahme. Liefert eine Statusmeldung fuer die Oberflaeche. */
     fun schedule(title: String, channelName: String, url: String, start: Long, end: Long, logo: String?): String {
         val clash = _entries.value.firstOrNull {

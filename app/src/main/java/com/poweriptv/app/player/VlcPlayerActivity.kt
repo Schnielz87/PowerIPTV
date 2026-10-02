@@ -27,6 +27,9 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
@@ -92,6 +95,12 @@ class VlcPlayerActivity : ComponentActivity() {
     private var length by mutableStateOf(0L)
     /** Waehrend der Nutzer den Regler zieht, keine Positions-Updates. */
     private var dragging by mutableStateOf<Float?>(null)
+    private var showRecordDialog by mutableStateOf(false)
+    /** Live-Bild kommt aus der laufenden Aufnahme (spart eine Verbindung zum Anbieter). */
+    private var watchingRecording = false
+    private var recPipe: android.os.ParcelFileDescriptor? = null
+    /** Sender kann nicht geoeffnet werden, weil die Aufnahme die einzige Verbindung belegt. */
+    private var blockedRec by mutableStateOf<com.poweriptv.app.record.Recording?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -121,7 +130,9 @@ class VlcPlayerActivity : ComponentActivity() {
                 MediaPlayer.Event.Playing -> { playing = true; buffering = false; error = null; if (mediaPlayer.length > 0) applyResume() }
                 MediaPlayer.Event.Paused, MediaPlayer.Event.Stopped -> playing = false
                 MediaPlayer.Event.EncounteredError -> { error = "Wiedergabe fehlgeschlagen (VLC)"; buffering = false }
-                MediaPlayer.Event.EndReached -> if (current()?.live != true) runOnUiThread {
+                MediaPlayer.Event.EndReached -> if (current()?.live == true && watchingRecording) runOnUiThread {
+                    play(container.playIndex) // Aufnahme beendet -> wieder normal live
+                } else if (current()?.live != true) runOnUiThread {
                     current()?.let { container.resume.clear(it.url) } // zu Ende gesehen
                     resumeTarget = -1L
                     if (hasNext()) next()
@@ -162,6 +173,12 @@ class VlcPlayerActivity : ComponentActivity() {
                     )
                     if (buffering && error == null) CircularProgressIndicator(Modifier.align(Alignment.Center), color = BrandCyan)
                     CastingBar(container, Modifier.align(Alignment.Center), onStop = { mediaPlayer.play() })
+                    if (showRecordDialog) RecordDialog(
+                        container, current(),
+                        onMessage = { toast = it },
+                        onStarted = { switchToRecordingSoon() },
+                        onDismiss = { showRecordDialog = false },
+                    )
                     if (showOverlay) {
                         Overlay()
                         if (current()?.live != true) SeekBar(Modifier.align(Alignment.BottomCenter))
@@ -182,7 +199,24 @@ class VlcPlayerActivity : ComponentActivity() {
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             Text(msg, color = Color.White)
-                            Button(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { play(container.playIndex) }) { Text("Erneut versuchen") }
+                            blockedRec?.let { rec ->
+                                Button(
+                                    modifier = Modifier.tvFocus(RoundedCornerShape(50)),
+                                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = com.poweriptv.app.ui.theme.Danger),
+                                    onClick = {
+                                        container.recordings.stop(rec.id)
+                                        blockedRec = null
+                                        error = null
+                                        toast = "Aufnahme gestoppt und gespeichert"
+                                        lifecycleScope.launch { delay(1500); play(container.playIndex) }
+                                    },
+                                ) { Text("■ Aufnahme stoppen & diesen Sender schauen") }
+                                val idx = container.playQueue.indexOfFirst { it.url == rec.url }
+                                if (idx >= 0) androidx.compose.material3.OutlinedButton(modifier = Modifier.tvFocus(RoundedCornerShape(50)), onClick = { play(idx) }) {
+                                    Text("Zurueck zu ${rec.channelName}", color = Color.White)
+                                }
+                            }
+                            if (blockedRec == null) Button(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { play(container.playIndex) }) { Text("Erneut versuchen") }
                         }
                     }
                 }
@@ -209,6 +243,11 @@ class VlcPlayerActivity : ComponentActivity() {
                     Text(title, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 CastButton(container, current(), current()?.item?.logo, tint = Color.White, onCasting = { mediaPlayer.pause() })
+                if (live) {
+                    IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { showRecordDialog = true }) {
+                        Icon(Icons.Filled.FiberManualRecord, "Aufnehmen", tint = com.poweriptv.app.ui.theme.Danger)
+                    }
+                }
                 IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { cycleScale() }) { Icon(Icons.Filled.AspectRatio, "Bildformat", tint = Color.White) }
             }
             Row(
@@ -326,6 +365,33 @@ class VlcPlayerActivity : ComponentActivity() {
         buffering = true
         entry.item?.let { container.history.add(it) }
 
+        blockedRec = null
+        watchingRecording = false
+        recPipe?.let { runCatching { mediaPlayer.stop(); it.close() } }
+        recPipe = null
+        if (entry.live) {
+            // Laeuft fuer diesen Sender eine Aufnahme? -> aus der Aufnahme schauen (keine 2. Verbindung)
+            container.recordings.activeFor(entry.url)?.let { rec ->
+                if (java.io.File(rec.filePath).exists()) {
+                    watchingRecording = true
+                    val pfd = RecordingLive.pipe(container, rec)
+                    recPipe = pfd
+                    val m = Media(libVlc, pfd.fileDescriptor).apply { addOption(":network-caching=1000"); addOption(":demux=ts") }
+                    mediaPlayer.media = m
+                    m.release()
+                    mediaPlayer.play()
+                    toast = "● Aufnahme laeuft – Bild kommt aus der Aufnahme"
+                    return
+                }
+            }
+            RecordingLive.blockedBy(container, entry)?.let { rec ->
+                mediaPlayer.stop()
+                buffering = false
+                blockedRec = rec
+                error = RecordingLive.blockedMessage(container, rec)
+                return
+            }
+        }
         val local = entry.url.startsWith("/")
         if (!local && container.settings.vpnRequired.value && !container.vpn.isProtected()) {
             mediaPlayer.stop()
@@ -347,6 +413,17 @@ class VlcPlayerActivity : ComponentActivity() {
         mediaPlayer.media = media
         media.release()
         mediaPlayer.play()
+    }
+
+    /** Nach Start einer Aufnahme: Live-Verbindung freigeben und aus der Aufnahme weiterschauen. */
+    private fun switchToRecordingSoon() {
+        val entry = current() ?: return
+        runCatching { mediaPlayer.stop() }
+        buffering = true
+        lifecycleScope.launch {
+            RecordingLive.awaitData(container, entry.url)
+            if (current()?.url == entry.url) play(container.playIndex)
+        }
     }
 
     private fun next() = play(container.playIndex + 1)
@@ -407,6 +484,7 @@ class VlcPlayerActivity : ComponentActivity() {
             KeyEvent.KEYCODE_PROG_BLUE, KeyEvent.KEYCODE_TV_ZOOM_MODE -> { cycleScale(); return true }
             KeyEvent.KEYCODE_INFO, KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_GUIDE -> { showOverlay = !showOverlay; return true }
             KeyEvent.KEYCODE_BUTTON_B -> { closePlayer(); return true }
+            KeyEvent.KEYCODE_MEDIA_RECORD, KeyEvent.KEYCODE_PROG_RED -> if (live) { showRecordDialog = true; return true }
         }
         return super.dispatchKeyEvent(event)
     }
@@ -424,6 +502,7 @@ class VlcPlayerActivity : ComponentActivity() {
             mediaPlayer.stop()
             mediaPlayer.detachViews()
             mediaPlayer.release()
+            recPipe?.close()
             // libVlc NICHT freigeben – wird app-weit wiederverwendet
         }
         super.onDestroy()

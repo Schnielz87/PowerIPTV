@@ -117,6 +117,10 @@ class PlayerActivity : ComponentActivity() {
     /** Letzte Bedienung (Taste/Tipp) – 5 s danach blendet sich die Leiste automatisch aus. */
     private var lastInteraction by mutableLongStateOf(System.currentTimeMillis())
     private var showRecordDialog by mutableStateOf(false)
+    /** Live-Bild kommt aus der laufenden Aufnahme (spart eine Verbindung zum Anbieter). */
+    private var watchingRecording = false
+    /** Sender kann nicht geoeffnet werden, weil die Aufnahme die einzige Verbindung belegt. */
+    private var blockedRec by mutableStateOf<com.poweriptv.app.record.Recording?>(null)
     private var toast by mutableStateOf<String?>(null)
     private var numberInput by mutableStateOf("")
 
@@ -177,6 +181,8 @@ class PlayerActivity : ComponentActivity() {
 
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_READY) error = null
+                // Aufnahme ist zu Ende -> wieder normal live schauen
+                if (state == Player.STATE_ENDED && current()?.live == true && watchingRecording) { play(container.playIndex); return }
                 if (state == Player.STATE_ENDED && current()?.live != true) {
                     current()?.let { container.resume.clear(it.url) } // zu Ende gesehen
                     if (hasNext()) next()
@@ -195,6 +201,7 @@ class PlayerActivity : ComponentActivity() {
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                 if (switchingSource || reason != Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) return
+                if (watchingRecording) return // Pause = Aufnahmedatei pausieren, kein extra Puffer noetig
                 if (current()?.live != true) return
                 if (!playWhenReady && !timeshiftActive) startTimeshift()
                 else if (playWhenReady && timeshiftActive && !playingBuffer) playTimeshiftBuffer()
@@ -288,10 +295,33 @@ class PlayerActivity : ComponentActivity() {
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             Text(msg, color = Color.White)
-                            Button(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { play(container.playIndex) }) { Text("Erneut versuchen") }
+                            blockedRec?.let { rec ->
+                                Button(
+                                    modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f),
+                                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Danger),
+                                    onClick = {
+                                        container.recordings.stop(rec.id)
+                                        blockedRec = null
+                                        error = null
+                                        toast = "Aufnahme gestoppt und gespeichert"
+                                        // Verbindung der Aufnahme freigeben lassen, dann diesen Sender starten
+                                        lifecycleScope.launch { delay(1500); play(container.playIndex) }
+                                    },
+                                ) { Text("■ Aufnahme stoppen & diesen Sender schauen") }
+                                val idx = container.playQueue.indexOfFirst { it.url == rec.url }
+                                if (idx >= 0) OutlinedButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { play(idx) }) {
+                                    Text("Zurueck zu ${rec.channelName}", color = Color.White)
+                                }
+                            }
+                            if (blockedRec == null) Button(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { play(container.playIndex) }) { Text("Erneut versuchen") }
                         }
                     }
-                    if (showRecordDialog) RecordDialog()
+                    if (showRecordDialog) RecordDialog(
+                        container, current(),
+                        onMessage = { toast = it },
+                        onStarted = { switchToRecordingSoon() },
+                        onDismiss = { showRecordDialog = false },
+                    )
                 }
             }
         }
@@ -359,38 +389,6 @@ class PlayerActivity : ComponentActivity() {
                 )
             }
         }
-    }
-
-    @Composable
-    private fun RecordDialog() {
-        val entry = current()
-        val item = entry?.item
-        val now = System.currentTimeMillis()
-        val currentProgramme = item?.let { container.epg.current(it, now) }
-        fun start(minutes: Int?) {
-            if (entry == null) return
-            toast = if (minutes == null && currentProgramme != null) {
-                container.recordings.schedule(currentProgramme.title, entry.title, entry.url, now, currentProgramme.end, item?.logo)
-            } else {
-                container.recordings.recordNow(entry.title, entry.title, entry.url, minutes ?: 60, item?.logo)
-            }
-            showRecordDialog = false
-        }
-        AlertDialog(
-            onDismissRequest = { showRecordDialog = false },
-            title = { Text("Aufnahme starten") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (currentProgramme != null) {
-                        Button(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { start(null) }) { Text("Bis Sendungsende: ${currentProgramme.title}", maxLines = 1) }
-                    }
-                    listOf(30, 60, 120, 180).forEach { m ->
-                        OutlinedButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { start(m) }) { Text("$m Minuten") }
-                    }
-                }
-            },
-            confirmButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { showRecordDialog = false }) { Text("Abbrechen") } },
-        )
     }
 
     private fun formatDelay(ms: Long): String {
@@ -514,6 +512,19 @@ class PlayerActivity : ComponentActivity() {
             player.stop()
             return
         }
+        blockedRec = null
+        watchingRecording = false
+        if (entry.live) {
+            // Laeuft fuer diesen Sender eine Aufnahme? -> aus der Aufnahme schauen (keine 2. Verbindung)
+            container.recordings.activeFor(entry.url)?.let { rec -> playFromRecording(rec); return }
+            // Verbindungen des Accounts durch Aufnahmen belegt? -> Hinweis statt Haenger
+            RecordingLive.blockedBy(container, entry)?.let { rec ->
+                withSwitch { player.stop() }
+                blockedRec = rec
+                error = RecordingLive.blockedMessage(container, rec)
+                return
+            }
+        }
         val uri = if (isLocal(entry.url)) Uri.fromFile(File(entry.url)) else Uri.parse(entry.url)
         val builder = MediaItem.Builder().setUri(uri)
         if (entry.url.contains(".m3u8", ignoreCase = true)) builder.setMimeType(MimeTypes.APPLICATION_M3U8)
@@ -530,6 +541,34 @@ class PlayerActivity : ComponentActivity() {
     private inline fun withSwitch(block: () -> Unit) {
         switchingSource = true
         try { block() } finally { switchingSource = false }
+    }
+
+    // ---------- Aufnahme + Schauen mit einer Verbindung ----------
+
+    private fun playFromRecording(rec: com.poweriptv.app.record.Recording) {
+        val file = File(rec.filePath)
+        if (!file.exists()) { lifecycleScope.launch { RecordingLive.awaitData(container, rec.url); play(container.playIndex) }; return }
+        watchingRecording = true
+        val offset = RecordingLive.liveOffset(file)
+        val factory = DataSource.Factory { GrowingFileDataSource(file, { RecordingLive.isGrowing(container, rec.id) }, offset) }
+        val source = ProgressiveMediaSource.Factory(factory).createMediaSource(MediaItem.fromUri(Uri.fromFile(file)))
+        withSwitch {
+            player.setMediaSource(source)
+            player.prepare()
+            player.playWhenReady = true
+        }
+        toast = "● Aufnahme laeuft – Bild kommt aus der Aufnahme"
+    }
+
+    /** Nach Start einer Aufnahme: Live-Verbindung freigeben und aus der Aufnahme weiterschauen. */
+    private fun switchToRecordingSoon() {
+        val entry = current() ?: return
+        stopTimeshift()
+        withSwitch { player.stop() }
+        lifecycleScope.launch {
+            RecordingLive.awaitData(container, entry.url)
+            if (current()?.url == entry.url) play(container.playIndex)
+        }
     }
 
     // ---------- Timeshift (Live pausieren) ----------

@@ -18,6 +18,7 @@ import java.io.RandomAccessFile
 class GrowingFileDataSource(
     private val file: File,
     private val isGrowing: () -> Boolean,
+    private val startOffset: Long = 0L,
 ) : BaseDataSource(false) {
     private var raf: RandomAccessFile? = null
     private var uri: Uri? = null
@@ -27,7 +28,7 @@ class GrowingFileDataSource(
         uri = dataSpec.uri
         transferInitializing(dataSpec)
         val r = RandomAccessFile(file, "r")
-        r.seek(dataSpec.position)
+        r.seek(startOffset + dataSpec.position)
         raf = r
         opened = true
         transferStarted(dataSpec)
