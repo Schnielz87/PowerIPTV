@@ -321,7 +321,13 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
     var ageRating by remember { mutableStateOf<com.poweriptv.app.data.AgeRating?>(null) }
     LaunchedEffect(item.key) {
         runCatching { source.seriesInfo(item) }
-            .onSuccess { info = it; season = season ?: it?.episodes?.keys?.firstOrNull() }
+            .onSuccess { si ->
+                info = si
+                // Staffel der zuletzt gesehenen Folge vorauswaehlen
+                val lastUrl = container.resume.lastEpisode(item.key)?.first
+                val lastSeason = si?.episodes?.values?.flatten()?.firstOrNull { source.episodeUrl(it) == lastUrl }?.season
+                season = season ?: lastSeason ?: si?.episodes?.keys?.firstOrNull()
+            }
             .onFailure { error = it.message }
         loading = false
         val i = info
@@ -397,7 +403,19 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
                             }
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
+                                val epUrl = source.episodeUrl(ep)
+                                if (container.resume.lastEpisode(item.key)?.first == epUrl) {
+                                    Text("▶ Zuletzt gesehen", color = com.poweriptv.app.ui.theme.BrandCyan, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                }
                                 Text("${ep.episodeNum}. ${ep.title}", maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
+                                container.resume.progress(epUrl)?.let { p ->
+                                    androidx.compose.material3.LinearProgressIndicator(
+                                        progress = { p },
+                                        modifier = Modifier.fillMaxWidth(0.6f).padding(vertical = 3.dp).height(3.dp).clip(RoundedCornerShape(2.dp)),
+                                        color = com.poweriptv.app.ui.theme.BrandCyan,
+                                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    )
+                                }
                                 ep.duration?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                                 ep.plot?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                             }

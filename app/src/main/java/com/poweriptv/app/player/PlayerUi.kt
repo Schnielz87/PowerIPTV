@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -115,4 +116,48 @@ fun FormatBadge(text: String?, onDone: () -> Unit) {
                 .padding(horizontal = 22.dp, vertical = 10.dp),
         )
     }
+}
+
+/** "Naechste Folge in X s" (unten rechts) mit Sofort-Start und Abbrechen. OK = jetzt abspielen. */
+@Composable
+fun NextEpisodeCard(title: String, seconds: Int, onPlay: () -> Unit, onCancel: () -> Unit) {
+    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.BottomEnd) {
+        Column(
+            Modifier.clip(RoundedCornerShape(14.dp)).background(Color(0xE6101620)).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("Naechste Folge in $seconds s", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text(title, color = Color.White.copy(alpha = 0.8f), maxLines = 2, fontSize = 14.sp, modifier = Modifier.widthIn(max = 360.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                androidx.compose.material3.Button(onClick = onPlay, modifier = Modifier.tvFocus(RoundedCornerShape(50))) { Text("▶ Jetzt abspielen") }
+                androidx.compose.material3.OutlinedButton(onClick = onCancel, modifier = Modifier.tvFocus(RoundedCornerShape(50))) { Text("Abbrechen", color = Color.White) }
+            }
+        }
+    }
+}
+
+/** "Intro ueberspringen" unten rechts (Serien, in den ersten Minuten). OK auf der Fernbedienung loest aus. */
+@Composable
+fun SkipIntroButton(onClick: () -> Unit) {
+    Box(Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp, bottom = 96.dp), contentAlignment = Alignment.BottomEnd) {
+        androidx.compose.material3.OutlinedButton(
+            onClick = onClick,
+            modifier = Modifier.tvFocus(RoundedCornerShape(50)).background(Color(0x99000000), RoundedCornerShape(50)),
+        ) { Text("Intro ueberspringen ⏭", color = Color.White, fontWeight = FontWeight.Bold) }
+    }
+}
+
+/** Gemeinsame Logik fuer Serien-Komfort in beiden Playern. */
+object EpisodeFlow {
+    /** Countdown-Start vor Ende (ms). */
+    const val NEXT_BEFORE_END = 20_000L
+    /** Sprungweite und Zeitfenster fuer "Intro ueberspringen". */
+    const val INTRO_SKIP = 85_000L
+    const val INTRO_WINDOW_START = 5_000L
+    const val INTRO_WINDOW_END = 240_000L
+
+    fun isEpisode(e: com.poweriptv.app.PlayEntry?) = e != null && !e.live && e.item?.type == com.poweriptv.app.data.ContentType.SERIES
+
+    /** "Serie – S1E2 Titel" -> "S1E2 Titel" */
+    fun episodeLabel(title: String) = title.substringAfter(" – ", title)
 }

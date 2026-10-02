@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
@@ -196,6 +197,65 @@ fun HomeScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         row.forEach { (label, icon, action) -> SmallTile(label, icon, Modifier.weight(1f), action) }
                         repeat(perRow - row.size) { Spacer(Modifier.weight(1f)) }
+                    }
+                }
+
+                // Weiterschauen: angefangene Filme + zuletzt gesehene Folge jeder Serie
+                if (history.isNotEmpty() && source != null) {
+                    val cont = history.mapNotNull { item ->
+                        when (item.type) {
+                            ContentType.MOVIE -> {
+                                val url = source.streamUrl(item)
+                                val p = container.resume.progress(url) ?: return@mapNotNull null
+                                val left = container.resume.remaining(url)?.let { "Noch ${(it / 60_000).coerceAtLeast(1)} Min." }
+                                Triple(item, p, left ?: "${(p * 100).toInt()} % gesehen")
+                            }
+                            ContentType.SERIES -> {
+                                val (url, label) = container.resume.lastEpisode(item.key) ?: return@mapNotNull null
+                                Triple(item, container.resume.progress(url) ?: 0f, label)
+                            }
+                            else -> null
+                        }
+                    }.take(20)
+                    if (cont.isNotEmpty()) {
+                        Text("Weiterschauen", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
+                            items(cont, key = { "c_" + it.first.key }) { (item, progress, sub) ->
+                                Column(
+                                    Modifier.width(130.dp).clip(RoundedCornerShape(10.dp)).tvFocus(RoundedCornerShape(10.dp))
+                                        .clickable {
+                                            if (item.type == ContentType.MOVIE) {
+                                                // Fragt automatisch "Weiterschauen ab … / Von vorne"
+                                                startPlayback(context, container, listOf(PlayEntry(item.name, source.streamUrl(item), item, live = false)), 0)
+                                            } else onOpenDetail(item)
+                                        }
+                                        .background(MaterialTheme.colorScheme.surface).padding(8.dp),
+                                ) {
+                                    Box(
+                                        Modifier.fillMaxWidth().height(165.dp).clip(RoundedCornerShape(6.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        if (!item.logo.isNullOrBlank()) AsyncImage(item.logo, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                        // Play-Symbol
+                                        Box(
+                                            Modifier.size(38.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color.Black.copy(alpha = 0.55f)),
+                                            contentAlignment = Alignment.Center,
+                                        ) { Icon(Icons.Filled.PlayArrow, null, tint = Color.White) }
+                                    }
+                                    androidx.compose.material3.LinearProgressIndicator(
+                                        progress = { progress },
+                                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp).height(4.dp).clip(RoundedCornerShape(2.dp)),
+                                        color = BrandCyan,
+                                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    )
+                                    Text(item.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
+                                    Text(sub, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
                     }
                 }
 

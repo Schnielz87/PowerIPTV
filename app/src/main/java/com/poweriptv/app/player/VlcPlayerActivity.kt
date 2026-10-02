@@ -100,6 +100,12 @@ class VlcPlayerActivity : ComponentActivity() {
     private var dragging by mutableStateOf<Float?>(null)
     private var showRecordDialog by mutableStateOf(false)
     private var showFormatDialog by mutableStateOf(false)
+    /** Serien: Countdown "Naechste Folge" (Sekunden) bzw. vom Nutzer abgebrochen. */
+    private var nextCountdown by mutableStateOf<Int?>(null)
+    private var nextCancelled = false
+    /** Serien: "Intro ueberspringen" anbieten. */
+    private var showSkipIntro by mutableStateOf(false)
+    private var introSkipped = false
     /** Letzte Bedienung (Tippen/Taste) – fuer das automatische Ausblenden der Leiste. */
     private var lastInteraction = System.currentTimeMillis()
     /** Vom Nutzer pausiert -> Leiste bleibt stehen. */
@@ -120,7 +126,8 @@ class VlcPlayerActivity : ComponentActivity() {
         // Zurueck: ist die Leiste eingeblendet, erst diese ausblenden – erst danach den Player schliessen
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (showOverlay) showOverlay = false else closePlayer()
+                if (nextCountdown != null) cancelNext()
+                else if (showOverlay) showOverlay = false else closePlayer()
             }
         })
         // Immer nur ein Player
@@ -164,7 +171,7 @@ class VlcPlayerActivity : ComponentActivity() {
                 } else if (current()?.live != true) runOnUiThread {
                     current()?.let { container.resume.clear(it.url) } // zu Ende gesehen
                     resumeTarget = -1L
-                    if (hasNext()) next()
+                    if (hasNext() && !nextCancelled) next()
                 }
                 MediaPlayer.Event.LengthChanged -> applyResume()
             }
@@ -203,6 +210,18 @@ class VlcPlayerActivity : ComponentActivity() {
                     if (buffering && error == null) CircularProgressIndicator(Modifier.align(Alignment.Center), color = BrandCyan)
                     CastingBar(container, Modifier.align(Alignment.Center), onStop = { mediaPlayer.play() })
                     FormatBadge(formatBadge) { formatBadge = null }
+                    nextCountdown?.let { sec -> NextEpisodeCard(nextTitle(), sec, onPlay = { next() }, onCancel = { cancelNext() }) }
+                    if (showSkipIntro && nextCountdown == null) SkipIntroButton { skipIntro() }
+                    LaunchedEffect(Unit) {
+                        while (true) {
+                            delay(500)
+                            if (!watchingRecording) {
+                                val t = runCatching { mediaPlayer.time }.getOrDefault(0L)
+                                val l = runCatching { mediaPlayer.length }.getOrDefault(0L)
+                                updateEpisodeFlow(t, l, playing)
+                            }
+                        }
+                    }
                     if (showFormatDialog) PlayerSettingsDialog(
                         audio = vlcTracks(audio = true),
                         subtitles = vlcTracks(audio = false),
@@ -419,6 +438,9 @@ class VlcPlayerActivity : ComponentActivity() {
         title = entry.title
         error = null
         buffering = true
+        // Serien-Komfort zuruecksetzen und Folge als "zuletzt gesehen" merken
+        nextCancelled = false; nextCountdown = null; introSkipped = false; showSkipIntro = false
+        if (EpisodeFlow.isEpisode(entry)) container.resume.setLastEpisode(entry.item!!.key, entry.url, EpisodeFlow.episodeLabel(entry.title))
         entry.item?.let { container.history.add(it) }
 
         scrubPreview?.release()
@@ -513,6 +535,31 @@ class VlcPlayerActivity : ComponentActivity() {
         return if (audio) list else listOf(TrackOption(OFF_KEY, "Aus", current < 0)) + list
     }
 
+    private fun skipIntro() {
+        introSkipped = true
+        showSkipIntro = false
+        seekBy(EpisodeFlow.INTRO_SKIP)
+    }
+
+    private fun cancelNext() {
+        nextCancelled = true
+        nextCountdown = null
+    }
+
+    /** Naechster Titel der Warteschlange (fuer die Countdown-Karte). */
+    private fun nextTitle() = container.playQueue.getOrNull(container.playIndex + 1)?.title?.let { EpisodeFlow.episodeLabel(it) }.orEmpty()
+
+    /** Countdown und Intro-Knopf anhand der aktuellen Position aktualisieren (alle 0,5 s). */
+    private fun updateEpisodeFlow(pos: Long, dur: Long, isPlaying: Boolean) {
+        val e = current()
+        nextCountdown = if (e != null && !e.live && hasNext() && dur > 0 && !nextCancelled) {
+            val rem = dur - pos
+            if (rem in 1..EpisodeFlow.NEXT_BEFORE_END) ((rem + 999) / 1000).toInt() else null
+        } else null
+        showSkipIntro = EpisodeFlow.isEpisode(e) && !introSkipped && isPlaying &&
+            pos in EpisodeFlow.INTRO_WINDOW_START..EpisodeFlow.INTRO_WINDOW_END
+    }
+
     private fun changeScale(v: VideoScale) {
         scale = v
         applyScale()
@@ -534,6 +581,11 @@ class VlcPlayerActivity : ComponentActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return super.dispatchKeyEvent(event)
         lastInteraction = System.currentTimeMillis()
+        // Serien: OK startet die naechste Folge bzw. ueberspringt das Intro
+        if (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER) {
+            if (nextCountdown != null) { next(); return true }
+            if (showSkipIntro && !showOverlay) { skipIntro(); return true }
+        }
         val live = current()?.live == true
         if (!live) {
             val step = seekStep

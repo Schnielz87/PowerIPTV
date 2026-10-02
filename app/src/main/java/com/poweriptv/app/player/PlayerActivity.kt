@@ -122,6 +122,12 @@ class PlayerActivity : ComponentActivity() {
     private var lastInteraction by mutableLongStateOf(System.currentTimeMillis())
     private var showRecordDialog by mutableStateOf(false)
     private var showFormatDialog by mutableStateOf(false)
+    /** Serien: Countdown "Naechste Folge" (Sekunden) bzw. vom Nutzer abgebrochen. */
+    private var nextCountdown by mutableStateOf<Int?>(null)
+    private var nextCancelled = false
+    /** Serien: "Intro ueberspringen" anbieten. */
+    private var showSkipIntro by mutableStateOf(false)
+    private var introSkipped = false
     /** Zahnrad oben rechts – per Fernbedienung (Hoch) erreichbar. */
     private val gearFocus = androidx.compose.ui.focus.FocusRequester()
     /** Fokus liegt auf einem Knopf der oberen Leiste -> nicht automatisch ausblenden. */
@@ -154,7 +160,8 @@ class PlayerActivity : ComponentActivity() {
         // Zurueck: sind die Leisten eingeblendet, erst diese ausblenden – erst danach den Player schliessen
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (showOverlay || playerView?.isControllerFullyVisible == true) hideOverlay() else closePlayer()
+                if (nextCountdown != null) cancelNext()
+                else if (showOverlay || playerView?.isControllerFullyVisible == true) hideOverlay() else closePlayer()
             }
         })
         // Immer nur EIN Player: ein evtl. noch laufender (z.B. im Mini-Fenster) wird beendet
@@ -213,7 +220,7 @@ class PlayerActivity : ComponentActivity() {
                 if (state == Player.STATE_ENDED && current()?.live == true && watchingRecording) { play(container.playIndex); return }
                 if (state == Player.STATE_ENDED && current()?.live != true) {
                     current()?.let { container.resume.clear(it.url) } // zu Ende gesehen
-                    if (hasNext()) next()
+                    if (hasNext() && !nextCancelled) next()
                 }
             }
 
@@ -370,6 +377,14 @@ class PlayerActivity : ComponentActivity() {
                         }
                     }
                     FormatBadge(formatBadge) { formatBadge = null }
+                    nextCountdown?.let { sec -> NextEpisodeCard(nextTitle(), sec, onPlay = { next() }, onCancel = { cancelNext() }) }
+                    if (showSkipIntro && nextCountdown == null) SkipIntroButton { skipIntro() }
+                    LaunchedEffect(Unit) {
+                        while (true) {
+                            delay(500)
+                            if (!watchingRecording && !timeshiftActive) updateEpisodeFlow(player.currentPosition, player.duration, player.isPlaying)
+                        }
+                    }
                     if (showFormatDialog) PlayerSettingsDialog(
                         audio = trackOptions(C.TRACK_TYPE_AUDIO),
                         subtitles = trackOptions(C.TRACK_TYPE_TEXT),
@@ -567,6 +582,31 @@ class PlayerActivity : ComponentActivity() {
         player.trackSelectionParameters = params.build()
     }
 
+    private fun skipIntro() {
+        introSkipped = true
+        showSkipIntro = false
+        seekBy(EpisodeFlow.INTRO_SKIP)
+    }
+
+    private fun cancelNext() {
+        nextCancelled = true
+        nextCountdown = null
+    }
+
+    /** Naechster Titel der Warteschlange (fuer die Countdown-Karte). */
+    private fun nextTitle() = container.playQueue.getOrNull(container.playIndex + 1)?.title?.let { EpisodeFlow.episodeLabel(it) }.orEmpty()
+
+    /** Countdown und Intro-Knopf anhand der aktuellen Position aktualisieren (alle 0,5 s). */
+    private fun updateEpisodeFlow(pos: Long, dur: Long, isPlaying: Boolean) {
+        val e = current()
+        nextCountdown = if (e != null && !e.live && hasNext() && dur > 0 && !nextCancelled) {
+            val rem = dur - pos
+            if (rem in 1..EpisodeFlow.NEXT_BEFORE_END) ((rem + 999) / 1000).toInt() else null
+        } else null
+        showSkipIntro = EpisodeFlow.isEpisode(e) && !introSkipped && isPlaying &&
+            pos in EpisodeFlow.INTRO_WINDOW_START..EpisodeFlow.INTRO_WINDOW_END
+    }
+
     private fun changeVideoScale(v: VideoScale) {
         videoScale = v
         playerView?.resizeMode = resizeModeFor(v)
@@ -625,6 +665,9 @@ class PlayerActivity : ComponentActivity() {
         val entry = queue[container.playIndex]
         title = entry.title
         error = null
+        // Serien-Komfort zuruecksetzen und Folge als "zuletzt gesehen" merken
+        nextCancelled = false; nextCountdown = null; introSkipped = false; showSkipIntro = false
+        if (EpisodeFlow.isEpisode(entry)) container.resume.setLastEpisode(entry.item!!.key, entry.url, EpisodeFlow.episodeLabel(entry.title))
         entry.item?.let { container.history.add(it) }
 
         if (container.settings.vpnRequired.value && !container.vpn.isProtected() && !isLocal(entry.url)) {
@@ -768,6 +811,11 @@ class PlayerActivity : ComponentActivity() {
         if (event.action != KeyEvent.ACTION_DOWN) return super.dispatchKeyEvent(event)
         val live = current()?.live == true
         val controllerVisible = playerView?.isControllerFullyVisible == true
+        // Serien: OK startet die naechste Folge bzw. ueberspringt das Intro
+        if (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER) {
+            if (nextCountdown != null) { next(); return true }
+            if (showSkipIntro && !controllerVisible) { skipIntro(); return true }
+        }
         // Filme/Serien: Spulen direkt per Fernbedienung (unabhaengig vom Fokus)
         if (!live) {
             val step = seekStep
