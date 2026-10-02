@@ -397,7 +397,7 @@ class VlcPlayerActivity : ComponentActivity() {
                 onValueChange = { dragging = it; showOverlay = true; lastInteraction = System.currentTimeMillis(); scrubPreview?.request((it * length).toLong()) },
                 onValueChangeFinished = {
                     scrubPreview?.pause()
-                    dragging?.let { mediaPlayer.time = (it * length).toLong() }
+                    dragging?.let { mediaPlayer.setTime((it * length).toLong(), true) } // Zeitleiste: schneller Sprung
                     dragging = null
                 },
                 modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
@@ -463,7 +463,9 @@ class VlcPlayerActivity : ComponentActivity() {
         seekJob?.cancel()
         seekJob = lifecycleScope.launch {
             delay(600)
-            mediaPlayer.time = pendingSeek
+            // Grosse Spruenge: schneller Sprung zum naechsten Schluesselbild; kleine: exakt
+            val jump = kotlin.math.abs(pendingSeek - seekOrigin)
+            mediaPlayer.setTime(pendingSeek, jump > 30_000)
             pendingSeekAt = System.currentTimeMillis()
         }
     }
