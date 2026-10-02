@@ -92,11 +92,22 @@ private fun DetailBackdrop(backdrop: String?) {
     if (backdrop.isNullOrBlank()) return
     val bg = MaterialTheme.colorScheme.background
     val clear = androidx.compose.ui.graphics.Color.Transparent
+    val context = LocalContext.current
+    // Helligkeit des Bildes (0 = schwarz, 1 = weiss): helle Bilder werden staerker abgedunkelt,
+    // damit Titel und Beschreibung immer gut lesbar bleiben
+    var brightness by remember(backdrop) { mutableStateOf(0.5f) }
+    val request = remember(backdrop) {
+        coil.request.ImageRequest.Builder(context).data(backdrop).allowHardware(false).build()
+    }
+    val extra = ((brightness - 0.25f) * 1.1f).coerceIn(0f, 0.55f)
     Box(Modifier.fillMaxSize()) {
         AsyncImage(
-            backdrop, null, contentScale = ContentScale.Crop, alignment = Alignment.TopEnd,
+            request, null, contentScale = ContentScale.Crop, alignment = Alignment.TopEnd,
             modifier = Modifier.fillMaxSize(), alpha = 0.7f,
+            onSuccess = { st -> brightness = averageBrightness(st.result.drawable) },
         )
+        // Gleichmaessige Abdunklung je nach Bildhelligkeit
+        Box(Modifier.fillMaxSize().background(bg.copy(alpha = extra)))
         Box(
             Modifier.fillMaxSize().background(
                 androidx.compose.ui.graphics.Brush.horizontalGradient(
@@ -107,12 +118,32 @@ private fun DetailBackdrop(backdrop: String?) {
         Box(
             Modifier.fillMaxSize().background(
                 androidx.compose.ui.graphics.Brush.verticalGradient(
-                    0f to bg.copy(alpha = 0.35f), 0.25f to clear, 0.55f to bg.copy(alpha = 0.3f), 0.9f to bg,
+                    0f to bg.copy(alpha = 0.35f), 0.25f to clear, 0.5f to bg.copy(alpha = 0.45f), 0.8f to bg.copy(alpha = 0.9f), 1f to bg,
                 ),
             ),
         )
     }
 }
+
+/** Mittlere Helligkeit eines Bildes (verkleinert auf 24x24 Pixel). */
+private fun averageBrightness(d: android.graphics.drawable.Drawable): Float = runCatching {
+    val bmp = (d as? android.graphics.drawable.BitmapDrawable)?.bitmap ?: return 0.5f
+    val small = android.graphics.Bitmap.createScaledBitmap(bmp, 24, 24, true)
+    var sum = 0f
+    for (x in 0 until 24) for (y in 0 until 24) {
+        val c = small.getPixel(x, y)
+        sum += (0.299f * android.graphics.Color.red(c) + 0.587f * android.graphics.Color.green(c) + 0.114f * android.graphics.Color.blue(c)) / 255f
+    }
+    if (small !== bmp) small.recycle()
+    sum / (24 * 24)
+}.getOrDefault(0.5f)
+
+/** Text-Schatten fuer Schrift auf dem Hintergrundbild (Tablet/TV). */
+private val readableShadow = androidx.compose.ui.graphics.Shadow(
+    color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.85f),
+    offset = androidx.compose.ui.geometry.Offset(0f, 2f),
+    blurRadius = 8f,
+)
 
 /** Seitenrahmen der Detailseiten: auf Tablet/TV mit Vollbild-Hintergrund und transparenter Kopfzeile. */
 @Composable
@@ -129,8 +160,13 @@ private fun DetailScaffold(
         Scaffold(
             topBar = { PowerTopBar(title, onBack = onBack, actions = actions, transparent = large) },
             containerColor = if (large) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.background,
-            content = content,
-        )
+        ) { padding ->
+            if (large) {
+                androidx.compose.runtime.CompositionLocalProvider(
+                    androidx.compose.material3.LocalTextStyle provides androidx.compose.material3.LocalTextStyle.current.copy(shadow = readableShadow),
+                ) { content(padding) }
+            } else content(padding)
+        }
     }
 }
 
@@ -159,12 +195,19 @@ private fun Header(title: String, cover: String?, backdrop: String?, lines: List
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        title, style = if (large) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleLarge,
+                        title, style = if (large) MaterialTheme.typography.headlineMedium.copy(shadow = readableShadow) else MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f, fill = false),
                     )
                     ageRating?.let { Spacer(Modifier.width(12.dp)); FskBadge(it, if (large) 40.dp else 32.dp) }
                 }
-                lines.forEach { Text(it, style = if (large) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                lines.forEach {
+                    Text(
+                        it,
+                        style = if (large) MaterialTheme.typography.bodyMedium.copy(shadow = readableShadow) else MaterialTheme.typography.bodySmall,
+                        // Auf dem Bild heller (besser lesbar), auf dem Handy wie bisher
+                        color = if (large) androidx.compose.ui.graphics.Color.White.copy(alpha = 0.88f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Spacer(Modifier.height(8.dp))
                 extra()
             }
