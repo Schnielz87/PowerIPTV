@@ -14,8 +14,9 @@ import kotlin.math.ln
 import kotlin.math.sin
 
 /**
- * Hoert beim Abspielen mit (ohne den Ton zu veraendern) und erzeugt 8x pro Sekunde
- * einen 16-Bit-Ton-Fingerabdruck (Bandenergie-Verlauf nach Haitsma/Kalker).
+ * Hoert beim Abspielen mit (ohne den Ton zu veraendern) und erzeugt 32x pro Sekunde
+ * einen 16-Bit-Ton-Fingerabdruck: Verlauf der (zeitlich geglaetteten) Energie in 17 Frequenzbaendern.
+ * Robust gegen Lautstaerke, Rauschen und leichte Zeitverschiebung (per Simulation abgestimmt).
  * Damit erkennt die App Vorspann-Musik, die in jeder Folge einer Serie gleich ist.
  */
 @OptIn(UnstableApi::class)
@@ -39,7 +40,8 @@ class IntroFingerprinter : BaseAudioProcessor() {
     private var ringPos = 0
     private var filled = 0
     private var sinceHop = 0
-    private var prevBands: FloatArray? = null
+    /** Letzte 8 Band-Energie-Vektoren (log) fuer die zeitliche Glaettung. */
+    private val history = ArrayDeque<FloatArray>()
     private var edges = IntArray(0)
 
     override fun onConfigure(inputAudioFormat: AudioFormat): AudioFormat {
@@ -64,7 +66,7 @@ class IntroFingerprinter : BaseAudioProcessor() {
         epoch++
         processedSamples = 0
         filled = 0; ringPos = 0; sinceHop = 0
-        prevBands = null
+        history.clear()
     }
 
     override fun onReset() = onFlush()
@@ -91,7 +93,10 @@ class IntroFingerprinter : BaseAudioProcessor() {
     private val re = FloatArray(N)
     private val im = FloatArray(N)
 
-    /** 16-Bit-Hash des aktuellen Fensters; -1 bei Stille. */
+    /**
+     * 16-Bit-Hash: Mittel der letzten 4 Frames gegen Mittel der 4 davor,
+     * Bit m = Aenderung der Energiedifferenz zwischen Band m und m+1. -1 bei Stille.
+     */
     private fun hashFrame(): Int {
         for (i in 0 until N) {
             re[i] = ring[(ringPos + i) and (N - 1)] * WINDOW[i]
@@ -99,30 +104,33 @@ class IntroFingerprinter : BaseAudioProcessor() {
         }
         fft(re, im)
         val bands = FloatArray(BANDS + 1)
-        var total = 0f
+        var total = 0.0
         for (b in 0..BANDS) {
-            var e = 0f
-            for (k in edges[b] until edges[b + 1]) e += re[k] * re[k] + im[k] * im[k]
-            bands[b] = ln(1f + e)
+            var e = 0.0
+            for (k in edges[b] until edges[b + 1]) e += (re[k] * re[k] + im[k] * im[k]).toDouble()
+            bands[b] = ln(1.0 + e).toFloat()
             total += e
         }
-        val prev = prevBands
-        prevBands = bands
-        if (prev == null || total < SILENCE) return -1
+        history.addLast(bands)
+        if (history.size > 8) history.removeFirst()
+        if (total < SILENCE || history.size < 8) return -1
         var h = 0
         for (m in 0 until BANDS) {
-            val d = (bands[m] - bands[m + 1]) - (prev[m] - prev[m + 1])
-            if (d > 0) h = h or (1 shl m)
+            var cur = 0f; var back = 0f
+            for (j in 0 until 4) {
+                val c = history[4 + j]; val p = history[j]
+                cur += c[m] - c[m + 1]; back += p[m] - p[m + 1]
+            }
+            if (cur - back > 0) h = h or (1 shl m)
         }
         return h
     }
 
     companion object {
-        const val FRAMES_PER_SECOND = 8
-        const val FRAME_MS = 1000L / FRAMES_PER_SECOND
-        private const val N = 2048
+        const val FRAMES_PER_SECOND = 32
+        private const val N = 4096
         private const val BANDS = 16
-        private const val SILENCE = 1e9f
+        private const val SILENCE = 1e9
         private val WINDOW = FloatArray(N) { (0.5 - 0.5 * cos(2 * PI * it / (N - 1))).toFloat() }
 
         /** 17 logarithmisch verteilte Baender zwischen 300 und 3000 Hz (FFT-Bins). */

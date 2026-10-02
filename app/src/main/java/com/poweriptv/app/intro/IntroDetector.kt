@@ -16,8 +16,10 @@ import java.security.MessageDigest
 class IntroDetector(private val baseDir: File) {
     data class Intro(val startMs: Long, val endMs: Long)
 
-    private val frameMs = IntroFingerprinter.FRAME_MS
-    private val frames = (WINDOW_MS / frameMs).toInt()
+    private val fps = IntroFingerprinter.FRAMES_PER_SECOND
+    private val frames = (WINDOW_MS * fps / 1000).toInt()
+    private fun idxOf(ms: Long) = (ms * fps / 1000).toInt()
+    private fun msOf(idx: Int) = idx.toLong() * 1000 / fps
 
     private var seriesDir: File? = null
     private var episodeFile: File? = null
@@ -66,7 +68,7 @@ class IntroDetector(private val baseDir: File) {
             val sample = (v ushr 16) and 0xFFFFFFFFL
             val hash = (v and 0xFFFF).toInt()
             val pos = playerPosMs - (processed - sample) * 1000 / rate
-            val idx = (pos / frameMs).toInt()
+            val idx = idxOf(pos)
             if (idx in 0 until frames) {
                 if (fp[idx] < 0) recorded++
                 fp[idx] = hash
@@ -75,15 +77,15 @@ class IntroDetector(private val baseDir: File) {
         detectLive(playerPosMs)
     }
 
-    /** Live-Vergleich der letzten 3 Sekunden mit der Vorlage. */
+    /** Live-Vergleich der letzten 3 Sekunden mit der Vorlage (Bitfehlerrate). */
     private fun detectLive(posMs: Long) {
         val tpl = template ?: return
         if (detected != null) return
-        val end = (posMs / frameMs).toInt() - 2
         val w = LIVE_WINDOW
-        if (end < w || end >= frames) return
-        val start = end - w + 1
-        var best = Int.MAX_VALUE; var bestJ = -1
+        val end = idxOf(posMs) - fps / 2 // Ton wird etwas vor der Wiedergabe verarbeitet
+        if (end < w || end >= frames || tpl.size < w) return
+        val start = end - w
+        var bestBits = Int.MAX_VALUE; var bestJ = -1
         for (j in 0..tpl.size - w) {
             var bits = 0; var valid = 0
             for (k in 0 until w) {
@@ -91,21 +93,16 @@ class IntroDetector(private val baseDir: File) {
                 if (a < 0 || b < 0) continue
                 valid++
                 bits += Integer.bitCount(a xor b)
-                if (bits > best) break
             }
-            if (valid >= w * 3 / 4 && bits < best) {
-                // auf volle Fensterlaenge hochrechnen
-                val scaled = bits * w / valid
-                if (scaled < best) { best = scaled; bestJ = j }
-            }
+            if (valid < w * 3 / 4) continue
+            val scaled = bits * w / valid
+            if (scaled < bestBits) { bestBits = scaled; bestJ = j }
         }
-        if (bestJ < 0) return
-        val ber = best.toDouble() / (w * 16)
-        if (ber > LIVE_BER) { lastMatchStart = Long.MIN_VALUE; return }
-        val introStart = (start - bestJ).toLong() * frameMs
+        if (bestJ < 0 || bestBits.toDouble() / (w * 16) > LIVE_BER) { lastMatchStart = Long.MIN_VALUE; return }
+        val introStart = msOf(start - bestJ)
         // Zweimal hintereinander gleiches Ergebnis -> sicher
-        if (kotlin.math.abs(introStart - lastMatchStart) <= 1500) {
-            detected = Intro(introStart.coerceAtLeast(0), introStart + tpl.size * frameMs)
+        if (kotlin.math.abs(introStart - lastMatchStart) <= 1_000) {
+            detected = Intro(introStart.coerceAtLeast(0), introStart + msOf(tpl.size))
         }
         lastMatchStart = introStart
     }
@@ -137,33 +134,44 @@ class IntroDetector(private val baseDir: File) {
         }
     }
 
-    /** Laengster gemeinsamer Abschnitt (Start, Ende als Index in [a]) zwischen zwei Folgen. */
+    /**
+     * Laengster gemeinsamer Abschnitt (Start, Ende als Index in [a]) zweier Folgen:
+     * fuer jede Verschiebung die Bitfehlerrate entlang der Diagonale (jede 4. Probe, gleitend ueber 2 s).
+     */
     private fun longestCommon(a: IntArray, b: IntArray): Pair<Int, Int>? {
-        val maxShift = (MAX_SHIFT_MS / frameMs).toInt()
+        val maxShift = idxOf(MAX_SHIFT_MS)
+        val step = 4; val k = 16; val gap = 4
+        val limit = (LEARN_BER * 16 * k).toInt()
         var bestLen = 0; var bestStart = 0
+        val h = IntArray(a.size / step + 1)
         for (d in -maxShift..maxShift) {
-            var runStart = -1; var misses = 0; var lastHit = -1
-            val from = maxOf(0, -d); val to = minOf(a.size, b.size - d)
-            for (i in from until to) {
+            val lo = maxOf(0, -d); val hi = minOf(a.size, b.size - d)
+            if (hi - lo < 64) continue
+            var n = 0
+            var i = lo
+            while (i < hi) {
                 val x = a[i]; val y = b[i + d]
-                val hit = x >= 0 && y >= 0 && Integer.bitCount(x xor y) <= 3
-                if (hit) {
-                    if (runStart < 0) runStart = i
-                    lastHit = i; misses = 0
-                } else if (runStart >= 0) {
-                    if (++misses > MAX_GAP) {
-                        val len = lastHit - runStart + 1
-                        if (len > bestLen) { bestLen = len; bestStart = runStart }
-                        runStart = -1; misses = 0
-                    }
+                h[n++] = if (x >= 0 && y >= 0) Integer.bitCount(x xor y) else 8
+                i += step
+            }
+            if (n <= k) continue
+            var sum = 0
+            for (q in 0 until k) sum += h[q]
+            var rs = -1; var last = -1; var miss = 0
+            for (p in 0..n - k) {
+                if (p > 0) sum += h[p + k - 1] - h[p - 1]
+                if (sum <= limit) {
+                    if (rs < 0) rs = p
+                    last = p; miss = 0
+                } else if (rs >= 0 && ++miss > gap) {
+                    if (last - rs > bestLen) { bestLen = last - rs; bestStart = lo + rs * step }
+                    rs = -1
                 }
             }
-            if (runStart >= 0) {
-                val len = lastHit - runStart + 1
-                if (len > bestLen) { bestLen = len; bestStart = runStart }
-            }
+            if (rs >= 0 && last - rs > bestLen) { bestLen = last - rs; bestStart = lo + rs * step }
         }
-        return if (bestLen >= MIN_FRAMES && bestLen <= MAX_FRAMES) bestStart to (bestStart + bestLen) else null
+        val len = (bestLen + k) * step - fps // Ende etwas vorsichtiger (1 s)
+        return if (len in MIN_FRAMES..MAX_FRAMES) bestStart to (bestStart + len) else null
     }
 
     private fun readInts(f: File): IntArray? = runCatching {
@@ -182,13 +190,13 @@ class IntroDetector(private val baseDir: File) {
         /** Vorspann: mindestens 15 s, hoechstens 3 Minuten. */
         private const val MIN_FRAMES = 15 * IntroFingerprinter.FRAMES_PER_SECOND
         private const val MAX_FRAMES = 180 * IntroFingerprinter.FRAMES_PER_SECOND
-        /** Vorspann darf in zwei Folgen bis zu 5 Minuten verschoben liegen. */
-        private const val MAX_SHIFT_MS = 300_000L
-        private const val MAX_GAP = 6
+        /** Vorspann darf in zwei Folgen bis zu 4 Minuten verschoben liegen. */
+        private const val MAX_SHIFT_MS = 240_000L
+        private const val LEARN_BER = 0.38
         /** Mindestens 2 Minuten Ton aufgezeichnet, bevor gelernt wird. */
         private const val MIN_RECORDED = 120 * IntroFingerprinter.FRAMES_PER_SECOND
-        /** Live-Erkennung: 3 s Fenster, Bitfehlerrate hoechstens 25 %. */
+        /** Live-Erkennung: 3 s Fenster, Bitfehlerrate hoechstens 36 % (fremder Ton ~50 %). */
         private const val LIVE_WINDOW = 3 * IntroFingerprinter.FRAMES_PER_SECOND
-        private const val LIVE_BER = 0.25
+        private const val LIVE_BER = 0.36
     }
 }
