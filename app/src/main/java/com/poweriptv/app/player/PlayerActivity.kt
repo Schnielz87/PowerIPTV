@@ -87,6 +87,8 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.common.Tracks
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.FormatListBulleted
 import com.poweriptv.app.data.VideoScale
 import com.poweriptv.app.util.DeviceInfo
 import com.poweriptv.app.PlayEntry
@@ -122,6 +124,9 @@ class PlayerActivity : ComponentActivity() {
     private var lastInteraction by mutableLongStateOf(System.currentTimeMillis())
     private var showRecordDialog by mutableStateOf(false)
     private var showFormatDialog by mutableStateOf(false)
+    /** Live: Senderliste im Bild und zuletzt gesehener Sender (Zurueck-Zappen). */
+    private var showChannels by mutableStateOf(false)
+    private var lastChannel = -1
     /** Serien: Countdown "Naechste Folge" (Sekunden) bzw. vom Nutzer abgebrochen. */
     private var nextCountdown by mutableStateOf<Int?>(null)
     private var nextCancelled = false
@@ -160,7 +165,8 @@ class PlayerActivity : ComponentActivity() {
         // Zurueck: sind die Leisten eingeblendet, erst diese ausblenden – erst danach den Player schliessen
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (nextCountdown != null) cancelNext()
+                if (showChannels) showChannels = false
+                else if (nextCountdown != null) cancelNext()
                 else if (showOverlay || playerView?.isControllerFullyVisible == true) hideOverlay() else closePlayer()
             }
         })
@@ -376,6 +382,11 @@ class PlayerActivity : ComponentActivity() {
                             if (blockedRec == null) Button(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { play(container.playIndex) }) { Text("Erneut versuchen") }
                         }
                     }
+                    if (showChannels) ChannelListPanel(
+                        container, container.playQueue, container.playIndex,
+                        onSelect = { showChannels = false; if (it != container.playIndex) play(it) },
+                        onDismiss = { showChannels = false },
+                    )
                     FormatBadge(formatBadge) { formatBadge = null }
                     nextCountdown?.let { sec -> NextEpisodeCard(nextTitle(), sec, onPlay = { next() }, onCancel = { cancelNext() }) }
                     if (showSkipIntro && nextCountdown == null) SkipIntroButton { skipIntro() }
@@ -441,6 +452,14 @@ class PlayerActivity : ComponentActivity() {
                     )
                     Spacer(Modifier.width(8.dp))
                     OutlinedButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { goLive() }) { Text("LIVE", color = Danger, fontWeight = FontWeight.Bold) }
+                }
+                if (entry?.live == true) {
+                    IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { showChannels = true }) {
+                        Icon(Icons.Filled.FormatListBulleted, "Senderliste", tint = Color.White)
+                    }
+                    IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { zapBack() }) {
+                        Icon(Icons.Filled.SwapHoriz, "Letzter Sender", tint = Color.White)
+                    }
                 }
                 CastButton(container, entry, entry?.item?.logo, tint = Color.White, onCasting = {
                     withSwitch { player.pause() } // lokal pausieren, laeuft jetzt auf dem TV
@@ -582,6 +601,11 @@ class PlayerActivity : ComponentActivity() {
         player.trackSelectionParameters = params.build()
     }
 
+    /** Zum zuletzt gesehenen Sender springen. */
+    private fun zapBack() {
+        if (lastChannel in container.playQueue.indices) play(lastChannel) else toast = "Noch kein vorheriger Sender"
+    }
+
     private fun skipIntro() {
         introSkipped = true
         showSkipIntro = false
@@ -661,7 +685,9 @@ class PlayerActivity : ComponentActivity() {
         stopTimeshift()
         val queue = container.playQueue
         if (queue.isEmpty()) { finish(); return }
+        val prev = container.playIndex
         container.playIndex = (index + queue.size) % queue.size
+        if (prev != container.playIndex && queue.getOrNull(prev)?.live == true) lastChannel = prev
         val entry = queue[container.playIndex]
         title = entry.title
         error = null
@@ -811,6 +837,7 @@ class PlayerActivity : ComponentActivity() {
         if (event.action != KeyEvent.ACTION_DOWN) return super.dispatchKeyEvent(event)
         val live = current()?.live == true
         val controllerVisible = playerView?.isControllerFullyVisible == true
+        if (showChannels) return super.dispatchKeyEvent(event) // Senderliste bedient sich selbst
         // Serien: OK startet die naechste Folge bzw. ueberspringt das Intro
         if (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER) {
             if (nextCountdown != null) { next(); return true }
@@ -840,6 +867,10 @@ class PlayerActivity : ComponentActivity() {
         when (event.keyCode) {
             KeyEvent.KEYCODE_CHANNEL_UP, KeyEvent.KEYCODE_PAGE_UP -> { next(); return true }
             KeyEvent.KEYCODE_CHANNEL_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> { previous(); return true }
+            // Live: Links = Senderliste, Rechts = letzter Sender
+            KeyEvent.KEYCODE_DPAD_LEFT -> if (live && !controllerVisible) { showChannels = true; return true }
+            KeyEvent.KEYCODE_DPAD_RIGHT -> if (live && !controllerVisible) { zapBack(); return true }
+            KeyEvent.KEYCODE_LAST_CHANNEL -> if (live) { zapBack(); return true }
             KeyEvent.KEYCODE_DPAD_UP -> if (live && !controllerVisible) { next(); return true }
             KeyEvent.KEYCODE_DPAD_DOWN -> if (live && !controllerVisible) { previous(); return true }
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_BUTTON_A ->

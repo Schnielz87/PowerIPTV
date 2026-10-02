@@ -23,6 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
@@ -100,6 +102,9 @@ class VlcPlayerActivity : ComponentActivity() {
     private var dragging by mutableStateOf<Float?>(null)
     private var showRecordDialog by mutableStateOf(false)
     private var showFormatDialog by mutableStateOf(false)
+    /** Live: Senderliste im Bild und zuletzt gesehener Sender (Zurueck-Zappen). */
+    private var showChannels by mutableStateOf(false)
+    private var lastChannel = -1
     /** Serien: Countdown "Naechste Folge" (Sekunden) bzw. vom Nutzer abgebrochen. */
     private var nextCountdown by mutableStateOf<Int?>(null)
     private var nextCancelled = false
@@ -126,7 +131,8 @@ class VlcPlayerActivity : ComponentActivity() {
         // Zurueck: ist die Leiste eingeblendet, erst diese ausblenden – erst danach den Player schliessen
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (nextCountdown != null) cancelNext()
+                if (showChannels) showChannels = false
+                else if (nextCountdown != null) cancelNext()
                 else if (showOverlay) showOverlay = false else closePlayer()
             }
         })
@@ -209,6 +215,11 @@ class VlcPlayerActivity : ComponentActivity() {
                     )
                     if (buffering && error == null) CircularProgressIndicator(Modifier.align(Alignment.Center), color = BrandCyan)
                     CastingBar(container, Modifier.align(Alignment.Center), onStop = { mediaPlayer.play() })
+                    if (showChannels) ChannelListPanel(
+                        container, container.playQueue, container.playIndex,
+                        onSelect = { showChannels = false; if (it != container.playIndex) play(it) },
+                        onDismiss = { showChannels = false },
+                    )
                     FormatBadge(formatBadge) { formatBadge = null }
                     nextCountdown?.let { sec -> NextEpisodeCard(nextTitle(), sec, onPlay = { next() }, onCancel = { cancelNext() }) }
                     if (showSkipIntro && nextCountdown == null) SkipIntroButton { skipIntro() }
@@ -314,6 +325,14 @@ class VlcPlayerActivity : ComponentActivity() {
                 IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { closePlayer() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurueck zur Uebersicht", tint = Color.White) }
                 Column(Modifier.weight(1f)) {
                     Text(title, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                if (live) {
+                    IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { showChannels = true }) {
+                        Icon(Icons.Filled.FormatListBulleted, "Senderliste", tint = Color.White)
+                    }
+                    IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { zapBack() }) {
+                        Icon(Icons.Filled.SwapHoriz, "Letzter Sender", tint = Color.White)
+                    }
                 }
                 CastButton(container, current(), current()?.item?.logo, tint = Color.White, onCasting = { mediaPlayer.pause() })
                 if (live) {
@@ -433,7 +452,9 @@ class VlcPlayerActivity : ComponentActivity() {
         saveResume()
         val queue = container.playQueue
         if (queue.isEmpty()) { finish(); return }
+        val prev = container.playIndex
         container.playIndex = (index + queue.size) % queue.size
+        if (prev != container.playIndex && queue.getOrNull(prev)?.live == true) lastChannel = prev
         val entry = queue[container.playIndex]
         title = entry.title
         error = null
@@ -535,6 +556,11 @@ class VlcPlayerActivity : ComponentActivity() {
         return if (audio) list else listOf(TrackOption(OFF_KEY, "Aus", current < 0)) + list
     }
 
+    /** Zum zuletzt gesehenen Sender springen. */
+    private fun zapBack() {
+        if (lastChannel in container.playQueue.indices) play(lastChannel) else toast = "Noch kein vorheriger Sender"
+    }
+
     private fun skipIntro() {
         introSkipped = true
         showSkipIntro = false
@@ -581,6 +607,7 @@ class VlcPlayerActivity : ComponentActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return super.dispatchKeyEvent(event)
         lastInteraction = System.currentTimeMillis()
+        if (showChannels) return super.dispatchKeyEvent(event) // Senderliste bedient sich selbst
         // Serien: OK startet die naechste Folge bzw. ueberspringt das Intro
         if (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER) {
             if (nextCountdown != null) { next(); return true }
@@ -605,6 +632,10 @@ class VlcPlayerActivity : ComponentActivity() {
         when (event.keyCode) {
             KeyEvent.KEYCODE_CHANNEL_UP, KeyEvent.KEYCODE_PAGE_UP -> { next(); return true }
             KeyEvent.KEYCODE_CHANNEL_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> { previous(); return true }
+            // Live: Links = Senderliste, Rechts = letzter Sender
+            KeyEvent.KEYCODE_DPAD_LEFT -> if (live && !showOverlay) { showChannels = true; return true }
+            KeyEvent.KEYCODE_DPAD_RIGHT -> if (live && !showOverlay) { zapBack(); return true }
+            KeyEvent.KEYCODE_LAST_CHANNEL -> if (live) { zapBack(); return true }
             KeyEvent.KEYCODE_DPAD_UP -> if (live && !showOverlay) { next(); return true }
             KeyEvent.KEYCODE_DPAD_DOWN -> if (live && !showOverlay) { previous(); return true }
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_BUTTON_A ->

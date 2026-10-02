@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -160,4 +162,56 @@ object EpisodeFlow {
 
     /** "Serie – S1E2 Titel" -> "S1E2 Titel" */
     fun episodeLabel(title: String) = title.substringAfter(" – ", title)
+}
+
+/**
+ * Senderliste im laufenden Bild (links): Logo, Nummer, Name und aktuelle Sendung.
+ * Auswahl startet den Sender, ohne den Player zu verlassen.
+ */
+@Composable
+fun ChannelListPanel(
+    container: com.poweriptv.app.AppContainer,
+    entries: List<com.poweriptv.app.PlayEntry>,
+    current: Int,
+    onSelect: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = (current - 3).coerceAtLeast(0))
+    val focus = remember { FocusRequester() }
+    val now = remember { System.currentTimeMillis() }
+    Box(Modifier.fillMaxSize().background(Color(0x55000000)).clickable(onClick = onDismiss)) {
+        Column(
+            Modifier.fillMaxHeight().widthIn(max = 380.dp).fillMaxWidth(0.42f)
+                .background(Color(0xF0101620)).clickable(enabled = false) {}.padding(vertical = 12.dp),
+        ) {
+            Text("Senderliste", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+            androidx.compose.foundation.lazy.LazyColumn(state = listState) {
+                items(entries.size) { i ->
+                    val e = entries[i]
+                    val sel = i == current
+                    val programme = e.item?.let { runCatching { container.epg.current(it, now)?.title }.getOrNull() }
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)
+                            .then(if (sel) Modifier.focusRequester(focus) else Modifier)
+                            .clip(RoundedCornerShape(8.dp))
+                            .tvFocus(RoundedCornerShape(8.dp))
+                            .background(if (sel) Color(0x332FB8E6) else Color.Transparent)
+                            .clickable { onSelect(i) }
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("${e.item?.number ?: (i + 1)}", color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.widthIn(min = 30.dp))
+                        Box(Modifier.size(width = 52.dp, height = 30.dp), contentAlignment = Alignment.Center) {
+                            if (!e.item?.logo.isNullOrBlank()) coil.compose.AsyncImage(e.item?.logo, null, modifier = Modifier.fillMaxSize())
+                        }
+                        Column(Modifier.padding(start = 10.dp).weight(1f)) {
+                            Text(e.title, color = Color.White, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal, maxLines = 1, fontSize = 15.sp)
+                            if (programme != null) Text(programme, color = Color.White.copy(alpha = 0.65f), maxLines = 1, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 }
