@@ -81,6 +81,7 @@ import com.poweriptv.app.ui.components.PowerTopBar
 import com.poweriptv.app.ui.components.startPlayback
 import com.poweriptv.app.ui.components.stripLanguage
 import com.poweriptv.app.ui.components.tvFocus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 
 /** Einfache Volltextsuche: alle Woerter muessen im Titel vorkommen. */
@@ -118,6 +119,8 @@ fun BrowseScreen(
     var showCategoryPicker by remember { mutableStateOf(false) }
     var reload by remember { mutableIntStateOf(0) }
     var pinFor by remember { mutableStateOf<Category?>(null) }
+    var wantAll by remember { mutableStateOf(false) }
+    var searchError by remember { mutableStateOf<String?>(null) }
 
     val lockedIds = remember(categories, parentalOn, parentalUnlocked) {
         container.parental.lockedIds(source.profile.id, type, categories.orEmpty())
@@ -161,8 +164,18 @@ fun BrowseScreen(
     LaunchedEffect(query) {
         delay(300)
         appliedQuery = query.trim()
-        if (appliedQuery.isNotEmpty() && allItems == null) {
-            allItems = runCatching { source.items(type, null) }.getOrElse { error = it.message; emptyList() }
+        if (appliedQuery.isNotEmpty()) wantAll = true
+    }
+    // Alle Titel EINMAL laden – unabhaengig vom Tippen, damit der Ladevorgang nicht abbricht
+    LaunchedEffect(wantAll, reload) {
+        if (!wantAll || allItems != null) return@LaunchedEffect
+        searchError = null
+        try {
+            allItems = source.items(type, null)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            searchError = "Suche nicht moeglich: ${e.message ?: e.javaClass.simpleName}"
         }
     }
 
@@ -220,7 +233,7 @@ fun BrowseScreen(
                         CompactSearchField(
                             value = query,
                             onValueChange = { query = it },
-                            placeholder = if (wide) "$title suchen (alle Kategorien)" else "In allen Kategorien suchen",
+                            placeholder = if (wide) "$title-Titel suchen (in allen Kategorien)" else "$title-Titel suchen",
                             modifier = mod,
                         )
                     }
@@ -272,13 +285,15 @@ fun BrowseScreen(
                             Text("  ·  ${it.size} ${if (type == ContentType.LIVE) "Kanaele" else "Titel"}",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                         }
-                        if (searching && allItems == null) {
+                        if (searching && allItems == null && searchError == null) {
                             Spacer(Modifier.width(8.dp))
                             CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                            Text("  Lade alle $title...", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                         }
                     }
 
                     when {
+                        searching && searchError != null -> ErrorBox(searchError!!, onRetry = { searchError = null; reload++ })
                         error != null && shown.isNullOrEmpty() -> ErrorBox(error!!, onRetry = { reload++ })
                         shown == null -> LoadingBox()
                         shown.isEmpty() -> ErrorBox(

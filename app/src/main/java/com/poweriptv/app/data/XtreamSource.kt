@@ -2,6 +2,9 @@ package com.poweriptv.app.data
 
 import android.util.Base64
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -91,7 +94,18 @@ class XtreamSource(
             ContentType.SERIES -> "get_series"
         }
         val params = if (categoryId != null) arrayOf("category_id" to categoryId) else emptyArray()
-        val list = call(action, *params).asArray().mapNotNull { o ->
+        var raw = call(action, *params).asArray()
+        if (categoryId == null && raw.isEmpty()) {
+            // Manche Anbieter liefern ohne category_id nichts -> Kategorie fuer Kategorie einsammeln
+            val cats = categories(type)
+            raw = coroutineScope {
+                cats.chunked(6).flatMap { chunk ->
+                    chunk.map { c -> async { runCatching { call(action, "category_id" to c.id).asArray() }.getOrDefault(emptyList()) } }
+                        .awaitAll().flatten()
+                }
+            }
+        }
+        val list = raw.distinctBy { it.str("stream_id") ?: it.str("series_id") }.mapNotNull { o ->
             when (type) {
                 ContentType.LIVE -> ContentItem(
                     id = o.str("stream_id") ?: return@mapNotNull null,

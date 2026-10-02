@@ -47,7 +47,8 @@ import com.poweriptv.app.ui.components.ErrorBox
 import com.poweriptv.app.ui.components.PosterCard
 import com.poweriptv.app.ui.components.PowerTopBar
 import com.poweriptv.app.ui.components.startPlayback
-import kotlinx.coroutines.async
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 
@@ -64,23 +65,32 @@ fun SearchScreen(container: AppContainer, onBack: () -> Unit, onOpenDetail: (Con
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 
+    var wantAll by remember { mutableStateOf(false) }
     LaunchedEffect(query) {
         delay(300)
         applied = query.trim()
-        if (applied.length >= 2 && pools.size < 3) {
-            loading = true
-            // Alle drei Bereiche parallel laden (einmalig, danach aus dem Cache)
-            coroutineScope {
-                ContentType.entries.filter { it !in pools }.map { t ->
-                    async {
-                        val cats = runCatching { source.categories(t) }.getOrDefault(emptyList())
+        if (applied.length >= 2) wantAll = true
+    }
+    // Alle drei Bereiche EINMAL parallel laden – unabhaengig vom Tippen
+    LaunchedEffect(wantAll) {
+        if (!wantAll) return@LaunchedEffect
+        loading = true
+        coroutineScope {
+            ContentType.entries.filter { it !in pools }.forEach { t ->
+                launch {
+                    try {
+                        val cats = source.categories(t)
                         val locked = container.parental.lockedIds(source.profile.id, t, cats)
-                        t to runCatching { source.items(t, null) }.getOrDefault(emptyList()).filterNot { it.categoryId in locked }
+                        pools[t] = source.items(t, null).filterNot { it.categoryId in locked }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        pools[t] = emptyList()
                     }
-                }.forEach { pools[it.await().first] = it.await().second }
+                }
             }
-            loading = false
         }
+        loading = false
     }
 
     val results = remember(applied, pools.size) {

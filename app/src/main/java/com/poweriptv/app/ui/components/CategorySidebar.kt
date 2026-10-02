@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Lock
@@ -140,14 +141,14 @@ fun CategorySidebar(
                 onClick = { showCatSearch = !showCatSearch; if (!showCatSearch) catQuery = "" },
                 modifier = Modifier.size(40.dp).tvFocus(RoundedCornerShape(20.dp), 1f),
             ) {
-                Icon(Icons.Filled.Search, "Kategorie suchen", tint = if (showCatSearch) BrandCyan else MaterialTheme.colorScheme.onSurface)
+                Icon(Icons.Filled.FilterAlt, "Kategorien filtern", tint = if (showCatSearch) BrandCyan else MaterialTheme.colorScheme.onSurface)
             }
         }
         if (showCatSearch) {
             CompactSearchField(
                 value = catQuery,
                 onValueChange = { catQuery = it },
-                placeholder = "Kategorie suchen",
+                placeholder = "Kategorie-Namen filtern",
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
                 height = 36.dp,
             )
