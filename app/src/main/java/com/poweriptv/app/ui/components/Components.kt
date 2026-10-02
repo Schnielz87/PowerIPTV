@@ -51,6 +51,8 @@ import coil.compose.AsyncImage
 import com.poweriptv.app.AppContainer
 import com.poweriptv.app.PlayEntry
 import com.poweriptv.app.player.PlayerActivity
+import com.poweriptv.app.player.VlcPlayerActivity
+import com.poweriptv.app.data.PlayerEngine
 import com.poweriptv.app.ui.theme.Danger
 import com.poweriptv.app.ui.theme.Success
 import com.poweriptv.app.vpn.VpnState
@@ -189,5 +191,11 @@ fun startPlayback(context: Context, container: AppContainer, entries: List<PlayE
     if (entries.isEmpty()) return
     container.playQueue = entries
     container.playIndex = index.coerceIn(0, entries.lastIndex)
-    context.startActivity(Intent(context, PlayerActivity::class.java))
+    val url = entries[container.playIndex].url
+    val useVlc = when (container.settings.playerEngineEnum()) {
+        PlayerEngine.VLC -> true
+        PlayerEngine.EXO -> false
+        PlayerEngine.AUTO -> container.settings.needsVlc(url)
+    }
+    context.startActivity(Intent(context, if (useVlc) VlcPlayerActivity::class.java else PlayerActivity::class.java))
 }

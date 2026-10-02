@@ -40,6 +40,7 @@ import com.poweriptv.app.BuildConfigInfo
 import com.poweriptv.app.data.LiveFormat
 import com.poweriptv.app.data.Orientation
 import com.poweriptv.app.data.VideoScale
+import com.poweriptv.app.data.PlayerEngine
 import com.poweriptv.app.util.LocalIsTv
 import com.poweriptv.app.data.SettingsRepository
 import com.poweriptv.app.ui.components.PowerTopBar
@@ -231,6 +232,22 @@ fun SettingsScreen(
             }
 
             SettingsSection("Player") {
+                val engine by s.playerEngine.collectAsState()
+                Text(
+                    "Wiedergabe-Engine. Bei manchen Sendern (z.B. RTL, ProSieben, VOX in SD/MPEG-2) kann der Standard-Player " +
+                        "nur Ton abspielen – dann hilft VLC.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                PlayerEngine.entries.forEach { e ->
+                    Row(
+                        Modifier.fillMaxWidth().tvFocus().clickable { s.setPlayerEngine(e) },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = engine == e.name, onClick = { s.setPlayerEngine(e) })
+                        Text(e.label)
+                    }
+                }
+                TextButton(onClick = { s.clearVlcStreams() }) { Text("Gemerkte VLC-Sender zuruecksetzen") }
                 val afr by s.autoFrameRate.collectAsState()
                 val scale by s.videoScale.collectAsState()
                 SwitchRow(

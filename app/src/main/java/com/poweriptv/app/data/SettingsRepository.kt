@@ -9,6 +9,13 @@ enum class LiveFormat(val ext: String, val label: String) {
     HLS("m3u8", "HLS (.m3u8)"),
 }
 
+/** Wiedergabe-Engine. */
+enum class PlayerEngine(val label: String) {
+    AUTO("Automatisch (empfohlen) – bei Bildproblemen VLC"),
+    EXO("Immer Standard-Player (mit Timeshift & Aufnahme)"),
+    VLC("Immer VLC (spielt fast jedes Format)"),
+}
+
 /** Bildformat im Player. */
 enum class VideoScale(val label: String) {
     FIT("Auto (Original-Seitenverhaeltnis)"),
@@ -41,6 +48,7 @@ class SettingsRepository(context: Context) {
     private val _language = str(K_LANGUAGE, "")
     private val _afr = bool(K_AFR, true)
     private val _dlConnections = MutableStateFlow(prefs.getInt(K_DL_CONN, 0))
+    private val _engine = str(K_ENGINE, PlayerEngine.AUTO.name)
     private val _resize = str(K_RESIZE, VideoScale.FIT.name)
     private val _aiBaseUrl = str(K_AI_URL, DEFAULT_AI_URL)
 
@@ -63,6 +71,8 @@ class SettingsRepository(context: Context) {
     val categoryLanguage: StateFlow<String> = _language
     /** Bildwiederholrate des Fernsehers an das Video anpassen (AFR). */
     val autoFrameRate: StateFlow<Boolean> = _afr
+    /** Wiedergabe-Engine: Standard (ExoPlayer), VLC oder automatisch. */
+    val playerEngine: StateFlow<String> = _engine
     /** Parallele Verbindungen pro Download (0 = automatisch nach Account-Limit). */
     val downloadConnections: StateFlow<Int> = _dlConnections
     /** Bildformat im Player. */
@@ -77,6 +87,17 @@ class SettingsRepository(context: Context) {
     fun setOrientation(v: Orientation) = putStr(K_ORIENTATION, v.name, _orientation)
     fun orientationEnum(): Orientation = runCatching { Orientation.valueOf(_orientation.value) }.getOrDefault(Orientation.LANDSCAPE)
     fun setAutoFrameRate(v: Boolean) = putBool(K_AFR, v, _afr)
+    fun setPlayerEngine(v: PlayerEngine) = putStr(K_ENGINE, v.name, _engine)
+    fun playerEngineEnum(): PlayerEngine = runCatching { PlayerEngine.valueOf(_engine.value) }.getOrDefault(PlayerEngine.AUTO)
+
+    /** Streams, bei denen der Standard-Player kein Bild dekodieren konnte (gemerkt als Hash). */
+    fun needsVlc(url: String) = url.hashCode().toString() in (prefs.getStringSet(K_VLC_STREAMS, emptySet()) ?: emptySet())
+    fun markNeedsVlc(url: String) {
+        val set = (prefs.getStringSet(K_VLC_STREAMS, emptySet()) ?: emptySet()).toMutableSet()
+        set += url.hashCode().toString()
+        prefs.edit().putStringSet(K_VLC_STREAMS, set).apply()
+    }
+    fun clearVlcStreams() = prefs.edit().remove(K_VLC_STREAMS).apply()
     fun setDownloadConnections(v: Int) {
         prefs.edit().putInt(K_DL_CONN, v).apply(); _dlConnections.value = v
     }
@@ -107,6 +128,8 @@ class SettingsRepository(context: Context) {
         private const val K_AI_MODEL = "ai_model"
         private const val K_ORIENTATION = "orientation"
         private const val K_AFR = "auto_frame_rate"
+        private const val K_ENGINE = "player_engine"
+        private const val K_VLC_STREAMS = "vlc_streams"
         private const val K_DL_CONN = "download_connections"
         private const val K_RESIZE = "video_scale"
         private const val K_LANGUAGE = "category_language"

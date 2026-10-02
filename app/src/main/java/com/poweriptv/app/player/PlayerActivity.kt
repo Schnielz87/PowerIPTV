@@ -68,6 +68,10 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.PlayerView
+import android.content.Intent
+import androidx.media3.common.C
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import com.poweriptv.app.data.PlayerEngine
 import android.content.res.Configuration
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.lifecycle.Lifecycle
@@ -128,6 +132,7 @@ class PlayerActivity : ComponentActivity() {
             old.finish()
         }
         active = java.lang.ref.WeakReference(this)
+        VlcPlayerActivity.closeActive()
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).apply {
@@ -137,11 +142,20 @@ class PlayerActivity : ComponentActivity() {
 
         // Online: ueber OkHttp (VPN-Kill-Switch + User-Agent). Lokale Dateien: direkt.
         val dataSourceFactory = DefaultDataSource.Factory(this, OkHttpDataSource.Factory(container.http))
-        player = ExoPlayer.Builder(this)
+        // Decoder-Fallback: schlaegt der Hardware-Decoder fehl, wird ein anderer versucht
+        val renderers = DefaultRenderersFactory(this).setEnableDecoderFallback(true)
+        player = ExoPlayer.Builder(this, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
             .build()
         player.addListener(object : Player.Listener {
             override fun onPlayerError(e: PlaybackException) {
+                if (e.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED ||
+                    e.errorCode == PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED ||
+                    e.errorCode == PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED ||
+                    e.errorCode == PlaybackException.ERROR_CODE_DECODING_FAILED
+                ) {
+                    if (switchToVlc()) return
+                }
                 val cause = generateSequence(e as Throwable) { it.cause }.firstOrNull { it is VpnRequiredException }
                 error = cause?.message ?: "Wiedergabe fehlgeschlagen: ${e.errorCodeName}"
             }
@@ -153,6 +167,12 @@ class PlayerActivity : ComponentActivity() {
 
             override fun onTracksChanged(tracks: Tracks) {
                 matchFrameRate()
+                // Videospur vorhanden, aber kein Decoder dafuer (z.B. MPEG-2) -> nur Ton, kein Bild
+                val video = tracks.groups.filter { it.type == C.TRACK_TYPE_VIDEO }
+                val unsupported = video.isNotEmpty() && video.none { g -> (0 until g.length).any { g.isTrackSupported(it) } }
+                if (unsupported && !switchToVlc()) {
+                    toast = "Videoformat wird von diesem Geraet nicht unterstuetzt – in den Einstellungen \"VLC\" waehlen"
+                }
             }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
@@ -315,6 +335,24 @@ class PlayerActivity : ComponentActivity() {
     private fun formatDelay(ms: Long): String {
         val s = ms / 1000
         return if (s >= 3600) "%d:%02d:%02d".format(s / 3600, (s / 60) % 60, s % 60) else "%02d:%02d".format(s / 60, s % 60)
+    }
+
+    /**
+     * Wechsel auf den VLC-Player (nur im Modus "Automatisch"). Der Stream wird gemerkt,
+     * damit er beim naechsten Mal direkt mit VLC startet.
+     */
+    private var switchedToVlc = false
+
+    private fun switchToVlc(): Boolean {
+        if (switchedToVlc) return true
+        if (container.settings.playerEngineEnum() != PlayerEngine.AUTO) return false
+        switchedToVlc = true
+        val entry = current() ?: return false
+        container.settings.markNeedsVlc(entry.url)
+        stopPlayback()
+        startActivity(Intent(this, VlcPlayerActivity::class.java).putExtra(VlcPlayerActivity.EXTRA_INFO, "Kompatibilitaetsmodus (VLC)"))
+        finish()
+        return true
     }
 
     // ---------- Bildformat & Bildwiederholrate ----------

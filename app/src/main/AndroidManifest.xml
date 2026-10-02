@@ -74,6 +74,14 @@
             </intent-filter>
         </receiver>
 
+        <!-- VLC-Kompatibilitaets-Player -->
+        <activity
+            android:name=".player.VlcPlayerActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.PowerIPTV.Fullscreen" />
+
         <!-- Multi-Screen -->
         <activity
             android:name=".player.MultiViewActivity"

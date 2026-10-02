@@ -17,6 +17,11 @@ android {
         val build = (System.getenv("BUILD_NUMBER") ?: "1").toInt()
         versionCode = 100 + build
         versionName = "1.1.$build"
+
+        // Nur ARM: Handys, Tablets und alle Fire TV Sticks (haelt die APK trotz VLC klein)
+        ndk {
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+        }
     }
 
     signingConfigs {
@@ -89,4 +94,7 @@ dependencies {
 
     // VPN (offizielle WireGuard Tunnel-Library)
     implementation("com.wireguard.android:tunnel:1.0.20230706")
+
+    // VLC als Kompatibilitaets-Player (MPEG-2, HEVC, Interlaced, ...)
+    implementation("org.videolan.android:libvlc-all:3.6.0")
 }
