@@ -354,6 +354,21 @@ fun SettingsScreen(
                     }
                 }
                 TextButton(onClick = { s.clearVlcStreams() }) { Text("Gemerkte VLC-Sender zuruecksetzen") }
+                val vlcPerf by s.vlcPerformance.collectAsState()
+                Text("VLC-Leistung (wirkt beim naechsten Start des VLC-Players)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                listOf(
+                    "AUTO" to "Automatisch (TV-Sticks & schwache Geraete: schnell)",
+                    "FAST" to "Schnell – fluessig auf schwachen Geraeten",
+                    "QUALITY" to "Qualitaet – beste Bildaufbereitung (starke Geraete)",
+                ).forEach { (k, l) ->
+                    Row(
+                        Modifier.fillMaxWidth().tvFocus().clickable { s.setVlcPerformance(k) },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = vlcPerf == k, onClick = { s.setVlcPerformance(k) })
+                        Text(l)
+                    }
+                }
                 val afr by s.autoFrameRate.collectAsState()
                 val scale by s.videoScale.collectAsState()
                 SwitchRow(

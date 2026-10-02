@@ -56,6 +56,7 @@ class SettingsRepository(context: Context) {
     private val _engine = str(K_ENGINE, PlayerEngine.AUTO.name)
     private val _scrub = str(K_SCRUB, "AUTO")
     private val _subSize = str(K_SUB_SIZE, "NORMAL")
+    private val _vlcPerf = str(K_VLC_PERF, "AUTO")
     private val _subBg = bool(K_SUB_BG, false)
     private val _scrubBlocked = bool(K_SCRUB_BLOCKED, false)
     private val _resize = str(K_RESIZE, VideoScale.FIT.name)
@@ -86,6 +87,9 @@ class SettingsRepository(context: Context) {
     val scrubPreview: StateFlow<String> = _scrub
     /** Untertitel: Groesse (KLEIN/NORMAL/GROSS/SEHR_GROSS) und dunkler Hintergrund. */
     val subtitleSize: StateFlow<String> = _subSize
+    /** VLC-Leistung: AUTO (schwache Geraete -> FAST), QUALITY oder FAST. */
+    val vlcPerformance: StateFlow<String> = _vlcPerf
+    fun setVlcPerformance(v: String) = putStr(K_VLC_PERF, v, _vlcPerf)
     val subtitleBackground: StateFlow<Boolean> = _subBg
     fun setSubtitleSize(v: String) = putStr(K_SUB_SIZE, v, _subSize)
     fun setSubtitleBackground(v: Boolean) = putBool(K_SUB_BG, v, _subBg)
@@ -162,6 +166,7 @@ class SettingsRepository(context: Context) {
         private const val K_ENGINE = "player_engine"
         private const val K_SCRUB = "scrub_preview"
         private const val K_SUB_SIZE = "subtitle_size"
+        private const val K_VLC_PERF = "vlc_performance"
         private const val K_SUB_BG = "subtitle_bg"
         private const val K_SCRUB_BLOCKED = "scrub_preview_blocked"
         private const val K_VLC_STREAMS = "vlc_streams"

@@ -125,17 +125,51 @@ class AppContainer(private val app: Application) {
      * VLC-Engine: einmal laden und fuer jede Wiedergabe wiederverwenden
      * (der Neustart pro Film kostete spuerbar Zeit).
      */
-    val vlc: LibVLC by lazy {
-        LibVLC(
-            app,
-            arrayListOf(
-                "--http-reconnect",
-                "--deinterlace=1",
-                "--deinterlace-mode=yadif",
-                "--no-stats",
-            ),
-        )
+    private var vlcInstance: LibVLC? = null
+    private var vlcMode: String? = null
+
+    /** Schwaches Geraet (TV-Stick, wenig Speicher/Kerne)? Dann sparsamer VLC-Modus. */
+    private fun lowPowerDevice(): Boolean {
+        val am = app.getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        val mem = android.app.ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
+        return am.isLowRamDevice || mem.totalMem < 3L * 1024 * 1024 * 1024 ||
+            Runtime.getRuntime().availableProcessors() <= 4 || com.poweriptv.app.util.DeviceInfo.isTv(app)
     }
+
+    /** Tatsaechlich verwendeter VLC-Modus (AUTO aufgeloest). */
+    fun vlcFastMode(): Boolean = when (settings.vlcPerformance.value) {
+        "FAST" -> true
+        "QUALITY" -> false
+        else -> lowPowerDevice()
+    }
+
+    val vlc: LibVLC
+        @Synchronized get() {
+            val fast = vlcFastMode()
+            val mode = if (fast) "FAST" else "QUALITY"
+            vlcInstance?.takeIf { vlcMode == mode }?.let { return it }
+            val opts = arrayListOf(
+                "--http-reconnect",
+                "--no-stats",
+                "--avcodec-threads=0",
+                "--audio-time-stretch",
+                // Halbbild-Sender (z.B. RTL, ProSieben in SD/1080i): nur bei Bedarf entflechten
+                "--deinterlace=-1",
+            )
+            if (fast) {
+                // Sparsam fuer TV-Sticks: einfache Entflechtung, schnellere Dekodierung, 16-Bit-Farben
+                opts += listOf(
+                    "--deinterlace-mode=blend",
+                    "--avcodec-skiploopfilter=4",
+                    "--avcodec-fast",
+                    "--avcodec-hurry-up",
+                    "--android-display-chroma=RV16",
+                )
+            } else {
+                opts += listOf("--deinterlace-mode=yadif", "--avcodec-skiploopfilter=1")
+            }
+            return LibVLC(app, opts).also { vlcInstance = it; vlcMode = mode }
+        }
 
     /** VLC im Hintergrund vorladen, damit der erste Start schnell ist. */
     fun prewarmVlc() {

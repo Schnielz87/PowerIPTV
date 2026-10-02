@@ -515,7 +515,12 @@ class VlcPlayerActivity : ComponentActivity() {
         val media = Media(libVlc, uri).apply {
             setHWDecoderEnabled(true, false) // Hardware wenn moeglich, sonst automatisch Software
             // Live: groesserer Puffer gegen Ruckler; Filme/Serien: schneller Start
-            addOption(if (entry.live) ":network-caching=1500" else ":network-caching=1000")
+            if (entry.live) {
+                // Live: groesserer Puffer + keine starre Taktsynchronisation -> weniger Haenger
+                addOption(":network-caching=2500")
+                addOption(":clock-jitter=0")
+                addOption(":clock-synchro=0")
+            } else addOption(":network-caching=2000")
             if (local) addOption(":file-caching=300")
             addOption(":http-user-agent=${container.settings.userAgent.value}")
             // Untertitel-Stil (Groesse, dunkler Hintergrund)
