@@ -1,7 +1,14 @@
 package com.poweriptv.app.ui.screens
 
 import android.content.Intent
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.res.painterResource
+import com.poweriptv.app.R
+import com.poweriptv.app.ui.theme.BrandCyan
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -140,10 +147,11 @@ fun HomeScreen(
                 refreshError?.let {
                     Text("Aktualisierung fehlgeschlagen: $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
+                // Collage-Hintergruende: res/drawable-nodpi/*_collage.webp (einfach austauschbar)
                 val big = listOf(
-                    Triple("LIVE TV", Icons.Filled.LiveTv, ContentType.LIVE) to listOf(Color(0xFF5EC4F2), Color(0xFF2A7FC0)),
-                    Triple("FILME", Icons.Filled.Movie, ContentType.MOVIE) to listOf(Color(0xFF3A8DC6), Color(0xFF123D6E)),
-                    Triple("SERIEN", Icons.Filled.VideoLibrary, ContentType.SERIES) to listOf(Color(0xFF2266A8), Color(0xFF0A2547)),
+                    Triple("LIVE TV", Icons.Filled.LiveTv, ContentType.LIVE) to BigTileStyle(listOf(Color(0xFF1E6BFF), Color(0xFF0A2547)), R.drawable.live_tv_collage),
+                    Triple("FILME", Icons.Filled.Movie, ContentType.MOVIE) to BigTileStyle(listOf(Color(0xFF7A3DFF), Color(0xFF1B1450)), R.drawable.movies_collage),
+                    Triple("SERIEN", Icons.Filled.VideoLibrary, ContentType.SERIES) to BigTileStyle(listOf(Color(0xFF0E8A8A), Color(0xFF0A2547)), R.drawable.series_collage),
                 )
                 if (wide) {
                     Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -236,15 +244,23 @@ fun HomeScreen(
     }
 }
 
+/** Farbton + Collage-Hintergrund einer grossen Startseiten-Kachel. */
+private data class BigTileStyle(val colors: List<Color>, @DrawableRes val background: Int)
+
+/**
+ * Grosse Startseiten-Kachel (Live TV / Filme / Serien).
+ * Ebenen: 1. Collage  2. Farb-/Abdunkel-Overlay  3. Vignette hinter Icon+Text  4. Icon  5. Beschriftung
+ */
 @Composable
 private fun BigTile(
     title: String,
     icon: ImageVector,
-    colors: List<Color>,
+    style: BigTileStyle,
     height: Dp,
     modifier: Modifier,
     onClick: () -> Unit,
 ) {
+    val colors = style.colors
     Box(
         modifier
             .height(height)
@@ -254,13 +270,54 @@ private fun BigTile(
             .background(Brush.linearGradient(colors)),
         contentAlignment = Alignment.Center,
     ) {
+        // 1. Collage (fuellt die Kachel, Seitenverhaeltnis bleibt erhalten)
+        Image(
+            painter = painterResource(style.background),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+        // 2. Abdunkeln + Farbton der Kachel (Blau / Violett / Teal) -> klar unterscheidbar
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.linearGradient(listOf(colors[0].copy(alpha = 0.35f), colors[1].copy(alpha = 0.65f)))
+            )
+        )
+        Box(Modifier.fillMaxSize().background(Color(0xFF060B16).copy(alpha = 0.25f)))
+        // 3. Vignette: Mitte dunkler, damit Icon und Schrift immer klar lesbar sind
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.radialGradient(
+                    0f to Color(0xFF060B16).copy(alpha = 0.55f),
+                    0.6f to Color(0xFF060B16).copy(alpha = 0.15f),
+                    1f to Color.Transparent,
+                )
+            )
+        )
+        // dezente Akzentlinie unten (Portiva-Farben)
+        Box(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(3.dp).background(
+                Brush.horizontalGradient(listOf(Color.Transparent, BrandCyan, Accent2Violet, Magenta, Color.Transparent))
+            )
+        )
+        // 4. + 5. Icon und Beschriftung (unveraendert, mit Schatten fuer Lesbarkeit)
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(icon, null, tint = Color.White, modifier = Modifier.size(52.dp))
             Spacer(Modifier.height(8.dp))
-            Text(title, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+            Text(
+                title,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    shadow = Shadow(Color.Black.copy(alpha = 0.8f), Offset(0f, 3f), blurRadius = 10f),
+                ),
+            )
         }
     }
 }
+
+private val Accent2Violet = Color(0xFF7A3DFF)
+private val Magenta = Color(0xFFE6007E)
 
 @Composable
 private fun SmallTile(title: String, icon: ImageVector, modifier: Modifier, onClick: () -> Unit) {

@@ -1,0 +1,135 @@
+<!doctype html>
+<!--
+  Generator fuer die Startseiten-Collagen (Live-TV, Filme, Serien).
+  Rein stilisiert: keine echten Senderlogos, keine echten Film-/Serienplakate.
+  Aufruf ueber generate.js (Chromium-Screenshot 1200x600) -> generate_webp.py
+-->
+<html><head><meta charset="utf-8"><style>
+  html,body{margin:0;width:1200px;height:600px;overflow:hidden;background:#050a18;font-family:"DejaVu Sans",Arial,sans-serif}
+  .stage{position:absolute;inset:0;overflow:hidden}
+  .wall{position:absolute;display:flex;flex-wrap:wrap;gap:12px;transform-origin:50% 50%}
+  .tile{border-radius:12px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;
+        box-shadow:0 8px 24px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.18)}
+  .lbl{font-weight:900;letter-spacing:.5px;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.4)}
+  .poster{position:absolute;border-radius:10px;overflow:hidden;box-shadow:0 14px 34px rgba(0,0,0,.7)}
+  .ptitle{position:absolute;left:8%;right:8%;bottom:7%;text-align:center;color:#fff;font-family:"DejaVu Serif",Georgia,serif;
+          font-weight:700;letter-spacing:2px;text-shadow:0 2px 8px rgba(0,0,0,.8);line-height:1.05}
+  .ptag{position:absolute;top:5%;left:0;right:0;text-align:center;font-size:9px;letter-spacing:3px;color:rgba(255,255,255,.7)}
+  .grain{position:absolute;inset:0;opacity:.10;mix-blend-mode:overlay;pointer-events:none}
+</style></head><body>
+<div class="stage" id="stage"></div>
+<svg width="0" height="0" style="position:absolute"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/></filter></svg>
+<script>
+// Deterministischer Zufall -> identische Bilder bei jedem Lauf
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const pick = a => a[Math.floor(rnd() * a.length)];
+const stage = document.getElementById('stage');
+const type = new URLSearchParams(location.search).get('type') || 'live';
+
+function grain(){ const s=document.createElementNS('http://www.w3.org/2000/svg','svg'); s.setAttribute('class','grain');
+  s.setAttribute('width','1200'); s.setAttribute('height','600'); s.innerHTML='<rect width="100%" height="100%" filter="url(#noise)"/>'; stage.appendChild(s); }
+function glow(x,y,r,c,o){ const d=document.createElement('div'); d.style.cssText=`position:absolute;left:${x-r}px;top:${y-r}px;width:${2*r}px;height:${2*r}px;border-radius:50%;background:radial-gradient(circle,${c} 0%,transparent 70%);opacity:${o};pointer-events:none`; stage.appendChild(d); }
+
+/* ---------------- LIVE-TV: Senderwand ---------------- */
+function live(){
+  stage.style.background='radial-gradient(ellipse at 40% 40%,#12306a 0%,#08142e 55%,#040812 100%)';
+  const brands=[
+    ['#e11d2e','#8f0d1a'],['#1e5bd8','#0b2a74'],['#f28c1b','#b44d06'],['#14a37f','#0a5a46'],['#7c3aed','#3b1580'],
+    ['#f5f5f7','#c9ccd6'],['#0f172a','#1e293b'],['#e6007e','#7a0043'],['#ffcc00','#d48a00'],['#00a3e0','#005b8f'],['#222','#444']];
+  const words=['NEWS','SPORT','24','1','2','3','HD','LIVE','KIDS','DOKU','MUSIK','CINE','FUN','TV','PLUS','MAX','ONE','INFO','ARENA','STAR','NOW','XTRA','POP','REGIO'];
+  function layer(scale,blur,opacity,shiftX,shiftY,rot){
+    const w=document.createElement('div'); w.className='wall';
+    w.style.cssText+=`width:1700px;left:${-250+shiftX}px;top:${-160+shiftY}px;transform:perspective(1100px) rotateY(${rot}deg) rotateX(6deg) scale(${scale});filter:blur(${blur}px);opacity:${opacity}`;
+    for(let i=0;i<70;i++){
+      const t=document.createElement('div'); t.className='tile';
+      const big=rnd()<.18, wd=big?250:120, ht=big?140:72; t.style.width=wd+'px'; t.style.height=ht+'px';
+      const r=rnd();
+      if(r<.16){ // "Sendebild": Fussballfeld
+        t.style.background='linear-gradient(160deg,#1f7a3a,#0d4a22)';
+        t.innerHTML='<div style="position:absolute;inset:18% 10%;border:2px solid rgba(255,255,255,.55);border-radius:4px"></div><div style="position:absolute;left:50%;top:18%;bottom:18%;border-left:2px solid rgba(255,255,255,.55)"></div><div style="position:absolute;left:50%;top:50%;width:26%;height:36%;border:2px solid rgba(255,255,255,.55);border-radius:50%;transform:translate(-50%,-50%)"></div>';
+      } else if(r<.26){ // Studio / Nachrichten
+        t.style.background='radial-gradient(circle at 30% 40%,#5ec4f2 0%,#1e4f9a 45%,#0a1c3e 100%)';
+        t.innerHTML='<div style="position:absolute;left:8%;right:8%;bottom:10%;height:18%;background:rgba(225,29,46,.9);border-radius:3px"></div><div style="position:absolute;left:12%;bottom:13%;width:50%;height:6%;background:#fff;border-radius:2px"></div>';
+      } else if(r<.32){ // Motorsport
+        t.style.background='linear-gradient(120deg,#0b0f1a 0%,#2a0d3d 60%,#e6007e 140%)';
+        t.innerHTML='<div style="position:absolute;left:-10%;right:-10%;top:55%;height:10%;background:linear-gradient(90deg,transparent,#ff3b3b,transparent);transform:skewY(-8deg)"></div>';
+      } else { // stilisierte Sender-Kachel
+        const b=pick(brands); t.style.background=`linear-gradient(145deg,${b[0]},${b[1]})`;
+        const light=b[0]==='#f5f5f7'||b[0]==='#ffcc00';
+        const word=pick(words), size=(big?46:22)*(word.length>4?.8:1);
+        const shape=rnd();
+        let mark='';
+        if(shape<.35) mark=`<div style="width:${big?40:20}px;height:${big?40:20}px;border-radius:50%;background:${light?'#e11d2e':'#fff'};margin-right:${big?10:5}px;display:flex;align-items:center;justify-content:center;color:${light?'#fff':b[1]};font-weight:900;font-size:${big?22:11}px">${Math.floor(rnd()*9)+1}</div>`;
+        else if(shape<.5) mark=`<div style="width:0;height:0;border-left:${big?22:11}px solid transparent;border-right:${big?22:11}px solid transparent;border-bottom:${big?36:18}px solid ${light?'#1e5bd8':'#fff'};margin-right:${big?10:5}px"></div>`;
+        t.innerHTML=`<div style="display:flex;align-items:center">${mark}<span class="lbl" style="font-size:${size}px;color:${light?'#10204a':'#fff'}">${word}</span></div>`;
+      }
+      w.appendChild(t);
+    }
+    stage.appendChild(w);
+  }
+  layer(1.25,3,0.55,-60,-40,-20);   // hintere, unscharfe Ebene
+  layer(1.0,0.4,0.95,40,30,-14);    // vordere Ebene
+  glow(600,300,420,'rgba(94,196,242,.35)',.9);
+  glow(1050,80,260,'rgba(124,58,237,.35)',.8);
+  glow(120,560,260,'rgba(230,0,126,.22)',.8);
+}
+
+/* ---------- Plakat-Generator (Filme / Serien) ---------- */
+function poster(x,y,w,h,pal,title,blur,op,z,opts={}){
+  const p=document.createElement('div'); p.className='poster';
+  p.style.cssText+=`left:${x}px;top:${y}px;width:${w}px;height:${h}px;filter:blur(${blur}px) brightness(${op});z-index:${z};background:linear-gradient(${Math.floor(rnd()*360)}deg,${pal[0]},${pal[1]} 55%,${pal[2]})`;
+  let html='';
+  const scene=rnd();
+  if(scene<.3){ // Planet / Sonne
+    const r=w*(.5+rnd()*.5); html+=`<div style="position:absolute;left:${w*.5-r/2}px;top:${h*.18}px;width:${r}px;height:${r}px;border-radius:50%;background:radial-gradient(circle at 35% 35%,${pal[3]},${pal[1]} 70%);box-shadow:0 0 40px ${pal[3]}"></div>`;
+  } else if(scene<.6){ // Skyline
+    let pts='0% 100%'; let xx=0; while(xx<100){ const bw=6+rnd()*10, bh=40+rnd()*35; pts+=`,${xx}% ${bh}%,${xx+bw}% ${bh}%`; xx+=bw; } pts+=',100% 100%';
+    html+=`<div style="position:absolute;inset:0;background:linear-gradient(transparent 30%,rgba(0,0,0,.85));clip-path:polygon(${pts})"></div>`;
+    html+=`<div style="position:absolute;left:0;right:0;top:20%;height:30%;background:radial-gradient(ellipse at 50% 100%,${pal[3]}55,transparent 70%)"></div>`;
+  } else { // Silhouette einer Figur
+    html+=`<div style="position:absolute;left:50%;top:22%;width:${w*.22}px;height:${w*.22}px;border-radius:50%;background:rgba(0,0,0,.85);transform:translateX(-50%)"></div>`;
+    html+=`<div style="position:absolute;left:50%;top:${22+w*.2/h*100}%;width:${w*.55}px;height:${h*.6}px;background:rgba(0,0,0,.85);border-radius:40% 40% 0 0;transform:translateX(-50%)"></div>`;
+    html+=`<div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 30%,${pal[3]}66,transparent 55%)"></div>`;
+  }
+  html+=`<div style="position:absolute;inset:0;background:linear-gradient(transparent 55%,rgba(0,0,0,.75))"></div>`;
+  html+=`<div class="ptag">${opts.tag||''}</div><div class="ptitle" style="font-size:${Math.max(12,w*.12)}px">${title}</div>`;
+  p.innerHTML=html; stage.appendChild(p);
+}
+
+/* ---------------- FILME: Kino-Plakatwand ---------------- */
+function movies(){
+  stage.style.background='radial-gradient(ellipse at 50% 45%,#1b1450 0%,#0a0a24 60%,#040410 100%)';
+  const pals=[['#0f2b5c','#1b1450','#05060f','#ff9a3c'],['#3b1a6b','#120a2e','#000','#ffd166'],['#0a3d5c','#0b1c36','#020409','#5ec4f2'],
+              ['#5c1a1a','#1a0a12','#000','#ff7a18'],['#1f2a6b','#0b0f2e','#000','#c084fc'],['#3d2a0a','#1a1206','#000','#ffcc66']];
+  const titles=['NIGHTFALL','THE LAST ORBIT','IRON HORIZON','SHADOW CODE','EMBER','DUNESTORM','REDLINE','COLD STEEL','STARFALL','THE VAULT','AFTERGLOW','WILD KINGDOM','PHANTOM','LEGACY','VORTEX','TITAN'];
+  // hintere Reihe (unscharf, dunkel)
+  for(let c=0;c<10;c++) poster(c*125-30,-60+(c%2)*60,120,180,pick(pals),pick(titles),2.5,.55,1);
+  for(let c=0;c<10;c++) poster(c*125-80,300+(c%2)*40,120,180,pick(pals),pick(titles),2.5,.55,1);
+  // vordere Reihe (versetzt, unterschiedliche Groessen)
+  let x=-40; while(x<1200){ const w=150+rnd()*60, h=w*1.5; poster(x,40+rnd()*160-60,w,h,pick(pals),pick(titles),.3,.95,2,{tag:pick(['IM KINO','BLOCKBUSTER','THRILLER','SCI-FI','ACTION','FANTASY'])}); x+=w*.82; }
+  glow(600,320,460,'rgba(124,58,237,.30)',.9);
+  glow(980,90,240,'rgba(255,154,60,.35)',.9);   // warmer Lichtakzent
+  glow(150,520,220,'rgba(255,204,102,.25)',.8);
+  grain();
+}
+
+/* ---------------- SERIEN: Streaming-Katalog ---------------- */
+function series(){
+  stage.style.background='radial-gradient(ellipse at 50% 45%,#08384a 0%,#06182a 60%,#030a12 100%)';
+  const pals=[['#0b4a5c','#062633','#010608','#ff5a3c'],['#0d3b66','#071a30','#000','#5ec4f2'],['#14505c','#08262c','#000','#ff9a3c'],
+              ['#1a2f4a','#0b1626','#000','#e11d2e'],['#0a5a5a','#042a2a','#000','#ffd166'],['#202a5c','#0b0f2e','#000','#2ee5c4']];
+  const titles=['THE SYNDICATE','COLD HARBOR','KINGDOM OF ASH','BLACKWATER','THE HEIST','OUTLAWS','DARK SEASON','NORTHMEN','THE FIXER','CROWN & BLOOD','SIGNAL','UNDERGROUND'];
+  // Querformat-Thumbnails hinten
+  for(let r=0;r<3;r++) for(let c=0;c<7;c++) poster(c*190-60+(r%2)*70,r*200-40,180,102,pick(pals),pick(titles),2.2,.5,1);
+  // Hochformat-Plakate vorne
+  let x=-30; while(x<1200){ const w=140+rnd()*50, h=w*1.48; poster(x,60+rnd()*140-50,w,h,pick(pals),pick(titles),.3,.95,2,{tag:pick(['STAFFEL 1','NEUE FOLGEN','SERIE','STAFFEL 3','MINISERIE'])}); x+=w*.86; }
+  // Bokeh
+  for(let i=0;i<22;i++){ const r=8+rnd()*28; const b=document.createElement('div');
+    b.style.cssText=`position:absolute;left:${rnd()*1200}px;top:${rnd()*600}px;width:${r*2}px;height:${r*2}px;border-radius:50%;background:radial-gradient(circle,rgba(${rnd()<.75?'94,230,242':'255,120,80'},.45),transparent 70%);z-index:3;filter:blur(1px)`; stage.appendChild(b); }
+  glow(600,300,440,'rgba(46,229,196,.18)',.9);
+  glow(1000,520,240,'rgba(225,29,46,.22)',.8);
+  grain();
+}
+
+({live,movies,series})[type]();
+</script></body></html>
