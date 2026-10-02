@@ -29,8 +29,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FiberManualRecord
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -259,7 +257,8 @@ class PlayerActivity : ComponentActivity() {
                         factory = { ctx ->
                             PlayerView(ctx).apply {
                                 layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                                player = this@PlayerActivity.player
+                                // Steuerung ueber die App-Warteschlange: ⏮/⏭ = Sender bzw. Folge wechseln
+                                player = controlPlayer
                                 keepScreenOn = true
                                 setShowSubtitleButton(false) // Untertitel jetzt im Zahnrad-Menue oben rechts
                                 resizeMode = resizeModeFor(videoScale)
@@ -267,8 +266,9 @@ class PlayerActivity : ComponentActivity() {
                                     showOverlay = v == View.VISIBLE
                                 })
                                 controllerShowTimeoutMs = 0 // Ausblenden steuert die App selbst (s. hideOverlay)
-                                setShowRewindButton(true)
-                                setShowFastForwardButton(true)
+                                // 10-s-Pfeile nur bei Filmen/Serien (Live-TV ist nicht spulbar)
+                                setShowRewindButton(current()?.live != true)
+                                setShowFastForwardButton(current()?.live != true)
                                 isFocusable = true
                                 // Doppeltipp rechts/links = 10 s vor/zurueck, einfacher Tipp = Steuerung ein/aus.
                                 // Tipps auf die Steuerungsknoepfe gehen weiterhin an die Knoepfe.
@@ -448,9 +448,6 @@ class PlayerActivity : ComponentActivity() {
                 IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { closePlayer() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurueck zur Uebersicht", tint = Color.White)
                 }
-                if (container.playQueue.size > 1) {
-                    IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { previous() }) { Icon(Icons.Filled.SkipPrevious, "Vorheriger", tint = Color.White) }
-                }
                 Text(
                     title, color = Color.White, fontWeight = FontWeight.Bold,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
@@ -481,9 +478,6 @@ class PlayerActivity : ComponentActivity() {
                     IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { showRecordDialog = true }) {
                         Icon(Icons.Filled.FiberManualRecord, "Aufnehmen", tint = Danger)
                     }
-                }
-                if (container.playQueue.size > 1) {
-                    IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { next() }) { Icon(Icons.Filled.SkipNext, "Naechster", tint = Color.White) }
                 }
             }
             val fmt = DateFormat.getTimeInstance(DateFormat.SHORT)
@@ -652,6 +646,30 @@ class PlayerActivity : ComponentActivity() {
         )
     }
 
+    /**
+     * Player-Huelle fuer die Steuerleiste: Die aeusseren Pfeile (⏮/⏭) wechseln Sender bzw. Folge
+     * aus der App-Warteschlange (der Player selbst kennt immer nur einen Titel).
+     */
+    private val controlPlayer by lazy {
+        object : androidx.media3.common.ForwardingPlayer(player) {
+            private fun multi() = container.playQueue.size > 1
+            private val queueCommands = intArrayOf(
+                Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
+                Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+            )
+            override fun isCommandAvailable(command: Int): Boolean =
+                if (multi() && command in queueCommands) true else super.isCommandAvailable(command)
+            override fun getAvailableCommands(): Player.Commands =
+                if (multi()) super.getAvailableCommands().buildUpon().addAll(*queueCommands).build() else super.getAvailableCommands()
+            override fun hasPreviousMediaItem() = multi() || super.hasPreviousMediaItem()
+            override fun hasNextMediaItem() = multi() || super.hasNextMediaItem()
+            override fun seekToPrevious() { if (multi()) previous() else super.seekToPrevious() }
+            override fun seekToNext() { if (multi()) next() else super.seekToNext() }
+            override fun seekToPreviousMediaItem() { if (multi()) previous() else super.seekToPreviousMediaItem() }
+            override fun seekToNextMediaItem() { if (multi()) next() else super.seekToNextMediaItem() }
+        }
+    }
+
     private fun skipIntro() {
         introSkipped = true
         showSkipIntro = false
@@ -785,6 +803,8 @@ class PlayerActivity : ComponentActivity() {
         scrubPreview = ScrubPreview.create(container, entry)
         blockedRec = null
         watchingRecording = false
+        playerView?.setShowRewindButton(!entry.live)
+        playerView?.setShowFastForwardButton(!entry.live)
         if (entry.live) {
             // Laeuft fuer diesen Sender eine Aufnahme? -> aus der Aufnahme schauen (keine 2. Verbindung)
             container.recordings.activeFor(entry.url)?.let { rec -> playFromRecording(rec); return }
