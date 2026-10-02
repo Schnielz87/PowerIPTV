@@ -50,6 +50,7 @@ class SettingsRepository(context: Context) {
     private val _dlConnections = MutableStateFlow(prefs.getInt(K_DL_CONN, 0))
     private val _engine = str(K_ENGINE, PlayerEngine.AUTO.name)
     private val _scrub = str(K_SCRUB, "AUTO")
+    private val _scrubBlocked = bool(K_SCRUB_BLOCKED, false)
     private val _resize = str(K_RESIZE, VideoScale.FIT.name)
     private val _aiBaseUrl = str(K_AI_URL, DEFAULT_AI_URL)
 
@@ -76,6 +77,9 @@ class SettingsRepository(context: Context) {
     val playerEngine: StateFlow<String> = _engine
     /** Vorschaubilder beim Spulen (Thumbnail-Scrubbing). */
     val scrubPreview: StateFlow<String> = _scrub
+    /** Anbieter hat beim Spulen mit Vorschau den Film abgebrochen -> Automatik schaltet Vorschau ab. */
+    val scrubBlocked: StateFlow<Boolean> = _scrubBlocked
+    fun setScrubBlocked(v: Boolean) = putBool(K_SCRUB_BLOCKED, v, _scrubBlocked)
     /** Parallele Verbindungen pro Download (0 = automatisch nach Account-Limit). */
     val downloadConnections: StateFlow<Int> = _dlConnections
     /** Bildformat im Player. */
@@ -91,7 +95,7 @@ class SettingsRepository(context: Context) {
     fun orientationEnum(): Orientation = runCatching { Orientation.valueOf(_orientation.value) }.getOrDefault(Orientation.LANDSCAPE)
     fun setAutoFrameRate(v: Boolean) = putBool(K_AFR, v, _afr)
     fun setPlayerEngine(v: PlayerEngine) = putStr(K_ENGINE, v.name, _engine)
-    fun setScrubPreview(v: com.poweriptv.app.player.ScrubPreviewMode) = putStr(K_SCRUB, v.name, _scrub)
+    fun setScrubPreview(v: com.poweriptv.app.player.ScrubPreviewMode) { putStr(K_SCRUB, v.name, _scrub); setScrubBlocked(false) }
     fun scrubPreviewEnum() = runCatching { com.poweriptv.app.player.ScrubPreviewMode.valueOf(_scrub.value) }.getOrDefault(com.poweriptv.app.player.ScrubPreviewMode.AUTO)
     fun playerEngineEnum(): PlayerEngine = runCatching { PlayerEngine.valueOf(_engine.value) }.getOrDefault(PlayerEngine.AUTO)
 
@@ -143,6 +147,7 @@ class SettingsRepository(context: Context) {
         private const val K_AFR = "auto_frame_rate"
         private const val K_ENGINE = "player_engine"
         private const val K_SCRUB = "scrub_preview"
+        private const val K_SCRUB_BLOCKED = "scrub_preview_blocked"
         private const val K_VLC_STREAMS = "vlc_streams"
         private const val K_VLC_CATEGORIES = "vlc_categories"
         private const val K_DL_CONN = "download_connections"

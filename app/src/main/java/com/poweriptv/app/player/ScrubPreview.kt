@@ -36,7 +36,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 /** Vorschaubilder beim Spulen: Automatisch / Immer / Aus. */
 enum class ScrubPreviewMode(val label: String) {
-    AUTO("Automatisch (Downloads & Zugaenge mit mehreren Verbindungen)"),
+    AUTO("Automatisch (wird abgeschaltet, falls dein Anbieter beim Spulen den Film abbricht)"),
     ALWAYS("Immer (oeffnet beim Spulen kurz eine 2. Verbindung)"),
     OFF("Aus"),
 }
@@ -51,12 +51,16 @@ class ScrubPreview private constructor(private val source: String, private val u
     private val cache = LruCache<Long, Bitmap>(60)
     private var retriever: MediaMetadataRetriever? = null
     @Volatile private var failed = false
+    /** Zeitpunkt der letzten Vorschau-Anfrage (bricht der Film kurz danach ab, war es wohl die 2. Verbindung). */
+    @Volatile var lastUsed = 0L
+        private set
 
     private val _frame = MutableStateFlow<Bitmap?>(null)
     val frame: StateFlow<Bitmap?> = _frame
 
     fun request(positionMs: Long) {
         if (failed) return
+        lastUsed = System.currentTimeMillis()
         cache.get(positionMs / BUCKET)?.let { _frame.value = it; return }
         if (pending.getAndSet(positionMs.coerceAtLeast(0)) == -1L) executor.execute(::work)
     }
@@ -99,6 +103,9 @@ class ScrubPreview private constructor(private val source: String, private val u
         executor.shutdown()
     }
 
+    /** Wurde die Vorschau gerade benutzt? (dann ist ein Abbruch des Films vermutlich ihre Schuld) */
+    fun recentlyUsed() = System.currentTimeMillis() - lastUsed < 30_000
+
     companion object {
         private const val BUCKET = 5_000L
 
@@ -110,7 +117,7 @@ class ScrubPreview private constructor(private val source: String, private val u
             val allowed = when (mode) {
                 ScrubPreviewMode.OFF -> false
                 ScrubPreviewMode.ALWAYS -> true
-                ScrubPreviewMode.AUTO -> local || (container.maxConnections ?: 2) >= 2
+                ScrubPreviewMode.AUTO -> local || !container.settings.scrubBlocked.value
             }
             if (!allowed) return null
             // Vorschau laeuft nicht ueber den VPN-Tunnel-Schutz der App -> bei Pflicht-VPN ohne Tunnel nicht laden

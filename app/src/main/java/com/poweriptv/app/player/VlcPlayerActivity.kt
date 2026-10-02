@@ -132,7 +132,17 @@ class VlcPlayerActivity : ComponentActivity() {
                 MediaPlayer.Event.Buffering -> buffering = event.buffering < 100f
                 MediaPlayer.Event.Playing -> { playing = true; buffering = false; error = null; if (mediaPlayer.length > 0) applyResume() }
                 MediaPlayer.Event.Paused, MediaPlayer.Event.Stopped -> playing = false
-                MediaPlayer.Event.EncounteredError -> { error = "Wiedergabe fehlgeschlagen (VLC)"; buffering = false }
+                MediaPlayer.Event.EncounteredError -> runOnUiThread {
+                    // Film bricht ab, waehrend die Spul-Vorschau lief -> Anbieter erlaubt keine 2. Verbindung
+                    if (scrubPreview?.recentlyUsed() == true && container.settings.scrubPreviewEnum() == ScrubPreviewMode.AUTO) {
+                        container.settings.setScrubBlocked(true)
+                        scrubPreview?.release(); scrubPreview = null
+                        toast = "Vorschaubilder abgeschaltet – dein Anbieter erlaubt beim Spulen keine 2. Verbindung"
+                        lifecycleScope.launch { delay(1500); play(container.playIndex) }
+                    } else {
+                        error = "Wiedergabe fehlgeschlagen (VLC)"; buffering = false
+                    }
+                }
                 MediaPlayer.Event.EndReached -> if (current()?.live == true && watchingRecording) runOnUiThread {
                     play(container.playIndex) // Aufnahme beendet -> wieder normal live
                 } else if (current()?.live != true) runOnUiThread {
@@ -236,9 +246,9 @@ class VlcPlayerActivity : ComponentActivity() {
 
     @androidx.compose.runtime.Composable
     private fun Overlay() {
-        LaunchedEffect(showOverlay, title, pendingSeekAt) {
+        LaunchedEffect(showOverlay, title, pendingSeekAt, dragging) {
             delay(5000)
-            if (playing) showOverlay = false
+            if (playing && dragging == null) showOverlay = false
         }
         val live = current()?.live == true
         val multi = container.playQueue.size > 1
@@ -337,8 +347,9 @@ class VlcPlayerActivity : ComponentActivity() {
     private fun saveResume() {
         val e = current() ?: return
         if (e.live || resumeTarget > 0) return // noch nicht an die gemerkte Stelle gesprungen
-        val len = runCatching { mediaPlayer.length }.getOrDefault(0L)
-        val time = runCatching { mediaPlayer.time }.getOrDefault(0L)
+        // Nach einem Abbruch meldet VLC 0/-1 -> letzte bekannte Werte verwenden
+        val len = runCatching { mediaPlayer.length }.getOrDefault(0L).takeIf { it > 0 } ?: length
+        val time = runCatching { mediaPlayer.time }.getOrDefault(0L).takeIf { it > 0 } ?: position
         if (len > 0) container.resume.save(e.url, time, len)
     }
 

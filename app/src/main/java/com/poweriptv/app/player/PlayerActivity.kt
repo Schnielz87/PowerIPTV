@@ -172,6 +172,14 @@ class PlayerActivity : ComponentActivity() {
             .build()
         player.addListener(object : Player.Listener {
             override fun onPlayerError(e: PlaybackException) {
+                // Film bricht ab, waehrend die Spul-Vorschau lief -> Anbieter erlaubt keine 2. Verbindung
+                if (scrubPreview?.recentlyUsed() == true && container.settings.scrubPreviewEnum() == ScrubPreviewMode.AUTO) {
+                    container.settings.setScrubBlocked(true)
+                    scrubPreview?.release(); scrubPreview = null
+                    toast = "Vorschaubilder abgeschaltet – dein Anbieter erlaubt beim Spulen keine 2. Verbindung"
+                    lifecycleScope.launch { delay(1500); play(container.playIndex) }
+                    return
+                }
                 if (e.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED ||
                     e.errorCode == PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED ||
                     e.errorCode == PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED ||
@@ -249,9 +257,11 @@ class PlayerActivity : ComponentActivity() {
                                         return true
                                     }
                                 })
-                                setOnTouchListener { v, e ->
+                                // Kein performClick(): PlayerView wuerde die Leiste dabei zusaetzlich ein/aus schalten
+                                controllerHideOnTouch = false
+                                @Suppress("ClickableViewAccessibility")
+                                setOnTouchListener { _, e ->
                                     detector.onTouchEvent(e)
-                                    if (e.action == android.view.MotionEvent.ACTION_UP) v.performClick()
                                     true
                                 }
                                 // Thumbnail-Scrubbing: beim Ziehen auf dem Zeitstrahl Vorschaubild zeigen
@@ -274,7 +284,7 @@ class PlayerActivity : ComponentActivity() {
                     LaunchedEffect(showOverlay, lastInteraction) {
                         if (!showOverlay) return@LaunchedEffect
                         delay(5000)
-                        if (player.isPlaying && error == null && !showRecordDialog) {
+                        if (player.isPlaying && error == null && !showRecordDialog && scrubPos == null) {
                             showOverlay = false
                             playerView?.hideController()
                             playerView?.requestFocus() // Auswahl zurueck aufs Bild -> Tasten wirken direkt
@@ -567,6 +577,9 @@ class PlayerActivity : ComponentActivity() {
 
     private fun onScrub(position: Long) {
         lastInteraction = System.currentTimeMillis()
+        // Leiste waehrend des Spulens sicher eingeblendet lassen
+        if (playerView?.isControllerFullyVisible == false) playerView?.showController()
+        showOverlay = true
         if (current()?.live == true || timeshiftActive || watchingRecording) return
         scrubPos = position
         scrubPreview?.request(position)
