@@ -168,6 +168,15 @@ class XtreamSource(
         val root = call("get_series_info", "series_id" to item.id) as? JsonObject ?: return null
         val info = root.obj("info") ?: JsonObject(emptyMap())
         val episodes = mutableMapOf<Int, MutableList<Episode>>()
+        val seriesBackdrop = (info["backdrop_path"] as? JsonArray)?.firstOrNull()?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
+            ?: info.str("backdrop_path")
+        val seriesCover = info.str("cover") ?: item.logo
+        // Staffel-Cover als Ersatz-Vorschaubild
+        val seasonCovers = root["seasons"].asArray().mapNotNull { s ->
+            val nr = s.int("season_number") ?: s.int("season_num") ?: return@mapNotNull null
+            val img = img(s.str("cover_big")) ?: img(s.str("cover")) ?: img(s.str("cover_tmdb")) ?: return@mapNotNull null
+            nr to img
+        }.toMap()
         val parseEp = { o: JsonObject, seasonFallback: Int ->
             val epInfo = o.obj("info")
             val season = o.int("season") ?: seasonFallback
@@ -177,8 +186,11 @@ class XtreamSource(
                 season = season,
                 episodeNum = o.int("episode_num") ?: 0,
                 containerExtension = o.str("container_extension"),
-                plot = epInfo?.str("plot"),
-                image = epInfo?.str("movie_image"),
+                plot = epInfo?.str("plot")?.takeUnless { it.equals("n/a", true) || it.equals("null", true) },
+                // Vorschaubild: alle ueblichen Felder, sonst Staffel-Cover / Serien-Hintergrund / Serien-Cover
+                image = img(epInfo?.str("movie_image")) ?: img(epInfo?.str("cover_big")) ?: img(epInfo?.str("cover"))
+                    ?: img(epInfo?.str("still_path")) ?: img(o.str("cover")) ?: img(o.str("movie_image"))
+                    ?: seasonCovers[season] ?: img(seriesBackdrop) ?: img(seriesCover),
                 duration = epInfo?.str("duration"),
             )
             if (ep.id.isNotBlank()) episodes.getOrPut(season) { mutableListOf() }.add(ep)
@@ -199,9 +211,19 @@ class XtreamSource(
             releaseDate = info.str("releaseDate") ?: info.str("release_date"),
             rating = info.str("rating"),
             cover = info.str("cover") ?: item.logo,
-            backdrop = (info["backdrop_path"] as? JsonArray)?.firstOrNull()?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content },
+            backdrop = seriesBackdrop,
             episodes = episodes.toSortedMap().mapValues { (_, v) -> v.sortedBy { it.episodeNum } },
         )
+    }
+
+    /** Bild-URL pruefen; TMDB-Pfade ("/abc.jpg") zu vollstaendigen URLs ergaenzen. */
+    private fun img(v: String?): String? {
+        val s = v?.trim()?.takeIf { it.isNotEmpty() && !it.equals("null", true) && !it.equals("n/a", true) } ?: return null
+        return when {
+            s.startsWith("http") -> s
+            s.startsWith("/") -> "https://image.tmdb.org/t/p/w300$s"
+            else -> null
+        }
     }
 
     override suspend fun shortEpg(item: ContentItem): List<EpgEntry> = runCatching {

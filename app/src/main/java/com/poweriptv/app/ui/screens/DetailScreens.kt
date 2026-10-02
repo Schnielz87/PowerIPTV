@@ -42,6 +42,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.draw.clip
@@ -247,8 +248,12 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
                                     .background(MaterialTheme.colorScheme.surfaceVariant),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Icon(Icons.Filled.PlayArrow, null)
                                 if (!ep.image.isNullOrBlank()) AsyncImage(ep.image, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                // kleines Play-Symbol ueber dem Vorschaubild
+                                Box(
+                                    Modifier.size(30.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.55f)),
+                                    contentAlignment = Alignment.Center,
+                                ) { Icon(Icons.Filled.PlayArrow, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
                             }
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
