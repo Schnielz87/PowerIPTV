@@ -67,6 +67,8 @@ fun PowerTopBar(
     title: String,
     onBack: (() -> Unit)? = null,
     actions: @Composable () -> Unit = {},
+    /** Transparent ueber einem Hintergrundbild (Detailseiten auf Tablet/TV). */
+    transparent: Boolean = false,
 ) {
     TopAppBar(
         title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold) },
@@ -79,7 +81,7 @@ fun PowerTopBar(
         // Im Querformat flacher (48 dp statt 64 dp)
         expandedHeight = if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE) 48.dp
         else TopAppBarDefaults.TopAppBarExpandedHeight,
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = if (transparent) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.background),
     )
 }
 

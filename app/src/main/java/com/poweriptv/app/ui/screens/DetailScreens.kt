@@ -81,56 +81,90 @@ private fun FavoriteButton(container: AppContainer, item: ContentItem) {
     }
 }
 
+/** Tablet & Fernseher: Filmbild als Vollbild-Hintergrund der ganzen Seite. Handy: Bild-Streifen im Kopf wie bisher. */
+@Composable
+private fun largeDetail(): Boolean =
+    androidx.compose.ui.platform.LocalConfiguration.current.smallestScreenWidthDp >= 600 || com.poweriptv.app.util.LocalIsTv.current
+
+/** Vollbild-Hintergrund (Tablet/TV): Bild rechts oben, nach links und unten weich in den Hintergrund auslaufend. */
+@Composable
+private fun DetailBackdrop(backdrop: String?) {
+    if (backdrop.isNullOrBlank()) return
+    val bg = MaterialTheme.colorScheme.background
+    val clear = androidx.compose.ui.graphics.Color.Transparent
+    Box(Modifier.fillMaxSize()) {
+        AsyncImage(
+            backdrop, null, contentScale = ContentScale.Crop, alignment = Alignment.TopEnd,
+            modifier = Modifier.fillMaxSize(), alpha = 0.7f,
+        )
+        Box(
+            Modifier.fillMaxSize().background(
+                androidx.compose.ui.graphics.Brush.horizontalGradient(
+                    0f to bg.copy(alpha = 0.95f), 0.35f to bg.copy(alpha = 0.75f), 0.7f to bg.copy(alpha = 0.25f), 1f to clear,
+                ),
+            ),
+        )
+        Box(
+            Modifier.fillMaxSize().background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    0f to bg.copy(alpha = 0.35f), 0.25f to clear, 0.55f to bg.copy(alpha = 0.3f), 0.9f to bg,
+                ),
+            ),
+        )
+    }
+}
+
+/** Seitenrahmen der Detailseiten: auf Tablet/TV mit Vollbild-Hintergrund und transparenter Kopfzeile. */
+@Composable
+private fun DetailScaffold(
+    title: String,
+    backdrop: String?,
+    onBack: () -> Unit,
+    actions: @Composable () -> Unit,
+    content: @Composable (PaddingValues) -> Unit,
+) {
+    val large = largeDetail()
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        if (large) DetailBackdrop(backdrop)
+        Scaffold(
+            topBar = { PowerTopBar(title, onBack = onBack, actions = actions, transparent = large) },
+            containerColor = if (large) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.background,
+            content = content,
+        )
+    }
+}
+
 @Composable
 private fun Header(title: String, cover: String?, backdrop: String?, lines: List<String>, ageRating: com.poweriptv.app.data.AgeRating? = null, extra: @Composable () -> Unit) {
-    val config = androidx.compose.ui.platform.LocalConfiguration.current
-    // Tablet & Fernseher: Hintergrundbild deutlich groesser, Inhalt unten auf dem Bild – Handy bleibt wie bisher
-    val tablet = config.smallestScreenWidthDp >= 600 || com.poweriptv.app.util.LocalIsTv.current
-    val bgHeight = if (tablet) {
-        // nicht hoeher als ~3/4 des Bildschirms (TV im Querformat ist nur ~540 dp hoch)
-        minOf(config.screenWidthDp * 0.42f, config.screenHeightDp * 0.75f).dp.coerceIn(300.dp, 600.dp)
-    } else 220.dp
-    Box(Modifier.fillMaxWidth().then(if (tablet) Modifier.heightIn(min = bgHeight) else Modifier)) {
-        if (!backdrop.isNullOrBlank()) {
+    val large = largeDetail()
+    Box(Modifier.fillMaxWidth()) {
+        // Handy: Bild-Streifen hinter dem Kopf (Tablet/TV: Vollbild-Hintergrund der Seite)
+        if (!large && !backdrop.isNullOrBlank()) {
             AsyncImage(
                 backdrop, null, contentScale = ContentScale.Crop,
-                modifier = if (tablet) Modifier.matchParentSize() else Modifier.fillMaxWidth().height(bgHeight),
-                alpha = if (tablet) 0.6f else 0.35f,
+                modifier = Modifier.fillMaxWidth().height(220.dp),
+                alpha = 0.35f,
             )
-            if (tablet) {
-                // Weicher Uebergang vom Bild in den Hintergrund
-                val bg = MaterialTheme.colorScheme.background
-                Box(
-                    Modifier.matchParentSize().background(
-                        androidx.compose.ui.graphics.Brush.verticalGradient(
-                            0f to androidx.compose.ui.graphics.Color.Transparent,
-                            0.55f to bg.copy(alpha = 0.25f),
-                            1f to bg,
-                        ),
-                    ),
-                )
-            }
         }
         Row(
-            Modifier.padding(if (tablet) 24.dp else 16.dp).then(if (tablet) Modifier.align(Alignment.BottomStart) else Modifier),
-            verticalAlignment = if (tablet) Alignment.Bottom else Alignment.Top,
+            if (large) Modifier.padding(start = 32.dp, end = 32.dp, top = 24.dp, bottom = 16.dp) else Modifier.padding(16.dp),
         ) {
             Box(
-                Modifier.width(if (tablet) 170.dp else 130.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(10.dp))
+                Modifier.width(if (large) 170.dp else 130.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(10.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 if (!cover.isNullOrBlank()) AsyncImage(cover, title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             }
-            Spacer(Modifier.width(if (tablet) 24.dp else 16.dp))
+            Spacer(Modifier.width(if (large) 28.dp else 16.dp))
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        title, style = if (tablet) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleLarge,
+                        title, style = if (large) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f, fill = false),
                     )
-                    ageRating?.let { Spacer(Modifier.width(12.dp)); FskBadge(it, if (tablet) 40.dp else 32.dp) }
+                    ageRating?.let { Spacer(Modifier.width(12.dp)); FskBadge(it, if (large) 40.dp else 32.dp) }
                 }
-                lines.forEach { Text(it, style = if (tablet) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                lines.forEach { Text(it, style = if (large) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 Spacer(Modifier.height(8.dp))
                 extra()
             }
@@ -180,11 +214,8 @@ fun MovieDetailScreen(container: AppContainer, onBack: () -> Unit) {
         ageRating = container.ageRatings.resolve(false, item.name, i?.releaseDate ?: item.year?.toString(), i?.tmdbId, i?.age)
     }
 
-    Scaffold(
-        topBar = { PowerTopBar(item.name, onBack = onBack, actions = { FavoriteButton(container, item) }) },
-        containerColor = MaterialTheme.colorScheme.background,
-    ) { padding ->
-        if (loading) { LoadingBox(Modifier.padding(padding)); return@Scaffold }
+    DetailScaffold(item.name, info?.backdrop, onBack, actions = { FavoriteButton(container, item) }) { padding ->
+        if (loading) { LoadingBox(Modifier.padding(padding)); return@DetailScaffold }
         LazyColumn(Modifier.fillMaxSize().padding(padding)) {
             item {
                 val i = info
@@ -252,10 +283,7 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
         ageRating = container.ageRatings.resolve(true, item.name, i?.releaseDate ?: item.year?.toString(), i?.tmdbId, i?.age)
     }
 
-    Scaffold(
-        topBar = { PowerTopBar(item.name, onBack = onBack, actions = { FavoriteButton(container, item) }) },
-        containerColor = MaterialTheme.colorScheme.background,
-    ) { padding ->
+    DetailScaffold(item.name, info?.backdrop, onBack, actions = { FavoriteButton(container, item) }) { padding ->
         when {
             loading -> LoadingBox(Modifier.padding(padding))
             info == null -> ErrorBox(error ?: "Keine Informationen verfuegbar", modifier = Modifier.padding(padding))
