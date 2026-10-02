@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Portiva – PowerIPTV Logo (Platzhalter).
+  Zum Austauschen gegen das Original-Logo: diese Datei loeschen und
+  stattdessen res/drawable/portiva_logo.png ablegen (gleicher Name).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="100dp"
+    android:height="100dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Abgerundetes Quadrat mit Verlauf -->
+    <path android:pathData="M22,0h56a22,22 0 0 1 22,22v56a22,22 0 0 1 -22,22h-56a22,22 0 0 1 -22,-22v-56a22,22 0 0 1 22,-22z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0" android:startY="0"
+                android:endX="100" android:endY="100">
+                <item android:offset="0" android:color="#FF00D1FF" />
+                <item android:offset="0.55" android:color="#FF1E6BFF" />
+                <item android:offset="1" android:color="#FF7A3DFF" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Glanz -->
+    <path
+        android:fillColor="#22FFFFFF"
+        android:pathData="M22,0h56a22,22 0 0 1 22,22v14c-30,-8 -70,-8 -100,10v-24a22,22 0 0 1 22,-22z" />
+    <!-- "P" mit Ausschnitt -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M30,22h25a20,20 0 0 1 0,40h-11v16h-14z M44,34v16h10a8,8 0 0 0 0,-16z" />
+    <!-- Play-Symbol im P -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M48,37.5l8,4.5l-8,4.5z" />
+</vector>

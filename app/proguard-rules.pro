@@ -1,0 +1,2 @@
+-keep class com.wireguard.** { *; }
+-keepclassmembers class kotlinx.serialization.json.** { *; }

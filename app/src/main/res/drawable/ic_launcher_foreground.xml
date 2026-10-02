@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- "P" + Play, zentriert im sicheren Bereich des adaptiven Icons -->
+    <group
+        android:scaleX="0.62"
+        android:scaleY="0.62"
+        android:translateX="21.8"
+        android:translateY="23">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M30,22h25a20,20 0 0 1 0,40h-11v16h-14z M44,34v16h10a8,8 0 0 0 0,-16z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M48,37.5l8,4.5l-8,4.5z" />
+    </group>
+</vector>
