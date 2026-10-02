@@ -15,6 +15,7 @@ import com.poweriptv.app.ui.screens.EpgGridScreen
 import com.poweriptv.app.ui.screens.ParentalScreen
 import com.poweriptv.app.ui.screens.RecommendationsScreen
 import com.poweriptv.app.ui.screens.RecordingsScreen
+import com.poweriptv.app.ui.screens.SearchScreen
 import com.poweriptv.app.ui.screens.FavoritesScreen
 import com.poweriptv.app.ui.screens.HomeScreen
 import com.poweriptv.app.ui.screens.MovieDetailScreen
@@ -38,6 +39,7 @@ object Routes {
     const val RECORDINGS = "recordings"
     const val PARENTAL = "parental"
     const val RECOMMENDATIONS = "recommendations"
+    const val SEARCH = "search"
 
     fun addProfile(id: String? = null) = if (id == null) "addProfile" else "addProfile?id=$id"
     fun browse(type: ContentType) = "browse/${type.name}"
@@ -83,6 +85,7 @@ fun AppNavigation(container: AppContainer, onConnectVpn: () -> Unit) {
                 onEpg = { nav.navigate(Routes.EPG) },
                 onRecordings = { nav.navigate(Routes.RECORDINGS) },
                 onRecommendations = { nav.navigate(Routes.RECOMMENDATIONS) },
+                onSearch = { nav.navigate(Routes.SEARCH) },
                 onOpenDetail = { item ->
                     container.selectedItem = item
                     nav.navigate(if (item.type == ContentType.SERIES) Routes.SERIES else Routes.MOVIE)
@@ -124,6 +127,12 @@ fun AppNavigation(container: AppContainer, onConnectVpn: () -> Unit) {
                 onParental = { nav.navigate(Routes.PARENTAL) },
                 onRecordings = { nav.navigate(Routes.RECORDINGS) },
             )
+        }
+        composable(Routes.SEARCH) {
+            SearchScreen(container, onBack = { nav.popBackStack() }, onOpenDetail = { item ->
+                container.selectedItem = item
+                nav.navigate(if (item.type == ContentType.SERIES) Routes.SERIES else Routes.MOVIE)
+            })
         }
         composable(Routes.EPG) { EpgGridScreen(container, onBack = { nav.popBackStack() }) }
         composable(Routes.RECORDINGS) { RecordingsScreen(container, onBack = { nav.popBackStack() }) }

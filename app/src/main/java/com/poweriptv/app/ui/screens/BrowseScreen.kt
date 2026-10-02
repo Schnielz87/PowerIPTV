@@ -2,7 +2,6 @@ package com.poweriptv.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -12,29 +11,35 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -53,22 +58,36 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import com.poweriptv.app.AppContainer
 import com.poweriptv.app.PlayEntry
 import com.poweriptv.app.data.Category
 import com.poweriptv.app.data.ContentItem
 import com.poweriptv.app.data.ContentType
+import com.poweriptv.app.parental.PinDialog
+import com.poweriptv.app.ui.components.CAT_ALL
+import com.poweriptv.app.ui.components.CAT_FAV
+import com.poweriptv.app.ui.components.CAT_RECENT
+import com.poweriptv.app.ui.components.CategorySidebar
+import com.poweriptv.app.ui.components.ContentFilter
 import com.poweriptv.app.ui.components.ErrorBox
+import com.poweriptv.app.ui.components.FilterDialog
 import com.poweriptv.app.ui.components.LoadingBox
 import com.poweriptv.app.ui.components.PosterCard
 import com.poweriptv.app.ui.components.PowerTopBar
 import com.poweriptv.app.ui.components.startPlayback
+import com.poweriptv.app.ui.components.stripLanguage
 import com.poweriptv.app.ui.components.tvFocus
-import com.poweriptv.app.parental.PinDialog
+import kotlinx.coroutines.delay
 
-private const val ALL = "__all__"
-private const val FAV = "__fav__"
+/** Einfache Volltextsuche: alle Woerter muessen im Titel vorkommen. */
+fun matchesQuery(name: String, query: String): Boolean {
+    val words = query.trim().lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    if (words.isEmpty()) return true
+    val n = name.lowercase()
+    return words.all { it in n }
+}
 
 @Composable
 fun BrowseScreen(
@@ -80,167 +99,228 @@ fun BrowseScreen(
     val source = container.source ?: run { ErrorBox("Kein Zugang ausgewaehlt"); return }
     val context = LocalContext.current
     val favorites by container.favorites.favorites.collectAsState()
-
-    var categories by remember { mutableStateOf<List<Category>?>(null) }
-    var selected by rememberSaveable { mutableStateOf<String?>(null) }
-    var items by remember { mutableStateOf<List<ContentItem>?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var query by rememberSaveable { mutableStateOf("") }
-    var showSearch by rememberSaveable { mutableStateOf(false) }
-    var reload by remember { mutableIntStateOf(0) }
-    var pinFor by remember { mutableStateOf<Category?>(null) }
+    val history by container.history.items.collectAsState()
+    val language by container.settings.categoryLanguage.collectAsState()
     val parentalOn by container.parental.enabled.collectAsState()
     val parentalUnlocked by container.parental.sessionUnlocked.collectAsState()
+
+    var categories by remember { mutableStateOf<List<Category>?>(null) }
+    var selected by rememberSaveable(type) { mutableStateOf<String?>(null) }
+    var items by remember { mutableStateOf<List<ContentItem>?>(null) }
+    var allItems by remember { mutableStateOf<List<ContentItem>?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var appliedQuery by remember { mutableStateOf("") }
+    var filter by remember { mutableStateOf(ContentFilter()) }
+    var showFilter by remember { mutableStateOf(false) }
+    var showCategoryPicker by remember { mutableStateOf(false) }
+    var reload by remember { mutableIntStateOf(0) }
+    var pinFor by remember { mutableStateOf<Category?>(null) }
+
     val lockedIds = remember(categories, parentalOn, parentalUnlocked) {
         container.parental.lockedIds(source.profile.id, type, categories.orEmpty())
     }
+
     fun selectCategory(c: Category) {
-        if (c.id != ALL && c.id != FAV && container.parental.requiresPin(source.profile.id, type, c)) pinFor = c
+        showCategoryPicker = false
+        query = ""
+        if (c.id !in listOf(CAT_ALL, CAT_FAV, CAT_RECENT) && container.parental.requiresPin(source.profile.id, type, c)) pinFor = c
         else selected = c.id
     }
 
+    // Kategorien laden; Startkategorie = erste freigegebene in der bevorzugten Sprache
     LaunchedEffect(reload) {
         error = null
         runCatching { source.categories(type) }
-            .onSuccess {
-                categories = it
-                if (selected == null) selected = it.firstOrNull { c ->
-                    !container.parental.requiresPin(source.profile.id, type, c)
-                }?.id ?: ALL
+            .onSuccess { cats ->
+                categories = cats
+                if (selected == null) {
+                    val allowed = cats.filterNot { container.parental.requiresPin(source.profile.id, type, it) }
+                    selected = (allowed.firstOrNull { language.isNotEmpty() && com.poweriptv.app.ui.components.categoryLanguage(it.name) == language }
+                        ?: allowed.firstOrNull())?.id ?: CAT_ALL
+                }
             }
             .onFailure { error = it.message ?: "Fehler beim Laden" }
     }
-    LaunchedEffect(selected, reload, if (selected == FAV) favorites else Unit) {
+    // Inhalte der gewaehlten Kategorie
+    LaunchedEffect(selected, reload, if (selected == CAT_FAV) favorites else Unit, if (selected == CAT_RECENT) history else Unit) {
         val cat = selected ?: return@LaunchedEffect
-        if (cat == FAV) {
-            items = favorites.filter { it.type == type }; return@LaunchedEffect
+        when (cat) {
+            CAT_FAV -> { items = favorites.filter { it.type == type }; return@LaunchedEffect }
+            CAT_RECENT -> { items = history.filter { it.type == type }; return@LaunchedEffect }
         }
         items = null
         error = null
-        runCatching { source.items(type, if (cat == ALL) null else cat) }
+        runCatching { source.items(type, if (cat == CAT_ALL) null else cat) }
             .onSuccess { items = it }
             .onFailure { error = it.message ?: "Fehler beim Laden" }
     }
-
-    val filtered = remember(items, query, lockedIds) {
-        val list = items.orEmpty().filterNot { it.categoryId in lockedIds }
-        if (query.isBlank()) list else list.filter { it.name.contains(query.trim(), ignoreCase = true) }
+    // Suche: kurz warten (Tippen), dann in ALLEN Kategorien suchen
+    LaunchedEffect(query) {
+        delay(300)
+        appliedQuery = query.trim()
+        if (appliedQuery.isNotEmpty() && allItems == null) {
+            allItems = runCatching { source.items(type, null) }.getOrElse { error = it.message; emptyList() }
+        }
     }
+
+    val searching = appliedQuery.isNotEmpty()
+    val baseList = if (searching) allItems else items
+    val shown = remember(baseList, appliedQuery, lockedIds, filter) {
+        baseList?.let { list ->
+            filter.apply(list.filter { it.categoryId !in lockedIds && matchesQuery(it.name, appliedQuery) })
+        }
+    }
+    val genres = remember(baseList) { ContentFilter.genres(baseList.orEmpty()) }
 
     val title = when (type) {
         ContentType.LIVE -> "Live TV"
         ContentType.MOVIE -> "Filme"
         ContentType.SERIES -> "Serien"
     }
+    val selectedName = when (selected) {
+        CAT_FAV -> "Favoriten"
+        CAT_RECENT -> "Zuletzt gesehen"
+        CAT_ALL -> "Alle"
+        else -> categories?.firstOrNull { it.id == selected }?.name?.let { if (language.isNotEmpty()) stripLanguage(it) else it } ?: ""
+    }
 
     Scaffold(
         topBar = {
             PowerTopBar(title, onBack = onBack, actions = {
-                IconButton(onClick = { showSearch = !showSearch }) { Icon(Icons.Filled.Search, "Suchen") }
-                IconButton(onClick = { source.clearCache(); reload++ }) { Icon(Icons.Filled.Refresh, "Neu laden") }
+                IconButton(onClick = { source.clearCache(); allItems = null; reload++ }) { Icon(Icons.Filled.Refresh, "Neu laden") }
             })
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
-            val wide = maxWidth > 700.dp
-            val allCats = buildList {
-                add(Category(FAV, "★ Favoriten"))
-                add(Category(ALL, "Alle"))
-                addAll(categories.orEmpty())
-            }
-
-            val content: @Composable (Modifier) -> Unit = { mod ->
-                Column(mod) {
-                    if (showSearch) {
+            val wide = maxWidth > 600.dp
+            Row(Modifier.fillMaxSize()) {
+                if (wide) {
+                    CategorySidebar(
+                        categories = categories.orEmpty(),
+                        selected = if (searching) null else selected,
+                        lockedIds = lockedIds,
+                        language = language,
+                        onLanguage = { container.settings.setCategoryLanguage(it) },
+                        onSelect = ::selectCategory,
+                        modifier = Modifier.width(if (maxWidth > 900.dp) 300.dp else 250.dp).fillMaxHeight(),
+                    )
+                }
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    // Werkzeugleiste: (Kategorie) · Suche · Filter
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (!wide) {
+                            OutlinedButton(onClick = { showCategoryPicker = true }, modifier = Modifier.tvFocus()) {
+                                Text(selectedName.ifBlank { "Kategorie" }, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(110.dp))
+                                Icon(Icons.Filled.ArrowDropDown, null)
+                            }
+                            Spacer(Modifier.width(8.dp))
+                        }
                         OutlinedTextField(
                             value = query,
                             onValueChange = { query = it },
-                            placeholder = { Text("Suchen in dieser Kategorie...") },
+                            placeholder = { Text("$title suchen (alle Kategorien)") },
+                            leadingIcon = { Icon(Icons.Filled.Search, null) },
+                            trailingIcon = {
+                                if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Clear, "Leeren") }
+                            },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                            modifier = Modifier.weight(1f),
                         )
+                        Spacer(Modifier.width(6.dp))
+                        IconButton(onClick = { showFilter = true }, modifier = Modifier.tvFocus()) {
+                            BadgedBox(badge = { if (filter.activeCount > 0) Badge { Text("${filter.activeCount}") } }) {
+                                Icon(Icons.Filled.FilterList, "Filter")
+                            }
+                        }
                     }
+                    // Info-Zeile
+                    Row(Modifier.padding(horizontal = 14.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (searching) "Suche „$appliedQuery“ in allen Kategorien" else selectedName,
+                            fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        shown?.let {
+                            Text("  ·  ${it.size} ${if (type == ContentType.LIVE) "Kanaele" else "Titel"}",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (searching && allItems == null) {
+                            Spacer(Modifier.width(8.dp))
+                            CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                        }
+                    }
+
                     when {
-                        error != null -> ErrorBox(error!!, onRetry = { reload++ })
-                        items == null -> LoadingBox()
-                        filtered.isEmpty() -> ErrorBox("Keine Eintraege")
+                        error != null && shown.isNullOrEmpty() -> ErrorBox(error!!, onRetry = { reload++ })
+                        shown == null -> LoadingBox()
+                        shown.isEmpty() -> ErrorBox(
+                            when {
+                                searching -> "Keine Treffer fuer „$appliedQuery“"
+                                filter.activeCount > 0 -> "Keine Eintraege fuer diese Filter"
+                                selected == CAT_FAV -> "Noch keine Favoriten"
+                                selected == CAT_RECENT -> "Noch nichts angesehen"
+                                else -> "Keine Eintraege"
+                            }
+                        )
                         type == ContentType.LIVE -> LazyColumn(contentPadding = PaddingValues(8.dp)) {
-                            itemsIndexed(filtered) { index, item ->
+                            itemsIndexed(shown) { index, item ->
                                 ChannelRow(
                                     item = item,
                                     isFavorite = favorites.any { it.key == item.key },
                                     onToggleFavorite = { container.favorites.toggle(item) },
                                     onClick = {
-                                        val entries = filtered.map {
-                                            PlayEntry(it.name, source.streamUrl(it), it, live = true)
-                                        }
+                                        val entries = shown.map { PlayEntry(it.name, source.streamUrl(it), it, live = true) }
                                         startPlayback(context, container, entries, index)
                                     },
                                 )
                             }
                         }
                         else -> LazyVerticalGrid(
-                            columns = GridCells.Adaptive(if (wide) 140.dp else 110.dp),
+                            columns = GridCells.Adaptive(if (wide) 130.dp else 110.dp),
                             contentPadding = PaddingValues(8.dp),
                         ) {
-                            items(filtered) { item ->
+                            items(shown) { item ->
                                 PosterCard(item.name, item.logo, onClick = {
                                     if (source.supportsDetails) onOpenDetail(item)
                                     else startPlayback(
                                         context, container,
                                         listOf(PlayEntry(item.name, source.streamUrl(item), item, live = false)), 0,
                                     )
-                                })
+                                }, subtitle = listOfNotNull(item.year?.toString(), item.ratingValue?.let { "★ %.1f".format(it) }).joinToString("  "))
                             }
                         }
                     }
                 }
             }
+        }
+    }
 
-            if (wide) {
-                Row(Modifier.fillMaxSize()) {
-                    LazyColumn(
-                        Modifier.width(260.dp).fillMaxHeight().background(MaterialTheme.colorScheme.surface),
-                        contentPadding = PaddingValues(vertical = 8.dp),
-                    ) {
-                        items(allCats, key = { it.id }) { c ->
-                            val sel = c.id == selected
-                            Text(
-                                (if (c.id in lockedIds) "🔒 " else "") + c.name,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal,
-                                color = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .tvFocus(RoundedCornerShape(6.dp), 1f)
-                                    .clickable { selectCategory(c) }
-                                    .background(if (sel) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface)
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                            )
-                        }
-                    }
-                    content(Modifier.weight(1f).fillMaxHeight())
-                }
-            } else {
-                Column(Modifier.fillMaxSize()) {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        items(allCats, key = { it.id }) { c ->
-                            FilterChip(
-                                selected = c.id == selected,
-                                onClick = { selectCategory(c) },
-                                label = { Text((if (c.id in lockedIds) "🔒 " else "") + c.name, maxLines = 1) },
-                            )
-                        }
-                    }
-                    content(Modifier.weight(1f))
-                }
+    if (showCategoryPicker) {
+        Dialog(onDismissRequest = { showCategoryPicker = false }) {
+            Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
+                CategorySidebar(
+                    categories = categories.orEmpty(),
+                    selected = selected,
+                    lockedIds = lockedIds,
+                    language = language,
+                    onLanguage = { container.settings.setCategoryLanguage(it) },
+                    onSelect = ::selectCategory,
+                    modifier = Modifier.fillMaxWidth().height(520.dp),
+                )
             }
         }
+    }
+
+    if (showFilter) {
+        FilterDialog(
+            filter = filter,
+            genres = genres,
+            showRatingAndYear = type != ContentType.LIVE,
+            onChange = { filter = it },
+            onDismiss = { showFilter = false },
+        )
     }
 
     pinFor?.let { c ->
@@ -249,7 +329,7 @@ fun BrowseScreen(
 }
 
 @Composable
-private fun ChannelRow(item: ContentItem, isFavorite: Boolean, onToggleFavorite: () -> Unit, onClick: () -> Unit) {
+fun ChannelRow(item: ContentItem, isFavorite: Boolean, onToggleFavorite: () -> Unit, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()

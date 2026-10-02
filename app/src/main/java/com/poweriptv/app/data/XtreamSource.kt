@@ -111,6 +111,8 @@ class XtreamSource(
                     logo = o.str("stream_icon"),
                     containerExtension = o.str("container_extension"),
                     rating = o.str("rating"),
+                    added = o.long("added")?.times(1000),
+                    year = yearOf(o.str("year") ?: o.str("release_date"), o.str("name")),
                 )
                 ContentType.SERIES -> ContentItem(
                     id = o.str("series_id") ?: return@mapNotNull null,
@@ -119,6 +121,9 @@ class XtreamSource(
                     categoryId = o.str("category_id") ?: "",
                     logo = o.str("cover"),
                     rating = o.str("rating"),
+                    added = o.long("last_modified")?.times(1000),
+                    year = yearOf(o.str("releaseDate") ?: o.str("release_date") ?: o.str("year"), o.str("name")),
+                    genre = o.str("genre"),
                 )
             }
         }
@@ -244,6 +249,13 @@ class XtreamSource(
             u = u.removeSuffix("/player_api.php").removeSuffix("/get.php").trimEnd('/')
             return u
         }
+
+        private val yearRegex = Regex("""\b(19[3-9]\d|20[0-4]\d)\b""")
+
+        /** Jahr aus Datum/Jahr-Feld oder aus dem Titel, z.B. "Film (2019)". */
+        fun yearOf(field: String?, name: String?): Int? =
+            field?.let { yearRegex.find(it)?.value?.toIntOrNull() }
+                ?: name?.let { n -> Regex("""\((19[3-9]\d|20[0-4]\d)\)""").find(n)?.groupValues?.get(1)?.toIntOrNull() }
 
         private fun enc(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
     }

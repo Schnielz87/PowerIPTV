@@ -134,7 +134,7 @@ fun ErrorBox(message: String, onRetry: (() -> Unit)? = null, modifier: Modifier 
 }
 
 @Composable
-fun PosterCard(title: String, image: String?, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun PosterCard(title: String, image: String?, onClick: () -> Unit, modifier: Modifier = Modifier, subtitle: String = "") {
     Column(
         modifier
             .clip(RoundedCornerShape(10.dp))
@@ -167,6 +167,15 @@ fun PosterCard(title: String, image: String?, onClick: () -> Unit, modifier: Mod
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 4.dp, start = 2.dp, end = 2.dp),
         )
+        if (subtitle.isNotBlank()) {
+            Text(
+                subtitle,
+                maxLines = 1,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 2.dp, end = 2.dp),
+            )
+        }
     }
 }
 

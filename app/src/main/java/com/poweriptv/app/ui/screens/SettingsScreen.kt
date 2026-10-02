@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.poweriptv.app.AppContainer
 import com.poweriptv.app.BuildConfigInfo
 import com.poweriptv.app.data.LiveFormat
+import com.poweriptv.app.data.Orientation
 import com.poweriptv.app.data.SettingsRepository
 import com.poweriptv.app.ui.components.PowerTopBar
 import com.poweriptv.app.ui.components.tvFocus
@@ -178,6 +179,20 @@ fun SettingsScreen(
                     }) { Text("Trennen") }
                 }
                 aiStatus?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) }
+            }
+
+            SettingsSection("Darstellung") {
+                val orientation by s.orientation.collectAsState()
+                Text("Bildschirmausrichtung", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Orientation.entries.forEach { o ->
+                    Row(
+                        Modifier.fillMaxWidth().tvFocus().clickable { s.setOrientation(o) },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = orientation == o.name, onClick = { s.setOrientation(o) })
+                        Text(o.label)
+                    }
+                }
             }
 
             SettingsSection("Live-TV Stream-Format (Xtream)") {

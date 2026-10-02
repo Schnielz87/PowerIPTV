@@ -42,7 +42,12 @@ data class ContentItem(
     val number: Int? = null,
     /** Tage im Server-Archiv (Catch-up / Timeshift), 0 = kein Archiv. */
     val archiveDays: Int = 0,
+    /** Zeitpunkt, an dem der Anbieter den Titel hinzugefuegt hat (ms). */
+    val added: Long? = null,
+    val year: Int? = null,
+    val genre: String? = null,
 ) {
+    val ratingValue: Double? get() = rating?.replace(',', '.')?.toDoubleOrNull()?.takeIf { it > 0 }
     val key: String get() = "${type.name}:$id"
 }
 

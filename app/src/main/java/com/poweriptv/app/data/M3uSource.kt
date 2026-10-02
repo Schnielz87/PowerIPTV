@@ -118,6 +118,7 @@ class M3uSource(
                                 epgChannelId = attrs["tvg-id"],
                                 number = attrs["tvg-chno"]?.toIntOrNull(),
                                 archiveDays = attrs["catchup-days"]?.toIntOrNull() ?: attrs["tvg-rec"]?.toIntOrNull() ?: 0,
+                                year = if (type == ContentType.LIVE) null else XtreamSource.yearOf(null, name),
                             )
                         )
                         attrs = emptyMap(); title = null; group = null

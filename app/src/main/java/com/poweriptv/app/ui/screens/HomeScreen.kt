@@ -31,10 +31,12 @@ import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -85,6 +87,7 @@ fun HomeScreen(
     onEpg: () -> Unit,
     onRecordings: () -> Unit,
     onRecommendations: () -> Unit,
+    onSearch: () -> Unit,
     onOpenDetail: (ContentItem) -> Unit,
 ) {
     val source = container.source
@@ -97,7 +100,10 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            BrandTopBar(subtitle = source?.profile?.name, actions = { VpnBadge(container, onVpn) })
+            BrandTopBar(subtitle = source?.profile?.name, actions = {
+                IconButton(onClick = onSearch, modifier = Modifier.tvFocus()) { Icon(Icons.Filled.Search, "Suche") }
+                VpnBadge(container, onVpn)
+            })
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
@@ -132,6 +138,7 @@ fun HomeScreen(
                 }
 
                 val tiles: List<Triple<String, ImageVector, () -> Unit>> = listOf(
+                    Triple("Suche", Icons.Filled.Search, onSearch),
                     Triple("TV-Guide (EPG)", Icons.Filled.CalendarViewWeek, onEpg),
                     Triple("Aufnahmen", Icons.Filled.FiberSmartRecord, onRecordings),
                     Triple("Multi-Screen", Icons.Filled.GridView, {

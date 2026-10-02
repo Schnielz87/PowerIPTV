@@ -9,6 +9,12 @@ enum class LiveFormat(val ext: String, val label: String) {
     HLS("m3u8", "HLS (.m3u8)"),
 }
 
+enum class Orientation(val label: String) {
+    LANDSCAPE("Querformat"),
+    PORTRAIT("Hochformat"),
+    AUTO("Automatisch (Sensor)"),
+}
+
 /** Einfache App-Einstellungen (keine sensiblen Daten). */
 class SettingsRepository(context: Context) {
     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -24,6 +30,8 @@ class SettingsRepository(context: Context) {
     private val _userAgent = str(K_UA, DEFAULT_UA)
     private val _lastProfile = MutableStateFlow(prefs.getString(K_LAST_PROFILE, null))
     private val _aiModel = str(K_AI_MODEL, DEFAULT_AI_MODEL)
+    private val _orientation = str(K_ORIENTATION, Orientation.LANDSCAPE.name)
+    private val _language = str(K_LANGUAGE, "")
     private val _aiBaseUrl = str(K_AI_URL, DEFAULT_AI_URL)
 
     /** Kill-Switch: Kein Datenverkehr der App ohne aktives VPN. */
@@ -39,6 +47,10 @@ class SettingsRepository(context: Context) {
     /** ChatGPT / OpenAI-kompatibles Modell fuer Empfehlungen. */
     val aiModel: StateFlow<String> = _aiModel
     val aiBaseUrl: StateFlow<String> = _aiBaseUrl
+    /** Bildschirmausrichtung der App (Standard: Querformat). */
+    val orientation: StateFlow<String> = _orientation
+    /** Bevorzugtes Sprach-Praefix der Kategorien (z.B. "DE"), leer = alle. */
+    val categoryLanguage: StateFlow<String> = _language
 
     fun setVpnRequired(v: Boolean) = putBool(K_VPN_REQUIRED, v, _vpnRequired)
     fun setVpnAutoConnect(v: Boolean) = putBool(K_VPN_AUTO, v, _vpnAutoConnect)
@@ -46,6 +58,9 @@ class SettingsRepository(context: Context) {
     fun setAcceptExternalVpn(v: Boolean) = putBool(K_EXT_VPN, v, _acceptExternalVpn)
     fun setLiveFormat(v: LiveFormat) = putStr(K_LIVE_FORMAT, v.name, _liveFormat)
     fun setUserAgent(v: String) = putStr(K_UA, v.ifBlank { DEFAULT_UA }, _userAgent)
+    fun setOrientation(v: Orientation) = putStr(K_ORIENTATION, v.name, _orientation)
+    fun orientationEnum(): Orientation = runCatching { Orientation.valueOf(_orientation.value) }.getOrDefault(Orientation.LANDSCAPE)
+    fun setCategoryLanguage(v: String) = putStr(K_LANGUAGE, v, _language)
     fun setAiModel(v: String) = putStr(K_AI_MODEL, v.trim().ifBlank { DEFAULT_AI_MODEL }, _aiModel)
     fun setAiBaseUrl(v: String) = putStr(K_AI_URL, v.trim().trimEnd('/').ifBlank { DEFAULT_AI_URL }, _aiBaseUrl)
     fun setLastProfileId(v: String?) {
@@ -68,6 +83,8 @@ class SettingsRepository(context: Context) {
         const val DEFAULT_AI_MODEL = "gpt-4o-mini"
         const val DEFAULT_AI_URL = "https://api.openai.com/v1"
         private const val K_AI_MODEL = "ai_model"
+        private const val K_ORIENTATION = "orientation"
+        private const val K_LANGUAGE = "category_language"
         private const val K_AI_URL = "ai_base_url"
         private const val K_VPN_REQUIRED = "vpn_required"
         private const val K_VPN_AUTO = "vpn_auto"

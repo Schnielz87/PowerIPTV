@@ -1,6 +1,8 @@
 package com.poweriptv.app
 
+import android.content.pm.ActivityInfo
 import android.os.Bundle
+import com.poweriptv.app.data.Orientation
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -37,6 +39,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Bildschirmausrichtung aus den Einstellungen (Standard: Querformat)
+        lifecycleScope.launch {
+            container.settings.orientation.collect {
+                requestedOrientation = when (container.settings.orientationEnum()) {
+                    Orientation.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                    Orientation.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                    Orientation.AUTO -> ActivityInfo.SCREEN_ORIENTATION_FULL_USER
+                }
+            }
+        }
         if (savedInstanceState == null &&
             container.settings.vpnAutoConnect.value &&
             container.vpn.hasConfig.value &&

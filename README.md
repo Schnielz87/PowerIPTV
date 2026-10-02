@@ -8,6 +8,8 @@ mit **eingebautem VPN**, **Offline-Downloads** und **eigenen Favoritenlisten**.
 | Bereich | Details |
 |---|---|
 | **Zugaenge** | Xtream Codes API (Server/Benutzer/Passwort), M3U-URL, lokale M3U-Datei · mehrere Benutzer · M3U-Link mit Zugangsdaten → Umwandlung in Xtream |
+| **Bedienung** | Querformat (einstellbar), Kategorie-Spalte links mit Sprachfilter (DE, EN, ...) und Kategorie-Suche, Inhalte rechts |
+| **Suche | **Live TV** | Kategorien, Filter** | Suche ueber alle Kategorien, globale Suche (Live + Filme + Serien), Sortierung, Mindestbewertung, Jahrzehnt, Genre |
 | **Live TV** | Kategorien, Kanalliste mit Logos, Suche, EPG (Jetzt/Danach), Kanal vor/zurueck, Direktwahl per Zifferntasten |
 | **TV-Guide (EPG)** | Lueckenloses Timeline-Raster (Kanaele × Zeit), XMLTV vom Server (Xtream `xmltv.php`) oder `url-tvg`, Kanalgruppen-Filter, Jetzt-Markierung |
 | **Catch-up / Timeshift** | Live pausieren und zeitversetzt weiterschauen (lokaler Puffer), vergangene Sendungen per Server-Archiv (Xtream `tv_archive`) |
