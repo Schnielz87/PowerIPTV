@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -80,25 +81,45 @@ private fun FavoriteButton(container: AppContainer, item: ContentItem) {
 
 @Composable
 private fun Header(title: String, cover: String?, backdrop: String?, lines: List<String>, extra: @Composable () -> Unit) {
-    Box(Modifier.fillMaxWidth()) {
+    val config = androidx.compose.ui.platform.LocalConfiguration.current
+    // Tablet (nicht TV): Hintergrundbild deutlich groesser, Inhalt unten auf dem Bild – Handy bleibt wie bisher
+    val tablet = config.smallestScreenWidthDp >= 600 && !com.poweriptv.app.util.LocalIsTv.current
+    val bgHeight = if (tablet) (config.screenWidthDp * 0.42f).dp.coerceIn(320.dp, 600.dp) else 220.dp
+    Box(Modifier.fillMaxWidth().then(if (tablet) Modifier.heightIn(min = bgHeight) else Modifier)) {
         if (!backdrop.isNullOrBlank()) {
             AsyncImage(
                 backdrop, null, contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxWidth().height(220.dp),
-                alpha = 0.35f,
+                modifier = if (tablet) Modifier.matchParentSize() else Modifier.fillMaxWidth().height(bgHeight),
+                alpha = if (tablet) 0.6f else 0.35f,
             )
+            if (tablet) {
+                // Weicher Uebergang vom Bild in den Hintergrund
+                val bg = MaterialTheme.colorScheme.background
+                Box(
+                    Modifier.matchParentSize().background(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            0f to androidx.compose.ui.graphics.Color.Transparent,
+                            0.55f to bg.copy(alpha = 0.25f),
+                            1f to bg,
+                        ),
+                    ),
+                )
+            }
         }
-        Row(Modifier.padding(16.dp)) {
+        Row(
+            Modifier.padding(if (tablet) 24.dp else 16.dp).then(if (tablet) Modifier.align(Alignment.BottomStart) else Modifier),
+            verticalAlignment = if (tablet) Alignment.Bottom else Alignment.Top,
+        ) {
             Box(
-                Modifier.width(130.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(10.dp))
+                Modifier.width(if (tablet) 170.dp else 130.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(10.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 if (!cover.isNullOrBlank()) AsyncImage(cover, title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             }
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(if (tablet) 24.dp else 16.dp))
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                lines.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                Text(title, style = if (tablet) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                lines.forEach { Text(it, style = if (tablet) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 Spacer(Modifier.height(8.dp))
                 extra()
             }
