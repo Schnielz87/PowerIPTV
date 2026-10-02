@@ -68,6 +68,9 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.PlayerView
+import android.content.res.Configuration
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.lifecycle.Lifecycle
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.common.Tracks
 import androidx.compose.material.icons.filled.AspectRatio
@@ -119,6 +122,12 @@ class PlayerActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Immer nur EIN Player: ein evtl. noch laufender (z.B. im Mini-Fenster) wird beendet
+        active?.get()?.takeIf { it !== this }?.let { old ->
+            old.stopPlayback()
+            old.finish()
+        }
+        active = java.lang.ref.WeakReference(this)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).apply {
@@ -228,6 +237,10 @@ class PlayerActivity : ComponentActivity() {
         }
         Column(Modifier.fillMaxWidth().background(Color(0x99000000)).padding(horizontal = 16.dp, vertical = 10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // Zurueck zur Uebersicht
+                IconButton(onClick = { closePlayer() }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurueck zur Uebersicht", tint = Color.White)
+                }
                 if (container.playQueue.size > 1) {
                     IconButton(onClick = { previous() }) { Icon(Icons.Filled.SkipPrevious, "Vorheriger", tint = Color.White) }
                 }
@@ -464,7 +477,7 @@ class PlayerActivity : ComponentActivity() {
             KeyEvent.KEYCODE_MEDIA_RECORD, KeyEvent.KEYCODE_PROG_RED -> if (live) { showRecordDialog = true; return true }
             KeyEvent.KEYCODE_PROG_GREEN -> if (timeshiftActive) { goLive(); return true }
             KeyEvent.KEYCODE_PROG_BLUE, KeyEvent.KEYCODE_TV_ZOOM_MODE, KeyEvent.KEYCODE_ZOOM_IN -> { cycleVideoScale(); return true }
-            KeyEvent.KEYCODE_BUTTON_B -> { finish(); return true }
+            KeyEvent.KEYCODE_BUTTON_B -> { closePlayer(); return true }
             KeyEvent.KEYCODE_MEDIA_PAUSE -> if (live && !timeshiftActive) { startTimeshift(); return true }
             KeyEvent.KEYCODE_MEDIA_PLAY -> if (timeshiftActive && !playingBuffer) { playTimeshiftBuffer(); return true }
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> if (live) {
@@ -501,10 +514,47 @@ class PlayerActivity : ComponentActivity() {
         if (!(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)) withSwitch { player.pause() }
     }
 
+    /**
+     * Mini-Fenster (Bild-in-Bild) wurde verlassen. Ist die Activity danach nicht sichtbar,
+     * hat der Nutzer das Fenster mit X geschlossen -> Wiedergabe komplett beenden.
+     */
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        if (!isInPictureInPictureMode && !lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            closePlayer()
+        }
+    }
+
+    /** Wiedergabe stoppen (Ton sofort aus). */
+    private fun stopPlayback() {
+        stopTimeshift()
+        withSwitch {
+            player.playWhenReady = false
+            player.stop()
+        }
+    }
+
+    /** Player schliessen und zur Uebersicht zurueck. */
+    private fun closePlayer() {
+        stopPlayback()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode) finishAndRemoveTask() else finish()
+    }
+
     override fun onDestroy() {
+        if (active?.get() === this) active = null
         resetDisplayMode()
         stopTimeshift()
         player.release()
         super.onDestroy()
+    }
+
+    companion object {
+        /** Aktuell laufender Player (es darf nur einen geben). */
+        private var active: java.lang.ref.WeakReference<PlayerActivity>? = null
+
+        /** Laufenden Player (auch im Mini-Fenster) beenden, z.B. vor dem Multi-Screen. */
+        fun closeActive() {
+            active?.get()?.let { it.stopPlayback(); it.finish() }
+        }
     }
 }
