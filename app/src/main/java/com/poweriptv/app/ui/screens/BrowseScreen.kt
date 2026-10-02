@@ -54,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -70,6 +71,7 @@ import com.poweriptv.app.ui.components.CAT_ALL
 import com.poweriptv.app.ui.components.CAT_FAV
 import com.poweriptv.app.ui.components.CAT_RECENT
 import com.poweriptv.app.ui.components.CategorySidebar
+import com.poweriptv.app.ui.components.CompactSearchField
 import com.poweriptv.app.ui.components.ContentFilter
 import com.poweriptv.app.ui.components.ErrorBox
 import com.poweriptv.app.ui.components.FilterDialog
@@ -185,9 +187,11 @@ fun BrowseScreen(
         else -> categories?.firstOrNull { it.id == selected }?.name?.let { if (language.isNotEmpty()) stripLanguage(it) else it } ?: ""
     }
 
+    // Querformat/Tablet/TV: keine eigene Titelleiste -> mehr Platz fuer Inhalte
+    val wideLayout = LocalConfiguration.current.screenWidthDp > 600
     Scaffold(
         topBar = {
-            PowerTopBar(title, onBack = onBack, actions = {
+            if (!wideLayout) PowerTopBar(title, onBack = onBack, actions = {
                 IconButton(onClick = { source.clearCache(); allItems = null; reload++ }) { Icon(Icons.Filled.Refresh, "Neu laden") }
             })
         },
@@ -206,11 +210,13 @@ fun BrowseScreen(
                         onLanguage = { container.settings.setCategoryLanguage(it) },
                         onSelect = ::selectCategory,
                         modifier = Modifier.width(sidebarWidth).fillMaxHeight(),
+                        title = title,
+                        onBack = onBack,
                     )
                 }
                 Column(Modifier.weight(1f).fillMaxHeight()) {
-                    // Werkzeugleiste: (Kategorie) · Suche · Filter
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    // Werkzeugleiste: (Kategorie) · Suche · Filter · Aktualisieren
+                    Row(Modifier.fillMaxWidth().padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (!wide) {
                             OutlinedButton(onClick = { showCategoryPicker = true }, modifier = Modifier.tvFocus()) {
                                 Text(selectedName.ifBlank { "Kategorie" }, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(110.dp))
@@ -218,29 +224,30 @@ fun BrowseScreen(
                             }
                             Spacer(Modifier.width(8.dp))
                         }
-                        OutlinedTextField(
+                        CompactSearchField(
                             value = query,
                             onValueChange = { query = it },
-                            placeholder = { Text("$title suchen (alle Kategorien)") },
-                            leadingIcon = { Icon(Icons.Filled.Search, null) },
-                            trailingIcon = {
-                                if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Clear, "Leeren") }
-                            },
-                            singleLine = true,
+                            placeholder = "$title suchen (alle Kategorien)",
                             modifier = Modifier.weight(1f),
                         )
-                        Spacer(Modifier.width(6.dp))
-                        IconButton(onClick = { showFilter = true }, modifier = Modifier.tvFocus()) {
+                        IconButton(onClick = { showFilter = true }, modifier = Modifier.tvFocus(RoundedCornerShape(20.dp), 1f)) {
                             BadgedBox(badge = { if (filter.activeCount > 0) Badge { Text("${filter.activeCount}") } }) {
                                 Icon(Icons.Filled.FilterList, "Filter")
                             }
                         }
+                        if (wide) {
+                            IconButton(
+                                onClick = { source.clearCache(); allItems = null; reload++ },
+                                modifier = Modifier.tvFocus(RoundedCornerShape(20.dp), 1f),
+                            ) { Icon(Icons.Filled.Refresh, "Neu laden") }
+                        }
                     }
                     // Info-Zeile
-                    Row(Modifier.padding(horizontal = 14.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.padding(horizontal = 14.dp, vertical = 0.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             if (searching) "Suche „$appliedQuery“ in allen Kategorien" else selectedName,
                             fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.titleSmall,
                             modifier = Modifier.weight(1f, fill = false),
                         )
                         shown?.let {

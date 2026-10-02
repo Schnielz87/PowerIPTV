@@ -1,6 +1,9 @@
 package com.poweriptv.app
 
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import android.os.Bundle
 import com.poweriptv.app.data.Orientation
 import androidx.activity.ComponentActivity
@@ -37,8 +40,25 @@ class MainActivity : ComponentActivity() {
         } else doConnect()
     }
 
+    /** Im Querformat Status- und Navigationsleiste ausblenden (per Wischen wieder sichtbar). */
+    private fun applySystemBars(orientation: Int) {
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            controller.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        applySystemBars(newConfig.orientation)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applySystemBars(resources.configuration.orientation)
         // Bildschirmausrichtung aus den Einstellungen (Standard: Querformat)
         lifecycleScope.launch {
             container.settings.orientation.collect {

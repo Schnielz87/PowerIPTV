@@ -1,6 +1,8 @@
 package com.poweriptv.app.ui.components
 
 import android.content.Context
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -69,6 +71,9 @@ fun PowerTopBar(
             }
         },
         actions = { actions() },
+        // Im Querformat flacher (48 dp statt 64 dp)
+        expandedHeight = if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE) 48.dp
+        else TopAppBarDefaults.TopAppBarExpandedHeight,
         colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
     )
 }
