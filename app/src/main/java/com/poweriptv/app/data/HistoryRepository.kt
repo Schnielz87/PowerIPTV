@@ -28,6 +28,16 @@ class HistoryRepository(context: Context, private val json: Json) {
         _items.value = list
     }
 
+    fun remove(key: String) = save(_items.value.filterNot { it.key == key })
+
+    fun clearType(type: ContentType) = save(_items.value.filterNot { it.type == type })
+
+    private fun save(list: List<ContentItem>) {
+        val id = profileId ?: return
+        prefs.edit().putString(id, json.encodeToString(serializer, list)).apply()
+        _items.value = list
+    }
+
     fun clear() {
         profileId?.let { prefs.edit().remove(it).apply() }
         _items.value = emptyList()

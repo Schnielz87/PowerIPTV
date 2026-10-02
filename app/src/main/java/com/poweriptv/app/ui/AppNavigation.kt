@@ -40,9 +40,11 @@ object Routes {
     const val PARENTAL = "parental"
     const val RECOMMENDATIONS = "recommendations"
     const val SEARCH = "search"
+    const val RECENT = "recent/{type}"
 
     fun addProfile(id: String? = null) = if (id == null) "addProfile" else "addProfile?id=$id"
     fun browse(type: ContentType) = "browse/${type.name}"
+    fun recent(type: ContentType) = "recent/${type.name}"
 }
 
 @Composable
@@ -86,6 +88,7 @@ fun AppNavigation(container: AppContainer, onConnectVpn: () -> Unit) {
                 onRecordings = { nav.navigate(Routes.RECORDINGS) },
                 onRecommendations = { nav.navigate(Routes.RECOMMENDATIONS) },
                 onSearch = { nav.navigate(Routes.SEARCH) },
+                onOpenRecent = { nav.navigate(Routes.recent(it)) },
                 onOpenDetail = { item ->
                     container.selectedItem = item
                     nav.navigate(if (item.type == ContentType.SERIES) Routes.SERIES else Routes.MOVIE)
@@ -100,6 +103,18 @@ fun AppNavigation(container: AppContainer, onConnectVpn: () -> Unit) {
             BrowseScreen(
                 container = container,
                 type = type,
+                onBack = { nav.popBackStack() },
+                onOpenDetail = { item ->
+                    container.selectedItem = item
+                    nav.navigate(if (item.type == ContentType.SERIES) Routes.SERIES else Routes.MOVIE)
+                },
+            )
+        }
+        composable(Routes.RECENT, arguments = listOf(navArgument("type") { type = NavType.StringType })) { entry ->
+            val type = ContentType.valueOf(entry.arguments?.getString("type") ?: ContentType.MOVIE.name)
+            com.poweriptv.app.ui.screens.RecentScreen(
+                container = container,
+                initialType = type,
                 onBack = { nav.popBackStack() },
                 onOpenDetail = { item ->
                     container.selectedItem = item

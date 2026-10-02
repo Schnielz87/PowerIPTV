@@ -101,6 +101,7 @@ fun HomeScreen(
     onRecommendations: () -> Unit,
     onSearch: () -> Unit,
     onOpenDetail: (ContentItem) -> Unit,
+    onOpenRecent: (ContentType) -> Unit = {},
 ) {
     val source = container.source
     val context = LocalContext.current
@@ -207,7 +208,15 @@ fun HomeScreen(
                     ).forEach { (type, label) ->
                         val list = history.filter { it.type == type }.take(20)
                         if (list.isNotEmpty()) {
-                            Text(label, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            // Ueberschrift antippen -> eigene Uebersichtsseite
+                            Row(
+                                Modifier.clip(RoundedCornerShape(8.dp)).tvFocus(RoundedCornerShape(8.dp))
+                                    .clickable { onOpenRecent(type) }.padding(vertical = 2.dp, horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(label, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                Text("  Alle anzeigen ›", color = BrandCyan, style = MaterialTheme.typography.bodySmall)
+                            }
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
                                 items(list, key = { it.key }) { item ->
                                     // Filme/Serien im Hochformat (Poster), Sender im Querformat (Logo)
