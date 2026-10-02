@@ -99,6 +99,7 @@ class MainActivity : ComponentActivity() {
                         var splash by rememberSaveable { mutableStateOf(true) }
                         if (splash) SplashScreen(onFinished = { splash = false })
                         else AppNavigation(container = container, onConnectVpn = ::connectVpn)
+                        com.poweriptv.app.ui.components.ResumePromptDialog(container)
                     }
                 }
             }

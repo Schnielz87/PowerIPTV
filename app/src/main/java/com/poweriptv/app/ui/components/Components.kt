@@ -23,6 +23,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.GppBad
 import androidx.compose.material.icons.filled.GppGood
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Replay
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -208,8 +211,17 @@ fun vlcCategoryKey(profileId: String?, item: com.poweriptv.app.data.ContentItem)
     "${profileId ?: ""}|${item.type.name}|${item.categoryId}"
 
 /** Startet den Player mit einer Wiedergabeliste. */
-fun startPlayback(context: Context, container: AppContainer, entries: List<PlayEntry>, index: Int) {
+fun startPlayback(context: Context, container: AppContainer, entries: List<PlayEntry>, index: Int, askResume: Boolean = true) {
     if (entries.isEmpty()) return
+    // Film/Folge schon angefangen? -> erst fragen: weiterschauen oder von vorne
+    val first = entries[index.coerceIn(0, entries.lastIndex)]
+    if (askResume && !first.live) {
+        val pos = container.resume.get(first.url)
+        if (pos > 0) {
+            container.resumePrompt.value = com.poweriptv.app.ResumePrompt(entries, index, pos)
+            return
+        }
+    }
     container.playQueue = entries
     container.playIndex = index.coerceIn(0, entries.lastIndex)
     val url = entries[container.playIndex].url
@@ -223,4 +235,49 @@ fun startPlayback(context: Context, container: AppContainer, entries: List<PlayE
             }
     }
     context.startActivity(Intent(context, if (useVlc) VlcPlayerActivity::class.java else PlayerActivity::class.java))
+}
+
+/** Dialog "Weiterschauen ab ... / Von vorne beginnen" (einmal global in MainActivity eingebunden). */
+@Composable
+fun ResumePromptDialog(container: AppContainer) {
+    val prompt by container.resumePrompt.collectAsState()
+    val p = prompt ?: return
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val entry = p.entries[p.index.coerceIn(0, p.entries.lastIndex)]
+    val dismiss = { container.resumePrompt.value = null }
+    val s = p.positionMs / 1000
+    val time = if (s >= 3600) "%d:%02d:%02d".format(s / 3600, (s / 60) % 60, s % 60) else "%d:%02d".format(s / 60, s % 60)
+    val resumeFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = dismiss,
+        icon = { Icon(Icons.Filled.Movie, null, tint = com.poweriptv.app.ui.theme.BrandCyan) },
+        title = { Text("Weiterschauen?", style = MaterialTheme.typography.titleLarge) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("\"${entry.title}\" hast du bei $time unterbrochen.", style = MaterialTheme.typography.bodyMedium)
+                Button(
+                    onClick = { dismiss(); startPlayback(context, container, p.entries, p.index, askResume = false) },
+                    modifier = Modifier.fillMaxWidth().focusRequester(resumeFocus).tvFocus(RoundedCornerShape(50)),
+                ) {
+                    Icon(Icons.Filled.PlayArrow, null)
+                    Spacer(Modifier.width(8.dp)); Text("Weiterschauen ab $time")
+                }
+                androidx.compose.material3.OutlinedButton(
+                    onClick = {
+                        dismiss()
+                        container.resume.clear(entry.url)
+                        startPlayback(context, container, p.entries, p.index, askResume = false)
+                    },
+                    modifier = Modifier.fillMaxWidth().tvFocus(RoundedCornerShape(50)),
+                ) {
+                    Icon(Icons.Filled.Replay, null)
+                    Spacer(Modifier.width(8.dp)); Text("Von vorne beginnen")
+                }
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = dismiss, modifier = Modifier.tvFocus(RoundedCornerShape(50))) { Text("Abbrechen") }
+        },
+    )
+    LaunchedEffect(p) { runCatching { resumeFocus.requestFocus() } }
 }

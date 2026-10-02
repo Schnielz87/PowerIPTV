@@ -96,6 +96,9 @@ class AppContainer(private val app: Application) {
     var playQueue: List<PlayEntry> = emptyList()
     var playIndex: Int = 0
 
+    /** Offene Frage "Weiterschauen oder von vorne?" (wird in MainActivity als Dialog gezeigt). */
+    val resumePrompt = kotlinx.coroutines.flow.MutableStateFlow<ResumePrompt?>(null)
+
     fun createSource(profile: Profile): ContentSource = when (profile.type) {
         ProfileType.XTREAM -> XtreamSource(profile, http, json) { settings.liveFormatEnum().ext }
         ProfileType.M3U_URL, ProfileType.M3U_FILE -> M3uSource(profile, http)
@@ -175,5 +178,7 @@ class AppContainer(private val app: Application) {
         activate(profiles.get(settings.lastProfileId.value))
     }
 }
+
+data class ResumePrompt(val entries: List<PlayEntry>, val index: Int, val positionMs: Long)
 
 data class PlayEntry(val title: String, val url: String, val item: ContentItem? = null, val live: Boolean)
