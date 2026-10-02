@@ -31,6 +31,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -55,6 +58,16 @@ fun CompactSearchField(
     var rowFocused by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(!isTv) }
     val innerFocus = remember { FocusRequester() }
+    val rowFocus = remember { FocusRequester() }
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    /** TV: Eingabe beenden und mit der Fernbedienung weiter (z.B. runter zu den Treffern). */
+    fun leave(direction: androidx.compose.ui.focus.FocusDirection?) {
+        keyboard?.hide()
+        if (direction != null && focusManager.moveFocus(direction)) { editing = false; return }
+        editing = false
+        runCatching { rowFocus.requestFocus() }
+    }
     LaunchedEffect(editing) {
         if (isTv && editing) runCatching { innerFocus.requestFocus() }
     }
@@ -66,6 +79,7 @@ fun CompactSearchField(
             .height(height)
             .then(
                 if (isTv && !editing) Modifier
+                    .focusRequester(rowFocus)
                     .onFocusChanged { rowFocused = it.isFocused }
                     .clickable { editing = true }
                 else Modifier
@@ -87,8 +101,29 @@ fun CompactSearchField(
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
                 cursorBrush = SolidColor(BrandCyan),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                // "Suchen"/"Fertig" auf der Tastatur: Tastatur zu, weiter zu den Treffern
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = {
+                    if (isTv) leave(androidx.compose.ui.focus.FocusDirection.Down) else keyboard?.hide()
+                }, onDone = { if (isTv) leave(androidx.compose.ui.focus.FocusDirection.Down) else keyboard?.hide() }),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .then(
+                        if (isTv) Modifier.onPreviewKeyEvent { e ->
+                            if (e.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                            when (e.key) {
+                                // Runter/Hoch: raus aus dem Feld zu Treffern bzw. Kopfzeile
+                                androidx.compose.ui.input.key.Key.DirectionDown -> { leave(androidx.compose.ui.focus.FocusDirection.Down); true }
+                                androidx.compose.ui.input.key.Key.DirectionUp -> { leave(androidx.compose.ui.focus.FocusDirection.Up); true }
+                                // OK/Enter: Tastatur (wieder) oeffnen, um weiter zu tippen
+                                androidx.compose.ui.input.key.Key.DirectionCenter, androidx.compose.ui.input.key.Key.Enter,
+                                androidx.compose.ui.input.key.Key.NumPadEnter -> { keyboard?.show(); true }
+                                // Zurueck: nur das Feld verlassen, nicht die ganze Seite
+                                androidx.compose.ui.input.key.Key.Back -> { leave(null); true }
+                                else -> false
+                            }
+                        } else Modifier
+                    )
                     .focusRequester(innerFocus)
                     .focusProperties { canFocus = editing }
                     .onFocusChanged {

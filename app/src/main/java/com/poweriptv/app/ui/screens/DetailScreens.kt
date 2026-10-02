@@ -160,6 +160,8 @@ private fun DetailScaffold(
         Scaffold(
             topBar = { PowerTopBar(title, onBack = onBack, actions = actions, transparent = large) },
             containerColor = if (large) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.background,
+            // Wichtig: bei transparentem Hintergrund sonst schwarze Standardschrift (auf Tablets unlesbar)
+            contentColor = if (large) androidx.compose.ui.graphics.Color.White else MaterialTheme.colorScheme.onBackground,
         ) { padding ->
             if (large) {
                 androidx.compose.runtime.CompositionLocalProvider(
