@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Portiva – PowerIPTV Logo (Platzhalter).
-  Zum Austauschen gegen das Original-Logo: diese Datei loeschen und
-  stattdessen res/drawable/portiva_logo.png ablegen (gleicher Name).
+  Portiva "P" – IPTV-Variante fuer PowerIPTV.
+  Basis: Portiva-P (Verlauf Hellblau → Navy, Kapsel-Ausschnitt, Seiten-Umschlag).
+  IPTV-Anpassung: Play-Button statt KI-Netzwerk + Streaming-Signalwellen.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
@@ -10,30 +10,42 @@
     android:height="100dp"
     android:viewportWidth="100"
     android:viewportHeight="100">
-    <!-- Abgerundetes Quadrat mit Verlauf -->
-    <path android:pathData="M22,0h56a22,22 0 0 1 22,22v56a22,22 0 0 1 -22,22h-56a22,22 0 0 1 -22,-22v-56a22,22 0 0 1 22,-22z">
+
+    <!-- P mit Kapsel-Ausschnitt -->
+    <path
+        android:fillType="evenOdd"
+        android:pathData="M36,10H61A19,19 0,0 1,61,48H44V79A11,11 0,0 1,22,79V24A14,14 0,0 1,36,10Z M40.5,22H62.5A7.5,7.5 0,0 1,62.5,37H40.5A7.5,7.5 0,0 1,40.5,22Z">
         <aapt:attr name="android:fillColor">
             <gradient
                 android:type="linear"
-                android:startX="0" android:startY="0"
-                android:endX="100" android:endY="100">
-                <item android:offset="0" android:color="#FF00D1FF" />
-                <item android:offset="0.55" android:color="#FF1E6BFF" />
-                <item android:offset="1" android:color="#FF7A3DFF" />
+                android:startX="50" android:startY="10"
+                android:endX="50" android:endY="90">
+                <item android:offset="0" android:color="#FF5EC4F2" />
+                <item android:offset="0.45" android:color="#FF3A8DC6" />
+                <item android:offset="1" android:color="#FF123D6E" />
             </gradient>
         </aapt:attr>
     </path>
-    <!-- Glanz -->
+
+    <!-- Seiten-Umschlag (wie im Portiva-Logo) -->
     <path
-        android:fillColor="#22FFFFFF"
-        android:pathData="M22,0h56a22,22 0 0 1 22,22v14c-30,-8 -70,-8 -100,10v-24a22,22 0 0 1 22,-22z" />
-    <!-- "P" mit Ausschnitt -->
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:fillType="evenOdd"
-        android:pathData="M30,22h25a20,20 0 0 1 0,40h-11v16h-14z M44,34v16h10a8,8 0 0 0 0,-16z" />
-    <!-- Play-Symbol im P -->
+        android:fillColor="#73FFFFFF"
+        android:pathData="M15,58C19,50 26,44.5 39,43V48C33,49.5 30.5,54 29.5,64Z" />
+
+    <!-- Play-Button im Ausschnitt -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M48,37.5l8,4.5l-8,4.5z" />
+        android:pathData="M47.5,24.2L58.5,29.5L47.5,34.8Z" />
+
+    <!-- Streaming-Signalwellen -->
+    <path
+        android:pathData="M85,22.5A10,10 0,0 1,85,36.5"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:strokeColor="#FF5EC4F2" />
+    <path
+        android:pathData="M90.5,17A17,17 0,0 1,90.5,42"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:strokeColor="#995EC4F2" />
 </vector>

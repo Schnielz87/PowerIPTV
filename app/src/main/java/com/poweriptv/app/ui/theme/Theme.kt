@@ -10,18 +10,19 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-// Portiva – PowerIPTV Farbwelt: tiefes Nachtblau mit Cyan-Blau-Violett-Akzenten
-val Background = Color(0xFF07090F)
-val Surface = Color(0xFF111623)
-val SurfaceHigh = Color(0xFF1B2234)
-val BrandCyan = Color(0xFF00D1FF)
-val Accent = Color(0xFF1E8BFF)
-val Accent2 = Color(0xFF7A3DFF)
+// Portiva – PowerIPTV Farbwelt (aus dem Portiva-Logo): Hellblau → Blau → Navy auf dunklem Nachtblau
+val Background = Color(0xFF060B16)
+val Surface = Color(0xFF0E1726)
+val SurfaceHigh = Color(0xFF172438)
+val BrandCyan = Color(0xFF5EC4F2)   // Portiva Hellblau
+val Accent = Color(0xFF3A9BDC)      // Portiva Blau
+val Accent2 = Color(0xFF1B4F8A)     // Portiva Navy-Blau
+val BrandNavy = Color(0xFF123D6E)
 val Success = Color(0xFF2EE59D)
 val Danger = Color(0xFFFF4D5E)
 val Warning = Color(0xFFFFC542)
 
-val BrandGradient = Brush.linearGradient(listOf(BrandCyan, Color(0xFF1E6BFF), Accent2))
+val BrandGradient = Brush.linearGradient(listOf(BrandCyan, Accent, BrandNavy))
 
 private val Colors = darkColorScheme(
     primary = Accent,

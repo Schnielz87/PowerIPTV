@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Android TV Banner: dunkler Hintergrund + Portiva-P -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape android:shape="rectangle">
-            <gradient android:angle="0" android:startColor="#FF07090F" android:endColor="#FF14204A" />
+            <gradient android:angle="0" android:startColor="#FF060B16" android:endColor="#FF0F2A4D" />
             <size android:width="320dp" android:height="180dp" />
         </shape>
     </item>
-    <item android:drawable="@drawable/portiva_logo" android:gravity="center" android:width="110dp" android:height="110dp" />
+    <item android:drawable="@drawable/portiva_logo" android:gravity="center" android:width="120dp" android:height="120dp" />
 </layer-list>

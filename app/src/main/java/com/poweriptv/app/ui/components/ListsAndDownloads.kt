@@ -109,7 +109,7 @@ fun DownloadButton(container: AppContainer, title: String, url: String, extensio
             null, DownloadStatus.PAUSED -> Icon(Icons.Filled.Download, "Herunterladen")
             DownloadStatus.QUEUED -> Icon(Icons.Filled.Downloading, "In Warteschlange")
             DownloadStatus.RUNNING -> CircularProgressIndicator(
-                progress = { entry.progress }, modifier = Modifier.size(22.dp), strokeWidth = 2.dp,
+                progress = { entry!!.progress }, modifier = Modifier.size(22.dp), strokeWidth = 2.dp,
             )
             DownloadStatus.COMPLETED -> Icon(Icons.Filled.CloudDone, "Offline verfuegbar", tint = Success)
             DownloadStatus.FAILED -> Icon(Icons.Filled.ErrorOutline, "Fehlgeschlagen – erneut versuchen", tint = MaterialTheme.colorScheme.error)

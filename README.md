@@ -36,7 +36,7 @@ Jeder Push baut automatisch die APK (GitHub Actions):
 
 ## Logo austauschen
 
-Das Logo liegt als Vektor in `app/src/main/res/drawable/portiva_logo.xml` (Platzhalter).
+Das Logo (Portiva-P in der IPTV-Variante: Play-Button + Signalwellen) liegt als Vektor in `app/src/main/res/drawable/portiva_logo.xml`.
 Zum Ersetzen die Datei loeschen und das Original als `portiva_logo.png` in denselben Ordner legen.
 Das App-Icon befindet sich in `ic_launcher_background.xml` / `ic_launcher_foreground.xml`.
 

@@ -37,7 +37,6 @@ import androidx.compose.ui.unit.sp
 import com.poweriptv.app.R
 import com.poweriptv.app.ui.theme.Background
 import com.poweriptv.app.ui.theme.BrandCyan
-import com.poweriptv.app.ui.theme.BrandGradient
 import kotlinx.coroutines.delay
 
 @Composable
@@ -45,22 +44,26 @@ fun PortivaLogo(modifier: Modifier = Modifier) {
     Image(painterResource(R.drawable.portiva_logo), contentDescription = "Portiva", modifier = modifier)
 }
 
-/** Schriftzug "PORTIVA / PowerIPTV". */
+/** Schriftzug im Portiva-Stil: "PORTIVA" + "PowerIPTV" (statt "Portable KI-Mitarbeiter-Plattform"). */
 @Composable
 fun BrandWordmark(large: Boolean = false) {
     Column {
         Text(
             "PORTIVA",
-            color = BrandCyan,
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = if (large) 14.sp else 10.sp, letterSpacing = if (large) 6.sp else 3.sp),
+            color = Color.White,
+            fontWeight = FontWeight.Black,
+            fontSize = if (large) 44.sp else 18.sp,
+            letterSpacing = if (large) 4.sp else 1.5.sp,
+            lineHeight = if (large) 48.sp else 20.sp,
         )
         Text(
             buildAnnotatedString {
-                withStyle(SpanStyle(color = Color.White)) { append("Power") }
-                withStyle(SpanStyle(brush = BrandGradient)) { append("IPTV") }
+                withStyle(SpanStyle(color = BrandCyan)) { append("Power") }
+                withStyle(SpanStyle(color = Color.White)) { append("IPTV") }
             },
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = if (large) 38.sp else 20.sp,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = if (large) 22.sp else 12.sp,
+            lineHeight = if (large) 26.sp else 14.sp,
         )
     }
 }
@@ -71,7 +74,7 @@ fun BrandTopBar(subtitle: String? = null, actions: @Composable () -> Unit = {}) 
     TopAppBar(
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                PortivaLogo(Modifier.size(34.dp))
+                PortivaLogo(Modifier.size(38.dp))
                 Spacer(Modifier.width(10.dp))
                 Column {
                     BrandWordmark()
@@ -100,7 +103,7 @@ fun SplashScreen(onFinished: () -> Unit) {
     Box(
         Modifier
             .fillMaxSize()
-            .background(Brush.radialGradient(listOf(Color(0xFF13214A), Background), radius = 1400f)),
+            .background(Brush.radialGradient(listOf(Color(0xFF0F2A4D), Background), radius = 1400f)),
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -108,7 +111,7 @@ fun SplashScreen(onFinished: () -> Unit) {
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.alpha(alpha.value).scale(scale.value),
         ) {
-            PortivaLogo(Modifier.size(120.dp))
+            PortivaLogo(Modifier.size(140.dp))
             Spacer(Modifier.height(24.dp))
             BrandWordmark(large = true)
             Spacer(Modifier.height(8.dp))

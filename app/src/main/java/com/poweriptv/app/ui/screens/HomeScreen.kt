@@ -80,9 +80,9 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 val big = listOf(
-                    Triple("LIVE TV", Icons.Filled.LiveTv, ContentType.LIVE) to listOf(Color(0xFF00C8FF), Color(0xFF1E6BFF)),
-                    Triple("FILME", Icons.Filled.Movie, ContentType.MOVIE) to listOf(Color(0xFF1E6BFF), Color(0xFF6A3DFF)),
-                    Triple("SERIEN", Icons.Filled.VideoLibrary, ContentType.SERIES) to listOf(Color(0xFF6A3DFF), Color(0xFFC13DFF)),
+                    Triple("LIVE TV", Icons.Filled.LiveTv, ContentType.LIVE) to listOf(Color(0xFF5EC4F2), Color(0xFF2A7FC0)),
+                    Triple("FILME", Icons.Filled.Movie, ContentType.MOVIE) to listOf(Color(0xFF3A8DC6), Color(0xFF123D6E)),
+                    Triple("SERIEN", Icons.Filled.VideoLibrary, ContentType.SERIES) to listOf(Color(0xFF2266A8), Color(0xFF0A2547)),
                 )
                 if (wide) {
                     Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {

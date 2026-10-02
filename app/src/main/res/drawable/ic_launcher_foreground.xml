@@ -1,21 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- "P" + Play, zentriert im sicheren Bereich des adaptiven Icons -->
+    <!-- Portiva-P (IPTV) im sicheren Bereich des adaptiven Icons -->
     <group
-        android:scaleX="0.62"
-        android:scaleY="0.62"
-        android:translateX="21.8"
-        android:translateY="23">
+        android:scaleX="0.6"
+        android:scaleY="0.6"
+        android:translateX="21"
+        android:translateY="24">
         <path
-            android:fillColor="#FFFFFFFF"
             android:fillType="evenOdd"
-            android:pathData="M30,22h25a20,20 0 0 1 0,40h-11v16h-14z M44,34v16h10a8,8 0 0 0 0,-16z" />
+            android:pathData="M36,10H61A19,19 0,0 1,61,48H44V79A11,11 0,0 1,22,79V24A14,14 0,0 1,36,10Z M40.5,22H62.5A7.5,7.5 0,0 1,62.5,37H40.5A7.5,7.5 0,0 1,40.5,22Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="50" android:startY="10"
+                    android:endX="50" android:endY="90">
+                    <item android:offset="0" android:color="#FF6FD0FF" />
+                    <item android:offset="0.5" android:color="#FF3A8DC6" />
+                    <item android:offset="1" android:color="#FF1B4F8A" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <path
+            android:fillColor="#73FFFFFF"
+            android:pathData="M15,58C19,50 26,44.5 39,43V48C33,49.5 30.5,54 29.5,64Z" />
         <path
             android:fillColor="#FFFFFFFF"
-            android:pathData="M48,37.5l8,4.5l-8,4.5z" />
+            android:pathData="M47.5,24.2L58.5,29.5L47.5,34.8Z" />
+        <path
+            android:pathData="M85,22.5A10,10 0,0 1,85,36.5"
+            android:strokeWidth="3"
+            android:strokeLineCap="round"
+            android:strokeColor="#FF6FD0FF" />
+        <path
+            android:pathData="M90.5,17A17,17 0,0 1,90.5,42"
+            android:strokeWidth="3"
+            android:strokeLineCap="round"
+            android:strokeColor="#996FD0FF" />
     </group>
 </vector>
