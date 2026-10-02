@@ -65,7 +65,7 @@ fun ProfilesScreen(
     Scaffold(
         topBar = {
             BrandTopBar(actions = {
-                IconButton(onClick = onDownloads) { Icon(Icons.Filled.DownloadForOffline, "Downloads") }
+                IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = onDownloads) { Icon(Icons.Filled.DownloadForOffline, "Downloads") }
                 VpnBadge(container, onVpn)
             })
         },
@@ -136,8 +136,8 @@ fun ProfilesScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        IconButton(onClick = { onEdit(p.id) }) { Icon(Icons.Filled.Edit, "Bearbeiten") }
-                        IconButton(onClick = { toDelete = p }) { Icon(Icons.Filled.Delete, "Loeschen") }
+                        IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { onEdit(p.id) }) { Icon(Icons.Filled.Edit, "Bearbeiten") }
+                        IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { toDelete = p }) { Icon(Icons.Filled.Delete, "Loeschen") }
                     }
                 }
             }
@@ -150,14 +150,14 @@ fun ProfilesScreen(
             title = { Text("Zugang loeschen?") },
             text = { Text("\"${p.name}\" wird inklusive Favoriten entfernt.") },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = {
                     container.profiles.delete(p.id)
                     container.favorites.clear(p.id)
                     if (container.source?.profile?.id == p.id) container.activate(null)
                     toDelete = null
                 }) { Text("Loeschen") }
             },
-            dismissButton = { TextButton(onClick = { toDelete = null }) { Text("Abbrechen") } },
+            dismissButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { toDelete = null }) { Text("Abbrechen") } },
         )
     }
 }

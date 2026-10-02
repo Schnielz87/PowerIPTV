@@ -1,5 +1,7 @@
 package com.poweriptv.app.ui.components
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -45,7 +47,7 @@ import com.poweriptv.app.ui.theme.Success
 @Composable
 fun AddToListButton(container: AppContainer, item: ContentItem, tint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface) {
     var open by remember { mutableStateOf(false) }
-    IconButton(onClick = { open = true }) { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, "Zu Liste hinzufuegen", tint = tint) }
+    IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { open = true }) { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, "Zu Liste hinzufuegen", tint = tint) }
     if (open) AddToListDialog(container, item) { open = false }
 }
 
@@ -88,7 +90,7 @@ fun AddToListDialog(container: AppContainer, item: ContentItem, onDismiss: () ->
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Fertig") } },
+        confirmButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = onDismiss) { Text("Fertig") } },
     )
 }
 
@@ -99,7 +101,7 @@ fun DownloadButton(container: AppContainer, title: String, url: String, extensio
     val entry = entries.firstOrNull { it.url == url }
     val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
-    IconButton(onClick = {
+    IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = {
         if (entry == null || entry.status == DownloadStatus.FAILED || entry.status == DownloadStatus.PAUSED) {
             if (Build.VERSION.SDK_INT >= 33) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
             container.downloads.enqueue(title, url, extension, poster)

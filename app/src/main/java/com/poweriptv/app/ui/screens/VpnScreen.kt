@@ -1,5 +1,7 @@
 package com.poweriptv.app.ui.screens
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.poweriptv.app.ui.components.tvFocus
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -152,7 +154,7 @@ fun VpnScreen(container: AppContainer, onBack: () -> Unit, onConnect: () -> Unit
                         modifier = Modifier.fillMaxWidth(),
                     ) { Icon(Icons.Filled.PowerSettingsNew, null); Spacer(Modifier.width(8.dp)); Text("VPN trennen") }
                 } else {
-                    Button(onClick = onConnect, enabled = hasConfig, modifier = Modifier.fillMaxWidth()) {
+                    Button(onClick = onConnect, enabled = hasConfig, modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f).fillMaxWidth()) {
                         Icon(Icons.Filled.PowerSettingsNew, null); Spacer(Modifier.width(8.dp)); Text("VPN verbinden")
                     }
                     if (!hasConfig) Text(
@@ -172,15 +174,15 @@ fun VpnScreen(container: AppContainer, onBack: () -> Unit, onConnect: () -> Unit
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { importer.launch(arrayOf("*/*")) }) {
+                    OutlinedButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { importer.launch(arrayOf("*/*")) }) {
                         Icon(Icons.Filled.FileOpen, null); Spacer(Modifier.width(6.dp)); Text(".conf importieren")
                     }
-                    OutlinedButton(onClick = { editorText = vpn.configText().orEmpty(); showEditor = true }) {
+                    OutlinedButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { editorText = vpn.configText().orEmpty(); showEditor = true }) {
                         Text(if (hasConfig) "Bearbeiten" else "Einfuegen")
                     }
                 }
                 if (hasConfig) {
-                    TextButton(onClick = { confirmDelete = true }) {
+                    TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { confirmDelete = true }) {
                         Icon(Icons.Filled.Delete, null, tint = MaterialTheme.colorScheme.error)
                         Spacer(Modifier.width(6.dp))
                         Text("Konfiguration loeschen", color = MaterialTheme.colorScheme.error)
@@ -231,13 +233,13 @@ fun VpnScreen(container: AppContainer, onBack: () -> Unit, onConnect: () -> Unit
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = {
                     vpn.saveConfig(editorText)
                         .onSuccess { message = "Konfiguration gespeichert"; showEditor = false }
                         .onFailure { message = it.message; showEditor = false }
                 }) { Text("Speichern") }
             },
-            dismissButton = { TextButton(onClick = { showEditor = false }) { Text("Abbrechen") } },
+            dismissButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { showEditor = false }) { Text("Abbrechen") } },
         )
     }
 
@@ -247,13 +249,13 @@ fun VpnScreen(container: AppContainer, onBack: () -> Unit, onConnect: () -> Unit
             title = { Text("Konfiguration loeschen?") },
             text = { Text("Das VPN wird getrennt und die gespeicherte Konfiguration entfernt.") },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = {
                     scope.launch { vpn.deleteConfig(); s.setVpnAutoConnect(false) }
                     confirmDelete = false
                     message = null
                 }) { Text("Loeschen") }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Abbrechen") } },
+            dismissButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { confirmDelete = false }) { Text("Abbrechen") } },
         )
     }
 }

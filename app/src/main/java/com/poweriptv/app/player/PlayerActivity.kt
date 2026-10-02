@@ -1,5 +1,7 @@
 package com.poweriptv.app.player
 
+import androidx.compose.foundation.shape.CircleShape
+import com.poweriptv.app.ui.components.tvFocus
 import android.app.PictureInPictureParams
 import android.net.Uri
 import android.os.Build
@@ -235,7 +237,7 @@ class PlayerActivity : ComponentActivity() {
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             Text(msg, color = Color.White)
-                            Button(onClick = { play(container.playIndex) }) { Text("Erneut versuchen") }
+                            Button(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { play(container.playIndex) }) { Text("Erneut versuchen") }
                         }
                     }
                     if (showRecordDialog) RecordDialog()
@@ -263,11 +265,11 @@ class PlayerActivity : ComponentActivity() {
         Column(Modifier.fillMaxWidth().background(Color(0x99000000)).padding(horizontal = 16.dp, vertical = 10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // Zurueck zur Uebersicht
-                IconButton(onClick = { closePlayer() }) {
+                IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { closePlayer() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurueck zur Uebersicht", tint = Color.White)
                 }
                 if (container.playQueue.size > 1) {
-                    IconButton(onClick = { previous() }) { Icon(Icons.Filled.SkipPrevious, "Vorheriger", tint = Color.White) }
+                    IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { previous() }) { Icon(Icons.Filled.SkipPrevious, "Vorheriger", tint = Color.White) }
                 }
                 Text(
                     title, color = Color.White, fontWeight = FontWeight.Bold,
@@ -279,18 +281,18 @@ class PlayerActivity : ComponentActivity() {
                         color = BrandCyan, style = MaterialTheme.typography.labelLarge,
                     )
                     Spacer(Modifier.width(8.dp))
-                    OutlinedButton(onClick = { goLive() }) { Text("LIVE", color = Danger, fontWeight = FontWeight.Bold) }
+                    OutlinedButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { goLive() }) { Text("LIVE", color = Danger, fontWeight = FontWeight.Bold) }
                 }
-                IconButton(onClick = { cycleVideoScale() }) {
+                IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { cycleVideoScale() }) {
                     Icon(Icons.Filled.AspectRatio, "Bildformat", tint = Color.White)
                 }
                 if (entry?.live == true) {
-                    IconButton(onClick = { showRecordDialog = true }) {
+                    IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { showRecordDialog = true }) {
                         Icon(Icons.Filled.FiberManualRecord, "Aufnehmen", tint = Danger)
                     }
                 }
                 if (container.playQueue.size > 1) {
-                    IconButton(onClick = { next() }) { Icon(Icons.Filled.SkipNext, "Naechster", tint = Color.White) }
+                    IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { next() }) { Icon(Icons.Filled.SkipNext, "Naechster", tint = Color.White) }
                 }
             }
             val fmt = DateFormat.getTimeInstance(DateFormat.SHORT)
@@ -326,14 +328,14 @@ class PlayerActivity : ComponentActivity() {
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (currentProgramme != null) {
-                        Button(onClick = { start(null) }) { Text("Bis Sendungsende: ${currentProgramme.title}", maxLines = 1) }
+                        Button(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { start(null) }) { Text("Bis Sendungsende: ${currentProgramme.title}", maxLines = 1) }
                     }
                     listOf(30, 60, 120, 180).forEach { m ->
-                        OutlinedButton(onClick = { start(m) }) { Text("$m Minuten") }
+                        OutlinedButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { start(m) }) { Text("$m Minuten") }
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showRecordDialog = false }) { Text("Abbrechen") } },
+            confirmButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { showRecordDialog = false }) { Text("Abbrechen") } },
         )
     }
 

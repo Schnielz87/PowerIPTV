@@ -1,5 +1,6 @@
 package com.poweriptv.app.ui.screens
 
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -72,10 +73,10 @@ fun FavoritesScreen(container: AppContainer, onBack: () -> Unit, onOpenDetail: (
     Scaffold(
         topBar = {
             PowerTopBar("Favoriten & Listen", onBack = onBack, actions = {
-                IconButton(onClick = { nameInput = ""; nameDialog = "" }) { Icon(Icons.Filled.Add, "Neue Liste") }
+                IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { nameInput = ""; nameDialog = "" }) { Icon(Icons.Filled.Add, "Neue Liste") }
                 if (current != null && current.id != FavoritesRepository.DEFAULT_ID) {
-                    IconButton(onClick = { nameInput = current.name; nameDialog = current.id }) { Icon(Icons.Filled.Edit, "Umbenennen") }
-                    IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, "Liste loeschen") }
+                    IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { nameInput = current.name; nameDialog = current.id }) { Icon(Icons.Filled.Edit, "Umbenennen") }
+                    IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, "Liste loeschen") }
                 }
             })
         },
@@ -136,7 +137,7 @@ fun FavoritesScreen(container: AppContainer, onBack: () -> Unit, onOpenDetail: (
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        IconButton(onClick = { container.favorites.toggleInList(current!!.id, item) }) {
+                        IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { container.favorites.toggleInList(current!!.id, item) }) {
                             Icon(Icons.Filled.Close, "Aus Liste entfernen")
                         }
                     }
@@ -159,7 +160,7 @@ fun FavoritesScreen(container: AppContainer, onBack: () -> Unit, onOpenDetail: (
                     nameDialog = null
                 }) { Text("Speichern") }
             },
-            dismissButton = { TextButton(onClick = { nameDialog = null }) { Text("Abbrechen") } },
+            dismissButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { nameDialog = null }) { Text("Abbrechen") } },
         )
     }
 
@@ -169,13 +170,13 @@ fun FavoritesScreen(container: AppContainer, onBack: () -> Unit, onOpenDetail: (
             title = { Text("Liste loeschen?") },
             text = { Text("\"${current.name}\" wird geloescht. Die Inhalte selbst bleiben erhalten.") },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = {
                     container.favorites.deleteList(current.id)
                     selectedId = FavoritesRepository.DEFAULT_ID
                     confirmDelete = false
                 }) { Text("Loeschen") }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Abbrechen") } },
+            dismissButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { confirmDelete = false }) { Text("Abbrechen") } },
         )
     }
 }

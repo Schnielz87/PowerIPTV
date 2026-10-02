@@ -1,5 +1,6 @@
 package com.poweriptv.app.ui.screens
 
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -135,11 +136,11 @@ fun DownloadsScreen(container: AppContainer, onBack: () -> Unit) {
                     when (e.status) {
                         DownloadStatus.COMPLETED -> Icon(Icons.Filled.PlayArrow, "Abspielen", modifier = Modifier.padding(8.dp))
                         DownloadStatus.RUNNING, DownloadStatus.QUEUED ->
-                            IconButton(onClick = { container.downloads.pause(e.id) }) { Icon(Icons.Filled.Pause, "Pausieren") }
+                            IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { container.downloads.pause(e.id) }) { Icon(Icons.Filled.Pause, "Pausieren") }
                         DownloadStatus.PAUSED, DownloadStatus.FAILED ->
-                            IconButton(onClick = { container.downloads.resume(e.id) }) { Icon(Icons.Filled.Refresh, "Fortsetzen") }
+                            IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { container.downloads.resume(e.id) }) { Icon(Icons.Filled.Refresh, "Fortsetzen") }
                     }
-                    IconButton(onClick = { toDelete = e }) { Icon(Icons.Filled.Delete, "Loeschen") }
+                    IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { toDelete = e }) { Icon(Icons.Filled.Delete, "Loeschen") }
                 }
             }
         }
@@ -150,8 +151,8 @@ fun DownloadsScreen(container: AppContainer, onBack: () -> Unit) {
             onDismissRequest = { toDelete = null },
             title = { Text("Download loeschen?") },
             text = { Text("\"${e.title}\" wird vom Geraet entfernt.") },
-            confirmButton = { TextButton(onClick = { container.downloads.delete(e.id); toDelete = null }) { Text("Loeschen") } },
-            dismissButton = { TextButton(onClick = { toDelete = null }) { Text("Abbrechen") } },
+            confirmButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { container.downloads.delete(e.id); toDelete = null }) { Text("Loeschen") } },
+            dismissButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { toDelete = null }) { Text("Abbrechen") } },
         )
     }
 }

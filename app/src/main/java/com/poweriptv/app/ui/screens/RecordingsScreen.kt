@@ -1,5 +1,6 @@
 package com.poweriptv.app.ui.screens
 
+import androidx.compose.foundation.shape.CircleShape
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -80,7 +81,7 @@ fun RecordingsScreen(container: AppContainer, onBack: () -> Unit) {
                         "Fuer punktgenaue Aufnahmen bitte \"Wecker & Erinnerungen\" erlauben.",
                         modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
                     )
-                    TextButton(onClick = {
+                    TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = {
                         context.startActivity(
                             Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}"))
                         )
@@ -140,9 +141,9 @@ fun RecordingsScreen(container: AppContainer, onBack: () -> Unit) {
                         }
                         if (playable) Icon(Icons.Filled.PlayArrow, "Abspielen", modifier = Modifier.padding(8.dp))
                         if (r.status == RecStatus.SCHEDULED || r.status == RecStatus.RECORDING) {
-                            IconButton(onClick = { container.recordings.stop(r.id) }) { Icon(Icons.Filled.Stop, "Stoppen") }
+                            IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { container.recordings.stop(r.id) }) { Icon(Icons.Filled.Stop, "Stoppen") }
                         }
-                        IconButton(onClick = { toDelete = r }) { Icon(Icons.Filled.Delete, "Loeschen") }
+                        IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { toDelete = r }) { Icon(Icons.Filled.Delete, "Loeschen") }
                     }
                 }
             }
@@ -154,8 +155,8 @@ fun RecordingsScreen(container: AppContainer, onBack: () -> Unit) {
             onDismissRequest = { toDelete = null },
             title = { Text("Aufnahme loeschen?") },
             text = { Text("\"${r.title}\" wird entfernt.") },
-            confirmButton = { TextButton(onClick = { container.recordings.delete(r.id); toDelete = null }) { Text("Loeschen") } },
-            dismissButton = { TextButton(onClick = { toDelete = null }) { Text("Abbrechen") } },
+            confirmButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { container.recordings.delete(r.id); toDelete = null }) { Text("Loeschen") } },
+            dismissButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { toDelete = null }) { Text("Abbrechen") } },
         )
     }
 }

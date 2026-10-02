@@ -1,5 +1,6 @@
 package com.poweriptv.app.ui.screens
 
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -41,6 +42,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -65,7 +68,7 @@ import com.poweriptv.app.ui.components.tvFocus
 private fun FavoriteButton(container: AppContainer, item: ContentItem) {
     val favorites by container.favorites.favorites.collectAsState()
     val fav = favorites.any { it.key == item.key }
-    IconButton(onClick = { container.favorites.toggle(item) }) {
+    IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { container.favorites.toggle(item) }) {
         Icon(
             if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, "Favorit",
             tint = if (fav) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
@@ -134,7 +137,9 @@ fun MovieDetailScreen(container: AppContainer, onBack: () -> Unit) {
                         i?.director?.let { "Regie: $it" },
                     ),
                 ) {
-                    Button(onClick = {
+                    val playFocus = remember { FocusRequester() }
+                    LaunchedEffect(Unit) { runCatching { playFocus.requestFocus() } }
+                    Button(modifier = Modifier.focusRequester(playFocus).tvFocus(RoundedCornerShape(50), 1.08f), onClick = {
                         val playable = item.copy(containerExtension = i?.containerExtension ?: item.containerExtension)
                         startPlayback(
                             context, container,
@@ -215,7 +220,7 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             items(i.episodes.keys.toList()) { s ->
-                                FilterChip(selected = s == season, onClick = { season = s }, label = { Text("Staffel $s") })
+                                FilterChip(modifier = Modifier.tvFocus(RoundedCornerShape(8.dp), 1.06f), selected = s == season, onClick = { season = s }, label = { Text("Staffel $s") })
                             }
                         }
                     }

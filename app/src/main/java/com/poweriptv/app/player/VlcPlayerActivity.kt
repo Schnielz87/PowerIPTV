@@ -1,5 +1,7 @@
 package com.poweriptv.app.player
 
+import androidx.compose.foundation.shape.CircleShape
+import com.poweriptv.app.ui.components.tvFocus
 import android.net.Uri
 import android.os.Bundle
 import android.view.KeyEvent
@@ -162,7 +164,7 @@ class VlcPlayerActivity : ComponentActivity() {
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             Text(msg, color = Color.White)
-                            Button(onClick = { play(container.playIndex) }) { Text("Erneut versuchen") }
+                            Button(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { play(container.playIndex) }) { Text("Erneut versuchen") }
                         }
                     }
                 }
@@ -180,20 +182,20 @@ class VlcPlayerActivity : ComponentActivity() {
             Modifier.fillMaxWidth().background(Color(0x99000000)).padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = { closePlayer() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurueck zur Uebersicht", tint = Color.White) }
+            IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { closePlayer() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurueck zur Uebersicht", tint = Color.White) }
             if (container.playQueue.size > 1) {
-                IconButton(onClick = { previous() }) { Icon(Icons.Filled.SkipPrevious, "Vorheriger", tint = Color.White) }
+                IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { previous() }) { Icon(Icons.Filled.SkipPrevious, "Vorheriger", tint = Color.White) }
             }
             Column(Modifier.weight(1f)) {
                 Text(title, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text("VLC-Player", color = BrandCyan, style = MaterialTheme.typography.labelSmall)
             }
-            IconButton(onClick = { togglePause() }) {
+            IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { togglePause() }) {
                 Icon(if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, "Wiedergabe", tint = Color.White)
             }
-            IconButton(onClick = { cycleScale() }) { Icon(Icons.Filled.AspectRatio, "Bildformat", tint = Color.White) }
+            IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { cycleScale() }) { Icon(Icons.Filled.AspectRatio, "Bildformat", tint = Color.White) }
             if (container.playQueue.size > 1) {
-                IconButton(onClick = { next() }) { Icon(Icons.Filled.SkipNext, "Naechster", tint = Color.White) }
+                IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { next() }) { Icon(Icons.Filled.SkipNext, "Naechster", tint = Color.White) }
             }
         }
     }

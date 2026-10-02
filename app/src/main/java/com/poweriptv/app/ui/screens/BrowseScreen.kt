@@ -116,7 +116,9 @@ fun BrowseScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
     var appliedQuery by remember { mutableStateOf("") }
-    var filter by remember { mutableStateOf(ContentFilter()) }
+    // Filter bleiben beim Kategoriewechsel erhalten (und beim Zurueckkehren in den Bereich)
+    var filter by remember { mutableStateOf(container.browseFilters[type] ?: ContentFilter()) }
+    LaunchedEffect(filter) { container.browseFilters[type] = filter }
     var showFilter by remember { mutableStateOf(false) }
     var showCategoryPicker by remember { mutableStateOf(false) }
     var reload by remember { mutableIntStateOf(0) }
@@ -132,8 +134,7 @@ fun BrowseScreen(
 
     fun selectCategory(c: Category) {
         showCategoryPicker = false
-        query = ""
-        searchEverywhere = false
+        // Suche und Filter bleiben bestehen -> gelten dann fuer die neue Kategorie
         if (c.id !in listOf(CAT_ALL, CAT_FAV, CAT_RECENT) && container.parental.requiresPin(source.profile.id, type, c)) pinFor = c
         else selected = c.id
     }

@@ -1,5 +1,6 @@
 package com.poweriptv.app.ui.screens
 
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -92,7 +93,7 @@ fun RecommendationsScreen(
                     onRetry = null,
                     modifier = Modifier.weight(1f),
                 )
-                Button(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) { Text("Zu den Einstellungen") }
+                Button(onClick = onOpenSettings, modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f).fillMaxWidth().padding(bottom = 16.dp)) { Text("Zu den Einstellungen") }
                 return@Column
             }
             Text(
@@ -106,7 +107,7 @@ fun RecommendationsScreen(
                     singleLine = true, modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(8.dp))
-                Button(onClick = { load() }, enabled = !loading) {
+                Button(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { load() }, enabled = !loading) {
                     if (loading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                     else { Icon(Icons.Filled.AutoAwesome, null); Spacer(Modifier.width(6.dp)); Text("Empfehlen") }
                 }

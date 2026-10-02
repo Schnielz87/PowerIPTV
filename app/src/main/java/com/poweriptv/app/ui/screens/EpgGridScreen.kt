@@ -1,5 +1,6 @@
 package com.poweriptv.app.ui.screens
 
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -154,8 +155,8 @@ fun EpgGridScreen(container: AppContainer, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             PowerTopBar("TV-Guide (EPG)", onBack = onBack, actions = {
-                IconButton(onClick = { scrollToNow() }) { Icon(Icons.Filled.MyLocation, "Jetzt") }
-                IconButton(onClick = { reload++ }) { Icon(Icons.Filled.Refresh, "EPG aktualisieren") }
+                IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { scrollToNow() }) { Icon(Icons.Filled.MyLocation, "Jetzt") }
+                IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { reload++ }) { Icon(Icons.Filled.Refresh, "EPG aktualisieren") }
             })
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -165,7 +166,7 @@ fun EpgGridScreen(container: AppContainer, onBack: () -> Unit) {
             val lockIcon: @Composable () -> Unit = { Icon(Icons.Filled.Lock, null, Modifier.size(16.dp)) }
             LazyRow(contentPadding = PaddingValues(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 item {
-                    FilterChip(selected = group == FAV_GROUP, onClick = { group = FAV_GROUP }, label = { Text("★ Favoriten") })
+                    FilterChip(modifier = Modifier.tvFocus(RoundedCornerShape(8.dp), 1.06f), selected = group == FAV_GROUP, onClick = { group = FAV_GROUP }, label = { Text("★ Favoriten") })
                 }
                 items(categories, key = { it.id }) { c ->
                     val locked = container.parental.isConfiguredLocked(source.profile.id, ContentType.LIVE, c) &&
@@ -370,20 +371,20 @@ private fun ProgrammeDialog(
                 info?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
                 Spacer(Modifier.height(4.dp))
                 if (p.isLive(now) || p.isGap) {
-                    Button(onClick = {
+                    Button(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = {
                         onDismiss()
                         val entries = list.map { PlayEntry(it.name, source.streamUrl(it), it, live = true) }
                         startPlayback(context, container, entries, list.indexOf(channel).coerceAtLeast(0))
                     }) { Text("Live ansehen") }
                 }
                 if (catchup != null && !p.isGap) {
-                    OutlinedButton(onClick = {
+                    OutlinedButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = {
                         onDismiss()
                         startPlayback(context, container, listOf(PlayEntry("${channel.name}: ${p.title} (Catch-up)", catchup, null, live = false)), 0)
                     }) { Text(if (p.isLive(now)) "Von Beginn an (Timeshift)" else "Nachtraeglich ansehen (Catch-up)") }
                 }
                 if (p.end > now && !p.isGap) {
-                    OutlinedButton(onClick = {
+                    OutlinedButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = {
                         val result = container.recordings.schedule(
                             title = p.title,
                             channelName = channel.name,
@@ -401,6 +402,6 @@ private fun ProgrammeDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Schliessen") } },
+        confirmButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = onDismiss) { Text("Schliessen") } },
     )
 }

@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import com.poweriptv.app.ui.theme.BrandCyan
@@ -21,12 +22,18 @@ import com.poweriptv.app.ui.theme.BrandCyan
  */
 fun Modifier.tvFocus(
     shape: Shape = RoundedCornerShape(12.dp),
-    scaleFocused: Float = 1.04f,
+    scaleFocused: Float = 1.05f,
 ): Modifier = composed {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (focused) scaleFocused else 1f, label = "tvFocusScale")
     this
         .onFocusChanged { focused = it.isFocused || it.hasFocus }
         .scale(scale)
-        .then(if (focused) Modifier.border(3.dp, BrandCyan, shape) else Modifier)
+        // Weisser, dicker Rahmen + Cyan-Schein: auf dunklem und farbigem Hintergrund gut sichtbar
+        .then(
+            if (focused) Modifier
+                .border(6.dp, BrandCyan.copy(alpha = 0.35f), shape)
+                .border(3.dp, Color.White, shape)
+            else Modifier
+        )
 }

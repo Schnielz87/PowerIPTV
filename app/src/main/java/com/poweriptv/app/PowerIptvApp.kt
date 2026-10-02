@@ -6,6 +6,8 @@ import coil.ImageLoaderFactory
 import com.poweriptv.app.ai.AiRecommender
 import com.poweriptv.app.data.CachedSource
 import com.poweriptv.app.data.ContentItem
+import com.poweriptv.app.data.ContentType
+import com.poweriptv.app.ui.components.ContentFilter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -77,6 +79,9 @@ class AppContainer(private val app: Application) {
     /** Aktuell ausgewaehlte Quelle (Profil). */
     var source: ContentSource? = null
         private set
+
+    /** Filter/Sortierung je Bereich (bleiben beim Kategoriewechsel und Zurueckkehren erhalten). */
+    val browseFilters = mutableMapOf<ContentType, ContentFilter>()
 
     /** Zwischenablage fuer Detail-Bildschirme. */
     var selectedItem: ContentItem? = null
