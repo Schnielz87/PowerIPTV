@@ -60,6 +60,7 @@ import com.poweriptv.app.data.SeriesInfo
 import com.poweriptv.app.ui.components.AddToListButton
 import com.poweriptv.app.ui.components.DownloadButton
 import com.poweriptv.app.ui.components.ErrorBox
+import com.poweriptv.app.ui.components.FallbackImage
 import com.poweriptv.app.ui.components.LoadingBox
 import com.poweriptv.app.ui.components.PowerTopBar
 import com.poweriptv.app.ui.components.startPlayback
@@ -248,7 +249,7 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
                                     .background(MaterialTheme.colorScheme.surfaceVariant),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                if (!ep.image.isNullOrBlank()) AsyncImage(ep.image, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                FallbackImage(ep.imageCandidates, Modifier.fillMaxSize())
                                 // kleines Play-Symbol ueber dem Vorschaubild
                                 Box(
                                     Modifier.size(30.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.55f)),

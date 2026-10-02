@@ -32,6 +32,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
@@ -120,8 +122,16 @@ class VlcPlayerActivity : ComponentActivity() {
                     Modifier
                         .fillMaxSize()
                         .background(Color.Black)
-                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                            showOverlay = !showOverlay
+                        // Einmal tippen: Leiste ein/aus. Doppelt rechts: +10 s, doppelt links: -10 s
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = { showOverlay = !showOverlay },
+                                onDoubleTap = { offset ->
+                                    if (current()?.live != true) {
+                                        if (offset.x > size.width / 2) seekBy(10_000) else seekBy(-10_000)
+                                    }
+                                },
+                            )
                         },
                 ) {
                     AndroidView(

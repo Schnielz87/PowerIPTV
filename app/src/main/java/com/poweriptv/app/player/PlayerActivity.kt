@@ -208,6 +208,25 @@ class PlayerActivity : ComponentActivity() {
                                 setShowRewindButton(true)
                                 setShowFastForwardButton(true)
                                 isFocusable = true
+                                // Doppeltipp rechts/links = 10 s vor/zurueck, einfacher Tipp = Steuerung ein/aus.
+                                // Tipps auf die Steuerungsknoepfe gehen weiterhin an die Knoepfe.
+                                val detector = android.view.GestureDetector(ctx, object : android.view.GestureDetector.SimpleOnGestureListener() {
+                                    override fun onDown(e: android.view.MotionEvent) = true
+                                    override fun onSingleTapConfirmed(e: android.view.MotionEvent): Boolean {
+                                        if (isControllerFullyVisible) hideController() else showController()
+                                        return true
+                                    }
+                                    override fun onDoubleTap(e: android.view.MotionEvent): Boolean {
+                                        if (current()?.live == true) return false
+                                        if (e.x > width / 2f) seekBy(10_000) else seekBy(-10_000)
+                                        return true
+                                    }
+                                })
+                                setOnTouchListener { v, e ->
+                                    detector.onTouchEvent(e)
+                                    if (e.action == android.view.MotionEvent.ACTION_UP) v.performClick()
+                                    true
+                                }
                                 playerView = this
                             }
                         },

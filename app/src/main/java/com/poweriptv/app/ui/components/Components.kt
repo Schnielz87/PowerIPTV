@@ -186,6 +186,23 @@ fun PosterCard(title: String, image: String?, onClick: () -> Unit, modifier: Mod
     }
 }
 
+/**
+ * Laedt das erste funktionierende Bild aus einer Liste von URLs
+ * (manche Anbieter liefern kaputte Bild-Links).
+ */
+@Composable
+fun FallbackImage(urls: List<String>, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop) {
+    var index by remember(urls) { mutableStateOf(0) }
+    val url = urls.getOrNull(index) ?: return
+    AsyncImage(
+        model = url,
+        contentDescription = null,
+        contentScale = contentScale,
+        modifier = modifier,
+        onError = { index++ },
+    )
+}
+
 /** Schluessel "Kategorie braucht VLC" (pro Zugang und Bereich). */
 fun vlcCategoryKey(profileId: String?, item: com.poweriptv.app.data.ContentItem) =
     "${profileId ?: ""}|${item.type.name}|${item.categoryId}"

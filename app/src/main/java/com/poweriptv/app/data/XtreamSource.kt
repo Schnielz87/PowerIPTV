@@ -180,6 +180,12 @@ class XtreamSource(
         val parseEp = { o: JsonObject, seasonFallback: Int ->
             val epInfo = o.obj("info")
             val season = o.int("season") ?: seasonFallback
+            // Vorschaubild-Kandidaten: Episode -> Staffel-Cover -> Serien-Hintergrund -> Serien-Cover
+            val candidates = listOfNotNull(
+                img(epInfo?.str("movie_image")), img(epInfo?.str("cover_big")), img(epInfo?.str("cover")),
+                img(epInfo?.str("still_path")), img(o.str("cover")), img(o.str("movie_image")),
+                seasonCovers[season], img(seriesBackdrop), img(seriesCover), img(item.logo),
+            ).distinct()
             val ep = Episode(
                 id = o.str("id") ?: "",
                 title = o.str("title") ?: "Episode ${o.str("episode_num") ?: ""}",
@@ -188,9 +194,8 @@ class XtreamSource(
                 containerExtension = o.str("container_extension"),
                 plot = epInfo?.str("plot")?.takeUnless { it.equals("n/a", true) || it.equals("null", true) },
                 // Vorschaubild: alle ueblichen Felder, sonst Staffel-Cover / Serien-Hintergrund / Serien-Cover
-                image = img(epInfo?.str("movie_image")) ?: img(epInfo?.str("cover_big")) ?: img(epInfo?.str("cover"))
-                    ?: img(epInfo?.str("still_path")) ?: img(o.str("cover")) ?: img(o.str("movie_image"))
-                    ?: seasonCovers[season] ?: img(seriesBackdrop) ?: img(seriesCover),
+                image = candidates.firstOrNull(),
+                imageCandidates = candidates,
                 duration = epInfo?.str("duration"),
             )
             if (ep.id.isNotBlank()) episodes.getOrPut(season) { mutableListOf() }.add(ep)

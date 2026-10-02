@@ -74,6 +74,8 @@ data class Episode(
     val image: String?,
     val duration: String?,
     val directUrl: String? = null,
+    /** Alle moeglichen Vorschaubilder in Reihenfolge – laedt eins nicht, wird das naechste versucht. */
+    val imageCandidates: List<String> = listOfNotNull(image),
 )
 
 data class SeriesInfo(
