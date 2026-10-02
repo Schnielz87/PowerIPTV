@@ -179,7 +179,13 @@ fun SkipIntroButton(onClick: () -> Unit) {
 /** Gemeinsame Logik fuer Serien-Komfort in beiden Playern. */
 object EpisodeFlow {
     /** Countdown-Start vor Ende (ms). */
-    const val NEXT_BEFORE_END = 20_000L
+    const val NEXT_BEFORE_END = 40_000L
+    /** "Intro ueberspringen" ist so lange sichtbar. */
+    const val INTRO_SHOW_MS = 7_000L
+    /** Intro lernen: Vorspulen in den ersten 10 Minuten um 20 s bis 5 Min. */
+    const val LEARN_WITHIN = 600_000L
+    const val LEARN_MIN = 20_000L
+    const val LEARN_MAX = 300_000L
     /** Sprungweite und Zeitfenster fuer "Intro ueberspringen". */
     const val INTRO_SKIP = 85_000L
     const val INTRO_WINDOW_START = 5_000L

@@ -45,6 +45,17 @@ class ResumeRepository(context: Context) {
         return v.substringBefore('\n') to v.substringAfter('\n', "")
     }
 
+    /** Gelerntes Intro einer Serie (Start, Ende in ms) – aus dem Spulverhalten des Nutzers. */
+    fun setIntro(seriesKey: String, start: Long, end: Long) {
+        prefs.edit().putString("intro|$seriesKey", "$start:$end").apply()
+    }
+
+    fun intro(seriesKey: String): Pair<Long, Long>? {
+        val v = prefs.getString("intro|$seriesKey", null) ?: return null
+        val (a, b) = v.split(":").mapNotNull { it.toLongOrNull() }.takeIf { it.size == 2 } ?: return null
+        return a to b
+    }
+
     fun clear(url: String) {
         prefs.edit().remove(url).remove("$url|d").apply()
     }

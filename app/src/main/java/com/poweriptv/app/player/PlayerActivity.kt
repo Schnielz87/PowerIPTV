@@ -655,7 +655,37 @@ class PlayerActivity : ComponentActivity() {
     private fun skipIntro() {
         introSkipped = true
         showSkipIntro = false
-        seekBy(EpisodeFlow.INTRO_SKIP)
+        // Gelerntes Intro-Ende anspringen, sonst Standardsprung
+        val learned = current()?.item?.key?.let { container.resume.intro(it) }
+        if (learned != null) seekBy(learned.second - lastFlowPos) else seekBy(EpisodeFlow.INTRO_SKIP)
+    }
+
+    // Intro lernen: zusammenhaengendes Vorspulen (mehrere Spruenge kurz hintereinander) erkennen
+    private var lastFlowPos = 0L
+    private var streakStart = -1L
+    private var streakEnd = -1L
+    private var lastJumpAt = 0L
+
+    private fun learnIntro(pos: Long) {
+        val e = current()
+        val now = System.currentTimeMillis()
+        val delta = pos - lastFlowPos
+        if (EpisodeFlow.isEpisode(e) && delta > 3_000L && lastFlowPos > 0) {
+            if (streakStart >= 0 && now - lastJumpAt < 4_000L) streakEnd = pos
+            else { streakStart = lastFlowPos; streakEnd = pos }
+            lastJumpAt = now
+        } else if (delta < -3_000L) {
+            // Zurueckgespult: Ende der Spulfolge korrigieren
+            if (streakStart >= 0 && now - lastJumpAt < 4_000L) { streakEnd = pos; lastJumpAt = now }
+        }
+        if (streakStart >= 0 && now - lastJumpAt >= 4_000L) {
+            val len = streakEnd - streakStart
+            if (EpisodeFlow.isEpisode(e) && streakStart < EpisodeFlow.LEARN_WITHIN && len in EpisodeFlow.LEARN_MIN..EpisodeFlow.LEARN_MAX) {
+                container.resume.setIntro(e!!.item!!.key, streakStart, streakEnd)
+            }
+            streakStart = -1L
+        }
+        lastFlowPos = pos
     }
 
     private fun cancelNext() {
@@ -673,8 +703,11 @@ class PlayerActivity : ComponentActivity() {
             val rem = dur - pos
             if (rem in 1..EpisodeFlow.NEXT_BEFORE_END) ((rem + 999) / 1000).toInt() else null
         } else null
+        learnIntro(pos)
+        // Gelerntes Intro: Knopf genau zum Intro-Beginn; sonst kurz nach dem Start. Immer nur 7 s sichtbar.
+        val showFrom = e?.item?.key?.let { container.resume.intro(it)?.first } ?: EpisodeFlow.INTRO_WINDOW_START
         showSkipIntro = EpisodeFlow.isEpisode(e) && !introSkipped && isPlaying &&
-            pos in EpisodeFlow.INTRO_WINDOW_START..EpisodeFlow.INTRO_WINDOW_END
+            pos in showFrom..(showFrom + EpisodeFlow.INTRO_SHOW_MS)
     }
 
     private fun changeVideoScale(v: VideoScale) {
@@ -739,6 +772,7 @@ class PlayerActivity : ComponentActivity() {
         error = null
         // Serien-Komfort zuruecksetzen und Folge als "zuletzt gesehen" merken
         nextCancelled = false; nextCountdown = null; introSkipped = false; showSkipIntro = false
+        lastFlowPos = 0L; streakStart = -1L
         if (EpisodeFlow.isEpisode(entry)) container.resume.setLastEpisode(entry.item!!.key, entry.url, EpisodeFlow.episodeLabel(entry.title))
         entry.item?.let { container.history.add(it) }
 
