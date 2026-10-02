@@ -71,6 +71,8 @@ import com.poweriptv.app.ui.components.CAT_ALL
 import com.poweriptv.app.ui.components.CAT_FAV
 import com.poweriptv.app.ui.components.CAT_RECENT
 import com.poweriptv.app.ui.components.CategorySidebar
+import com.poweriptv.app.ui.components.categoryLanguage
+import com.poweriptv.app.ui.components.detectLanguages
 import com.poweriptv.app.ui.components.CompactSearchField
 import com.poweriptv.app.ui.components.ContentFilter
 import com.poweriptv.app.ui.components.ErrorBox
@@ -120,6 +122,8 @@ fun BrowseScreen(
     var reload by remember { mutableIntStateOf(0) }
     var pinFor by remember { mutableStateOf<Category?>(null) }
     var wantAll by remember { mutableStateOf(false) }
+    /** false = nur in der gewaehlten Kategorie suchen (Standard), true = in allen Kategorien. */
+    var searchEverywhere by rememberSaveable { mutableStateOf(false) }
     var searchError by remember { mutableStateOf<String?>(null) }
 
     val lockedIds = remember(categories, parentalOn, parentalUnlocked) {
@@ -129,6 +133,7 @@ fun BrowseScreen(
     fun selectCategory(c: Category) {
         showCategoryPicker = false
         query = ""
+        searchEverywhere = false
         if (c.id !in listOf(CAT_ALL, CAT_FAV, CAT_RECENT) && container.parental.requiresPin(source.profile.id, type, c)) pinFor = c
         else selected = c.id
     }
@@ -164,7 +169,6 @@ fun BrowseScreen(
     LaunchedEffect(query) {
         delay(300)
         appliedQuery = query.trim()
-        if (appliedQuery.isNotEmpty()) wantAll = true
     }
     // Alle Titel EINMAL laden – unabhaengig vom Tippen, damit der Ladevorgang nicht abbricht
     LaunchedEffect(wantAll, reload) {
@@ -180,7 +184,21 @@ fun BrowseScreen(
     }
 
     val searching = appliedQuery.isNotEmpty()
-    val baseList = if (searching) allItems else items
+    // Gewaehlte Kategorie -> nur darin suchen. "Alle" oder Umschalter "Ueberall" -> alle Kategorien.
+    val scoped = !searchEverywhere && selected != CAT_ALL
+    val searchAll = searching && !scoped
+    LaunchedEffect(searchAll) { if (searchAll) wantAll = true }
+    // Aktiver Sprachfilter (z.B. DE) gilt auch fuer "Alle" und die Suche ueber alle Kategorien
+    val langCategoryIds = remember(categories, language) {
+        val cats = categories.orEmpty()
+        if (language.isEmpty() || language !in detectLanguages(cats)) null
+        else cats.filter { categoryLanguage(it.name) == language }.map { it.id }.toSet()
+    }
+    val baseList = when {
+        searchAll -> allItems?.let { list -> langCategoryIds?.let { ids -> list.filter { it.categoryId in ids } } ?: list }
+        selected == CAT_ALL -> items?.let { list -> langCategoryIds?.let { ids -> list.filter { it.categoryId in ids } } ?: list }
+        else -> items
+    }
     val shown = remember(baseList, appliedQuery, lockedIds, filter) {
         baseList?.let { list ->
             filter.apply(list.filter { it.categoryId !in lockedIds && matchesQuery(it.name, appliedQuery) })
@@ -217,7 +235,7 @@ fun BrowseScreen(
                 if (wide) {
                     CategorySidebar(
                         categories = categories.orEmpty(),
-                        selected = if (searching) null else selected,
+                        selected = if (searchAll) null else selected,
                         lockedIds = lockedIds,
                         language = language,
                         onLanguage = { container.settings.setCategoryLanguage(it) },
@@ -233,9 +251,29 @@ fun BrowseScreen(
                         CompactSearchField(
                             value = query,
                             onValueChange = { query = it },
-                            placeholder = if (wide) "$title-Titel suchen (in allen Kategorien)" else "$title-Titel suchen",
+                            placeholder = when {
+                                scoped -> "In „$selectedName“ suchen"
+                                langCategoryIds != null -> "$title suchen (alle $language-Kategorien)"
+                                else -> "$title suchen (alle Kategorien)"
+                            },
                             modifier = mod,
                         )
+                    }
+                    val scopeToggle = @Composable {
+                        if (selected != CAT_ALL) {
+                            Text(
+                                if (searchEverywhere) "Ueberall" else "Nur hier",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = if (searchEverywhere) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier
+                                    .padding(start = 6.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .tvFocus(RoundedCornerShape(8.dp), 1f)
+                                    .clickable { searchEverywhere = !searchEverywhere }
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                            )
+                        }
                     }
                     val filterButton = @Composable {
                         IconButton(onClick = { showFilter = true }, modifier = Modifier.tvFocus(RoundedCornerShape(20.dp), 1f)) {
@@ -248,6 +286,7 @@ fun BrowseScreen(
                         // Querformat: Suche · Filter · Aktualisieren in einer flachen Zeile
                         Row(Modifier.fillMaxWidth().padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                             searchField(Modifier.weight(1f))
+                            scopeToggle()
                             filterButton()
                             IconButton(
                                 onClick = { source.clearCache(); allItems = null; reload++ },
@@ -271,12 +310,20 @@ fun BrowseScreen(
                             }
                             filterButton()
                         }
-                        searchField(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp))
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            searchField(Modifier.weight(1f))
+                            scopeToggle()
+                        }
                     }
                     // Info-Zeile
                     Row(Modifier.padding(horizontal = 14.dp, vertical = 0.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            if (searching) "Suche „$appliedQuery“ in allen Kategorien" else selectedName,
+                            when {
+                                !searching -> selectedName
+                                scoped -> "Suche „$appliedQuery“ in $selectedName"
+                                langCategoryIds != null -> "Suche „$appliedQuery“ in allen $language-Kategorien"
+                                else -> "Suche „$appliedQuery“ in allen Kategorien"
+                            },
                             fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.titleSmall,
                             modifier = Modifier.weight(1f, fill = false),
@@ -285,7 +332,7 @@ fun BrowseScreen(
                             Text("  ·  ${it.size} ${if (type == ContentType.LIVE) "Kanaele" else "Titel"}",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                         }
-                        if (searching && allItems == null && searchError == null) {
+                        if (searchAll && allItems == null && searchError == null) {
                             Spacer(Modifier.width(8.dp))
                             CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
                             Text("  Lade alle $title...", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
@@ -293,7 +340,7 @@ fun BrowseScreen(
                     }
 
                     when {
-                        searching && searchError != null -> ErrorBox(searchError!!, onRetry = { searchError = null; reload++ })
+                        searchAll && searchError != null -> ErrorBox(searchError!!, onRetry = { searchError = null; reload++ })
                         error != null && shown.isNullOrEmpty() -> ErrorBox(error!!, onRetry = { reload++ })
                         shown == null -> LoadingBox()
                         shown.isEmpty() -> ErrorBox(
