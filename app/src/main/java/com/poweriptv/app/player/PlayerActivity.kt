@@ -112,6 +112,8 @@ class PlayerActivity : ComponentActivity() {
     private var error by mutableStateOf<String?>(null)
     private var epg by mutableStateOf<List<EpgEntry>>(emptyList())
     private var showOverlay by mutableStateOf(true)
+    /** Letzte Bedienung (Taste/Tipp) – 5 s danach blendet sich die Leiste automatisch aus. */
+    private var lastInteraction by mutableLongStateOf(System.currentTimeMillis())
     private var showRecordDialog by mutableStateOf(false)
     private var toast by mutableStateOf<String?>(null)
     private var numberInput by mutableStateOf("")
@@ -211,7 +213,10 @@ class PlayerActivity : ComponentActivity() {
                                 // Doppeltipp rechts/links = 10 s vor/zurueck, einfacher Tipp = Steuerung ein/aus.
                                 // Tipps auf die Steuerungsknoepfe gehen weiterhin an die Knoepfe.
                                 val detector = android.view.GestureDetector(ctx, object : android.view.GestureDetector.SimpleOnGestureListener() {
-                                    override fun onDown(e: android.view.MotionEvent) = true
+                                    override fun onDown(e: android.view.MotionEvent): Boolean {
+                                        lastInteraction = System.currentTimeMillis()
+                                        return true
+                                    }
                                     override fun onSingleTapConfirmed(e: android.view.MotionEvent): Boolean {
                                         if (isControllerFullyVisible) hideController() else showController()
                                         return true
@@ -233,6 +238,16 @@ class PlayerActivity : ComponentActivity() {
                         update = { it.resizeMode = resizeModeFor(videoScale) },
                         modifier = Modifier.fillMaxSize(),
                     )
+                    // Leiste 5 s nach der letzten Bedienung ausblenden (ausser bei Pause/Fehler/Dialog)
+                    LaunchedEffect(showOverlay, lastInteraction) {
+                        if (!showOverlay) return@LaunchedEffect
+                        delay(5000)
+                        if (player.isPlaying && error == null && !showRecordDialog) {
+                            showOverlay = false
+                            playerView?.hideController()
+                            playerView?.requestFocus() // Auswahl zurueck aufs Bild -> Tasten wirken direkt
+                        }
+                    }
                     if (showOverlay) TopOverlay()
                     if (numberInput.isNotEmpty()) {
                         Text(
@@ -552,6 +567,7 @@ class PlayerActivity : ComponentActivity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN) lastInteraction = System.currentTimeMillis()
         if (event.action != KeyEvent.ACTION_DOWN) return super.dispatchKeyEvent(event)
         val live = current()?.live == true
         val controllerVisible = playerView?.isControllerFullyVisible == true
