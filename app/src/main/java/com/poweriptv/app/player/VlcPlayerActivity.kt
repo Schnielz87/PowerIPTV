@@ -165,7 +165,7 @@ class VlcPlayerActivity : ComponentActivity() {
 
     @androidx.compose.runtime.Composable
     private fun Overlay() {
-        LaunchedEffect(showOverlay, title) {
+        LaunchedEffect(showOverlay, title, pendingSeekAt) {
             delay(5000)
             if (playing) showOverlay = false
         }
@@ -196,7 +196,7 @@ class VlcPlayerActivity : ComponentActivity() {
     private fun SeekBar(modifier: Modifier) {
         LaunchedEffect(Unit) {
             while (true) {
-                if (dragging == null) {
+                if (dragging == null && System.currentTimeMillis() - pendingSeekAt > 1500) {
                     position = mediaPlayer.time.coerceAtLeast(0)
                     length = mediaPlayer.length.coerceAtLeast(0)
                 }
@@ -236,14 +236,24 @@ class VlcPlayerActivity : ComponentActivity() {
         else -> 300_000L
     }
 
+    /** Letztes Sprungziel: VLC meldet die neue Position verzoegert -> Mehrfachdruck summieren. */
+    private var pendingSeek: Long = -1L
+    private var pendingSeekAt by mutableStateOf(0L)
+
     private fun seekBy(deltaMs: Long) {
-        val len = mediaPlayer.length.takeIf { it > 0 } ?: return
-        if (!mediaPlayer.isSeekable) { toast = "Dieser Stream unterstuetzt kein Spulen"; return }
-        val target = (mediaPlayer.time + deltaMs).coerceIn(0, len - 1000)
+        val now = System.currentTimeMillis()
+        val base = if (pendingSeek >= 0 && now - pendingSeekAt < 2500) pendingSeek else mediaPlayer.time.coerceAtLeast(0)
+        val len = mediaPlayer.length
+        var target = (base + deltaMs).coerceAtLeast(0)
+        if (len > 0) target = target.coerceAtMost(len - 1000)
+        pendingSeek = target
+        pendingSeekAt = now
         mediaPlayer.time = target
         position = target
+        showOverlay = true // Zeitleiste kurz zeigen
         val sign = if (deltaMs >= 0) "⏩ +" else "⏪ −"
-        toast = "$sign${formatTime(kotlin.math.abs(deltaMs))}  ·  ${formatTime(target)} / ${formatTime(len)}"
+        toast = "$sign${formatTime(kotlin.math.abs(deltaMs))}  ·  ${formatTime(target)}" +
+            if (len > 0) " / ${formatTime(len)}" else ""
     }
 
     private fun current(): PlayEntry? = container.playQueue.getOrNull(container.playIndex)
@@ -313,10 +323,16 @@ class VlcPlayerActivity : ComponentActivity() {
         if (!live) {
             val step = seekStep(event.repeatCount)
             when (event.keyCode) {
-                KeyEvent.KEYCODE_DPAD_LEFT -> if (!showOverlay) { seekBy(-step / 3); return true }
-                KeyEvent.KEYCODE_DPAD_RIGHT -> if (!showOverlay) { seekBy(step); return true }
+                // Links/Rechts spulen IMMER (auch bei eingeblendeter Leiste)
+                KeyEvent.KEYCODE_DPAD_LEFT -> { seekBy(-step / 3); return true }
+                KeyEvent.KEYCODE_DPAD_RIGHT -> { seekBy(step); return true }
                 KeyEvent.KEYCODE_MEDIA_REWIND -> { seekBy(-step); return true }
                 KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { seekBy(step); return true }
+                // OK: Leiste einblenden, zweites OK = Pause/Weiter
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_BUTTON_A -> {
+                    if (!showOverlay) showOverlay = true else togglePause()
+                    return true
+                }
             }
         }
         when (event.keyCode) {
