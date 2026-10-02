@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ScreenShare
 import androidx.compose.material.icons.filled.Speaker
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalContext
 import android.content.Context
@@ -106,8 +107,10 @@ private fun CastDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Filled.Cast, null, tint = BrandCyan) },
-        title = { Text(if (connected != null) "Verbunden mit $connected" else "Auf Fernseher uebertragen") },
+        // Breiter (Querformat), damit Geraeteliste und Knoepfe ohne Scrollen sichtbar sind
+        modifier = Modifier.fillMaxWidth(0.92f).widthIn(max = 620.dp),
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+        title = { Text(if (connected != null) "Verbunden mit $connected" else "Auf Fernseher uebertragen", style = MaterialTheme.typography.titleLarge) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (connected != null) {
@@ -175,7 +178,7 @@ private fun CastDialog(
                     }
                     Text(
                         "Fuer Samsung-Fernseher und Fire TV (dort \"Display-Mirroring\" einschalten), die kein Google Cast koennen.",
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -190,19 +193,46 @@ private fun CastDialog(
     )
 }
 
-/** Oeffnet die Bildschirmspiegelung des Systems (Samsung Smart View, Miracast, "Bildschirm uebertragen"). */
+/**
+ * Oeffnet die Bildschirmspiegelung des Systems.
+ * Samsung: Smart View direkt starten (NICHT die Google-Cast-Einstellungen, die zeigen nur Cast-Geraete).
+ * Andere Geraete: "Bildschirm uebertragen" / Miracast.
+ */
 fun openScreenMirroring(context: Context) {
-    val intents = listOf(
-        Intent("com.samsung.android.smartmirroring.CAST_SETTINGS"),
-        Intent().setClassName("com.samsung.android.smartmirroring", "com.samsung.android.smartmirroring.CaptureActivity"),
-        Intent(Settings.ACTION_CAST_SETTINGS),
-        Intent("android.settings.WIFI_DISPLAY_SETTINGS"),
-    )
-    for (i in intents) {
-        val ok = runCatching { context.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
-        if (ok) return
+    fun tryStart(i: Intent) = runCatching { context.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
+
+    val samsung = android.os.Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+    val pkg = "com.samsung.android.smartmirroring"
+    val pm = context.packageManager
+    val hasSmartView = runCatching { pm.getPackageInfo(pkg, 0) }.isSuccess
+    if (hasSmartView) {
+        // Bekannte Einstiegspunkte von Smart View
+        val known = listOf(
+            "$pkg.CaptureActivity",
+            "$pkg.SmartViewActivity",
+            "$pkg.controller.SmartMirroringActivity",
+        )
+        for (cls in known) if (tryStart(Intent().setClassName(pkg, cls))) return
+        // Sonst: alle exportierten Activities der Smart-View-App durchprobieren
+        val activities = runCatching {
+            @Suppress("DEPRECATION")
+            pm.getPackageInfo(pkg, android.content.pm.PackageManager.GET_ACTIVITIES).activities
+        }.getOrNull().orEmpty()
+            .filter { it.exported }
+            .sortedByDescending { a -> listOf("Capture", "Mirror", "SmartView", "Main").count { a.name.contains(it, true) } }
+        for (a in activities) if (tryStart(Intent().setClassName(pkg, a.name))) return
+        pm.getLaunchIntentForPackage(pkg)?.let { if (tryStart(it)) return }
     }
-    Toast.makeText(context, "Bitte \"Smart View\" / \"Bildschirm uebertragen\" in den Schnelleinstellungen nutzen", Toast.LENGTH_LONG).show()
+    if (!samsung) {
+        if (tryStart(Intent("android.settings.WIFI_DISPLAY_SETTINGS"))) return
+        if (tryStart(Intent(Settings.ACTION_CAST_SETTINGS))) return
+    }
+    Toast.makeText(
+        context,
+        if (samsung) "Bitte die Schnelleinstellungen (von oben wischen) oeffnen und \"Smart View\" antippen"
+        else "Bitte in den Schnelleinstellungen \"Bildschirm uebertragen\" antippen",
+        Toast.LENGTH_LONG,
+    ).show()
 }
 
 /** Steuerung waehrend der Uebertragung: "Laeuft auf <TV>" mit Zurueck/Pause/Vor/Stopp. */

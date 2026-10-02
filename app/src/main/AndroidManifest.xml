@@ -19,6 +19,11 @@
     <uses-feature android:name="android.hardware.wifi" android:required="false" />
     <uses-feature android:name="android.hardware.ethernet" android:required="false" />
 
+    <!-- Samsung Smart View (Bildschirmspiegelung) finden & starten -->
+    <queries>
+        <package android:name="com.samsung.android.smartmirroring" />
+    </queries>
+
     <application
         android:name=".PowerIptvApp"
         android:allowBackup="false"

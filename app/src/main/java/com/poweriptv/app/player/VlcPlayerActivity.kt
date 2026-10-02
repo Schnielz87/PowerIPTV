@@ -26,6 +26,9 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -193,26 +196,39 @@ class VlcPlayerActivity : ComponentActivity() {
             delay(5000)
             if (playing) showOverlay = false
         }
-        Row(
-            Modifier.fillMaxWidth().background(Color(0x99000000)).padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { closePlayer() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurueck zur Uebersicht", tint = Color.White) }
-            if (container.playQueue.size > 1) {
-                IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { previous() }) { Icon(Icons.Filled.SkipPrevious, "Vorheriger", tint = Color.White) }
+        val live = current()?.live == true
+        val multi = container.playQueue.size > 1
+        // Gleiches Layout wie der Standard-Player: oben Titel & Optionen, mittig Spulen/Play/Pause
+        Box(Modifier.fillMaxSize().background(Color(0x66000000))) {
+            Row(
+                Modifier.fillMaxWidth().background(Color(0x99000000)).padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { closePlayer() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurueck zur Uebersicht", tint = Color.White) }
+                Column(Modifier.weight(1f)) {
+                    Text(title, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                CastButton(container, current(), current()?.item?.logo, tint = Color.White, onCasting = { mediaPlayer.pause() })
+                IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { cycleScale() }) { Icon(Icons.Filled.AspectRatio, "Bildformat", tint = Color.White) }
             }
-            Column(Modifier.weight(1f)) {
-                Text(title, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("VLC-Player", color = BrandCyan, style = MaterialTheme.typography.labelSmall)
+            Row(
+                Modifier.align(Alignment.Center),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(28.dp),
+            ) {
+                if (multi) CenterButton(Icons.Filled.SkipPrevious, "Vorheriger", 44.dp) { previous() }
+                if (!live) CenterButton(Icons.Filled.Replay10, "10 Sekunden zurueck", 52.dp) { seekBy(-seekStep) }
+                CenterButton(if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, "Wiedergabe/Pause", 72.dp) { togglePause() }
+                if (!live) CenterButton(Icons.Filled.Forward10, "10 Sekunden vor", 52.dp) { seekBy(seekStep) }
+                if (multi) CenterButton(Icons.Filled.SkipNext, "Naechster", 44.dp) { next() }
             }
-            IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { togglePause() }) {
-                Icon(if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, "Wiedergabe", tint = Color.White)
-            }
-            CastButton(container, current(), current()?.item?.logo, tint = Color.White, onCasting = { mediaPlayer.pause() })
-            IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { cycleScale() }) { Icon(Icons.Filled.AspectRatio, "Bildformat", tint = Color.White) }
-            if (container.playQueue.size > 1) {
-                IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { next() }) { Icon(Icons.Filled.SkipNext, "Naechster", tint = Color.White) }
-            }
+        }
+    }
+
+    @androidx.compose.runtime.Composable
+    private fun CenterButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, size: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
+        IconButton(modifier = Modifier.size(size + 16.dp).tvFocus(CircleShape), onClick = { onClick(); showOverlay = true }) {
+            Icon(icon, label, tint = Color.White, modifier = Modifier.size(size))
         }
     }
 
