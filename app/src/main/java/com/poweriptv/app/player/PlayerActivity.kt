@@ -758,7 +758,11 @@ class PlayerActivity : ComponentActivity() {
         learnIntro(pos)
         // Automatisch erkannter Vorspann (Ton-Vergleich) hat Vorrang: Knopf ab Erkennung 7 s sichtbar
         autoIntro()?.let { auto ->
-            if (autoShowFrom < 0) autoShowFrom = maxOf(auto.startMs, pos)
+            if (autoShowFrom < 0) {
+                autoShowFrom = maxOf(auto.startMs, pos)
+                // Per Ton erkanntes Intro auch als Position merken -> nutzt der VLC-Player bei dieser Serie
+                e?.item?.key?.let { container.resume.setIntro(it, auto.startMs, auto.endMs) }
+            }
             showSkipIntro = EpisodeFlow.isEpisode(e) && !introSkipped && isPlaying &&
                 pos in autoShowFrom..minOf(autoShowFrom + EpisodeFlow.INTRO_SHOW_MS, auto.endMs - 1_500)
             return
