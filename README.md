@@ -3,6 +3,8 @@
 Android-IPTV-App (Smartphone, Tablet, Android TV / Fire TV) im Stil von IPTV Smarters –
 mit **eingebautem VPN**, **Offline-Downloads** und **eigenen Favoritenlisten**.
 
+📖 **Bedienungsanleitung (Word):** [docs/PowerIPTV-Anleitung.docx](docs/PowerIPTV-Anleitung.docx)
+
 ## Funktionen
 
 | Bereich | Details |
