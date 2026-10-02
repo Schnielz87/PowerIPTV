@@ -195,6 +195,7 @@ fun BrowseScreen(
     ) { padding ->
         BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
             val wide = maxWidth > 600.dp
+            val sidebarWidth = if (maxWidth > 900.dp) 300.dp else 250.dp
             Row(Modifier.fillMaxSize()) {
                 if (wide) {
                     CategorySidebar(
@@ -204,7 +205,7 @@ fun BrowseScreen(
                         language = language,
                         onLanguage = { container.settings.setCategoryLanguage(it) },
                         onSelect = ::selectCategory,
-                        modifier = Modifier.width(if (maxWidth > 900.dp) 300.dp else 250.dp).fillMaxHeight(),
+                        modifier = Modifier.width(sidebarWidth).fillMaxHeight(),
                     )
                 }
                 Column(Modifier.weight(1f).fillMaxHeight()) {
