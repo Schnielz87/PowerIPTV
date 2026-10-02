@@ -210,6 +210,26 @@ fun SettingsScreen(
                 }
             }
 
+            SettingsSection("Downloads") {
+                val conn by s.downloadConnections.collectAsState()
+                Text(
+                    "Parallele Verbindungen pro Download. Viele IPTV-Server drosseln jede einzelne Verbindung – " +
+                        "mehrere Verbindungen beschleunigen den Download deutlich. \"Automatisch\" nutzt so viele, " +
+                        "wie dein Account erlaubt. Waehrend ein Download alle Verbindungen nutzt, kann gleichzeitiges Schauen blockiert sein.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                listOf(0 to "Automatisch (nach Account-Limit)", 1 to "1 Verbindung", 2 to "2 Verbindungen", 3 to "3 Verbindungen", 4 to "4 Verbindungen").forEach { (v, label) ->
+                    Row(
+                        Modifier.fillMaxWidth().tvFocus().clickable { s.setDownloadConnections(v) },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = conn == v, onClick = { s.setDownloadConnections(v) })
+                        Text(label)
+                    }
+                }
+            }
+
             SettingsSection("Player") {
                 val afr by s.autoFrameRate.collectAsState()
                 val scale by s.videoScale.collectAsState()

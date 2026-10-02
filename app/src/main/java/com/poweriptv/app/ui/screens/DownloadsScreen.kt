@@ -57,6 +57,7 @@ import com.poweriptv.app.ui.components.tvFocus
 @Composable
 fun DownloadsScreen(container: AppContainer, onBack: () -> Unit) {
     val entries by container.downloads.entries.collectAsState()
+    val speeds by container.downloads.speeds.collectAsState()
     val context = LocalContext.current
     var toDelete by remember { mutableStateOf<DownloadEntry?>(null) }
 
@@ -115,7 +116,16 @@ fun DownloadsScreen(container: AppContainer, onBack: () -> Unit) {
                                     when (e.status) {
                                         DownloadStatus.QUEUED -> "Wartet..."
                                         DownloadStatus.PAUSED -> "Pausiert · ${formatBytes(e.downloaded)}"
-                                        else -> "${formatBytes(e.downloaded)} / ${formatBytes(e.total)}"
+                                        else -> buildString {
+                                            append("${formatBytes(e.downloaded)} / ${formatBytes(e.total)}")
+                                            speeds[e.id]?.takeIf { it > 0 }?.let { bps ->
+                                                append("  ·  ${formatBytes(bps)}/s")
+                                                if (e.total > 0) {
+                                                    val secs = (e.total - e.downloaded) / bps
+                                                    append("  ·  noch " + if (secs >= 3600) "${secs / 3600} h ${(secs % 3600) / 60} min" else if (secs >= 60) "${secs / 60} min" else "$secs s")
+                                                }
+                                            }
+                                        }
                                     },
                                     color = muted, style = MaterialTheme.typography.bodySmall,
                                 )

@@ -40,6 +40,7 @@ class SettingsRepository(context: Context) {
     private val _orientation = str(K_ORIENTATION, Orientation.LANDSCAPE.name)
     private val _language = str(K_LANGUAGE, "")
     private val _afr = bool(K_AFR, true)
+    private val _dlConnections = MutableStateFlow(prefs.getInt(K_DL_CONN, 0))
     private val _resize = str(K_RESIZE, VideoScale.FIT.name)
     private val _aiBaseUrl = str(K_AI_URL, DEFAULT_AI_URL)
 
@@ -62,6 +63,8 @@ class SettingsRepository(context: Context) {
     val categoryLanguage: StateFlow<String> = _language
     /** Bildwiederholrate des Fernsehers an das Video anpassen (AFR). */
     val autoFrameRate: StateFlow<Boolean> = _afr
+    /** Parallele Verbindungen pro Download (0 = automatisch nach Account-Limit). */
+    val downloadConnections: StateFlow<Int> = _dlConnections
     /** Bildformat im Player. */
     val videoScale: StateFlow<String> = _resize
 
@@ -74,6 +77,9 @@ class SettingsRepository(context: Context) {
     fun setOrientation(v: Orientation) = putStr(K_ORIENTATION, v.name, _orientation)
     fun orientationEnum(): Orientation = runCatching { Orientation.valueOf(_orientation.value) }.getOrDefault(Orientation.LANDSCAPE)
     fun setAutoFrameRate(v: Boolean) = putBool(K_AFR, v, _afr)
+    fun setDownloadConnections(v: Int) {
+        prefs.edit().putInt(K_DL_CONN, v).apply(); _dlConnections.value = v
+    }
     fun setVideoScale(v: VideoScale) = putStr(K_RESIZE, v.name, _resize)
     fun videoScaleEnum(): VideoScale = runCatching { VideoScale.valueOf(_resize.value) }.getOrDefault(VideoScale.FIT)
     fun setCategoryLanguage(v: String) = putStr(K_LANGUAGE, v, _language)
@@ -101,6 +107,7 @@ class SettingsRepository(context: Context) {
         private const val K_AI_MODEL = "ai_model"
         private const val K_ORIENTATION = "orientation"
         private const val K_AFR = "auto_frame_rate"
+        private const val K_DL_CONN = "download_connections"
         private const val K_RESIZE = "video_scale"
         private const val K_LANGUAGE = "category_language"
         private const val K_AI_URL = "ai_base_url"

@@ -67,7 +67,7 @@ class AppContainer(private val app: Application) {
         .followRedirects(true)
         .build()
 
-    val downloads = DownloadRepository(app, json) { http }
+    val downloads = DownloadRepository(app, json, { http }) { downloadConnections() }
     val epg = EpgRepository(app) { http }
     val parental = ParentalControl(app)
     val recordings = RecordingRepository(app, json)
@@ -88,6 +88,17 @@ class AppContainer(private val app: Application) {
     fun createSource(profile: Profile): ContentSource = when (profile.type) {
         ProfileType.XTREAM -> XtreamSource(profile, http, json) { settings.liveFormatEnum().ext }
         ProfileType.M3U_URL, ProfileType.M3U_FILE -> M3uSource(profile, http)
+    }
+
+    /**
+     * Parallele Download-Verbindungen: fest eingestellt, oder automatisch so viele,
+     * wie der Account erlaubt (Xtream max_connections, max. 4).
+     */
+    private suspend fun downloadConnections(): Int {
+        val setting = settings.downloadConnections.value
+        if (setting > 0) return setting
+        val max = runCatching { source?.accountInfo()?.maxConnections?.toIntOrNull() }.getOrNull()
+        return (max ?: 1).coerceIn(1, DownloadRepository.MAX_CONNECTIONS)
     }
 
     /** App-weiter Scope (laeuft unabhaengig vom aktuellen Bildschirm). */
