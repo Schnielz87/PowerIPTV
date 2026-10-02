@@ -21,7 +21,7 @@ import com.poweriptv.app.util.DeviceInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-data class CastDevice(val id: String, val name: String, val description: String?)
+data class CastDevice(val id: String, val name: String, val description: String?, val videoCapable: Boolean = true)
 
 /**
  * Google Cast (Chromecast / Google TV / "Chromecast built-in").
@@ -72,25 +72,49 @@ class CastManager(private val context: Context) {
         override fun onRouteAdded(router: MediaRouter, route: MediaRouter.RouteInfo) = refresh()
         override fun onRouteRemoved(router: MediaRouter, route: MediaRouter.RouteInfo) = refresh()
         override fun onRouteChanged(router: MediaRouter, route: MediaRouter.RouteInfo) = refresh()
+        override fun onProviderChanged(router: MediaRouter, provider: MediaRouter.ProviderInfo) = refresh()
     }
 
     private fun refresh() {
         val r = router ?: return
         _devices.value = r.routes
             .filter { !it.isDefault && it.matchesSelector(selector) && it.isEnabled }
-            .map { CastDevice(it.id, it.name, it.description) }
+            .map { route ->
+                // Nur-Audio-Geraete (z.B. AV-Receiver, Lautsprecher mit Chromecast built-in) erkennen
+                val dev = runCatching { com.google.android.gms.cast.CastDevice.getFromBundle(route.extras) }.getOrNull()
+                val video = dev?.hasCapability(com.google.android.gms.cast.CastDevice.CAPABILITY_VIDEO_OUT) ?: true
+                CastDevice(route.id, route.name, route.description, video)
+            }
+            .sortedByDescending { it.videoCapable }
     }
 
     /** Geraetesuche starten (solange die Auswahl offen ist). */
     fun startDiscovery() {
         val r = router ?: return
-        r.addCallback(selector, routerCallback, MediaRouter.CALLBACK_FLAG_PERFORM_ACTIVE_SCAN)
+        r.addCallback(
+            selector, routerCallback,
+            MediaRouter.CALLBACK_FLAG_PERFORM_ACTIVE_SCAN or MediaRouter.CALLBACK_FLAG_REQUEST_DISCOVERY,
+        )
         refresh()
+        _searching.value = true
+        val gen = ++scanGeneration
+        Handler(Looper.getMainLooper()).postDelayed({ if (gen == scanGeneration) { _searching.value = false; refresh() } }, 12_000)
     }
 
     fun stopDiscovery() {
         router?.removeCallback(routerCallback)
+        _searching.value = false
     }
+
+    /** Suche neu starten ("Neu suchen"). */
+    fun rescan() {
+        stopDiscovery()
+        startDiscovery()
+    }
+
+    private var scanGeneration = 0
+    private val _searching = MutableStateFlow(false)
+    val searching: StateFlow<Boolean> = _searching
 
     /** Mit einem Fernseher verbinden; [play] wird danach automatisch dort abgespielt. */
     fun connect(device: CastDevice, play: PlayEntry? = null, poster: String? = null) {

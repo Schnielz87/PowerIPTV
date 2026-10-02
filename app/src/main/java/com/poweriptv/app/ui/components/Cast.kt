@@ -19,6 +19,16 @@ import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.ScreenShare
+import androidx.compose.material.icons.filled.Speaker
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalContext
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.AlertDialog
@@ -84,6 +94,8 @@ private fun CastDialog(
 ) {
     val cast = container.cast
     val devices by cast.devices.collectAsState()
+    val searching by cast.searching.collectAsState()
+    val context = LocalContext.current
     val connected by cast.connectedTo.collectAsState()
     val casting = entry != null && !entry.url.startsWith("/")
 
@@ -97,7 +109,7 @@ private fun CastDialog(
         icon = { Icon(Icons.Filled.Cast, null, tint = BrandCyan) },
         title = { Text(if (connected != null) "Verbunden mit $connected" else "Auf Fernseher uebertragen") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (connected != null) {
                     if (casting) {
                         Button(onClick = { if (cast.cast(entry!!, poster)) onCasting() }, modifier = Modifier.fillMaxWidth().tvFocus(RoundedCornerShape(50))) {
@@ -110,11 +122,16 @@ private fun CastDialog(
                         Text("Verbindung trennen")
                     }
                 } else {
-                    if (devices.isEmpty()) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (searching) {
+                            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(10.dp))
-                            Text("Suche Chromecast / Google TV im WLAN...")
+                            Text("Suche im WLAN...", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                        } else {
+                            Text("${devices.size} Geraet(e) gefunden", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                        }
+                        TextButton(onClick = { cast.rescan() }, modifier = Modifier.tvFocus(RoundedCornerShape(50))) {
+                            Icon(Icons.Filled.Refresh, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("Neu suchen")
                         }
                     }
                     devices.forEach { d ->
@@ -131,18 +148,34 @@ private fun CastDialog(
                                 .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(Icons.Filled.Tv, null, tint = BrandCyan)
+                            Icon(if (d.videoCapable) Icons.Filled.Tv else Icons.Filled.Speaker, null,
+                                tint = if (d.videoCapable) BrandCyan else MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.width(12.dp))
                             Column {
                                 Text(d.name, fontWeight = FontWeight.SemiBold)
-                                d.description?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                                Text(
+                                    listOfNotNull(d.description, if (!d.videoCapable) "nur Ton" else null).joinToString(" · "),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
                         }
                     }
                     Text(
-                        "Unterstuetzt: Chromecast, Google TV und Fernseher mit \"Chromecast built-in\" im selben WLAN. " +
-                            "Fire TV unterstuetzt kein Google Cast – dort die App direkt nutzen.",
+                        "Google Cast: Chromecast, Google TV und Fernseher mit \"Chromecast built-in\" im selben WLAN.",
                         style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    // Samsung-TV, Fire TV & Co.: kein Google Cast -> Bildschirmspiegelung (Smart View / Miracast)
+                    OutlinedButton(
+                        onClick = { openScreenMirroring(context); onDismiss() },
+                        modifier = Modifier.fillMaxWidth().tvFocus(RoundedCornerShape(50)),
+                    ) {
+                        Icon(Icons.Filled.ScreenShare, null); Spacer(Modifier.width(8.dp)); Text("Bildschirm spiegeln (Smart View)")
+                    }
+                    Text(
+                        "Fuer Samsung-Fernseher und Fire TV (dort \"Display-Mirroring\" einschalten), die kein Google Cast koennen.",
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -155,6 +188,21 @@ private fun CastDialog(
         },
         confirmButton = { TextButton(onClick = onDismiss, modifier = Modifier.tvFocus(RoundedCornerShape(50))) { Text("Schliessen") } },
     )
+}
+
+/** Oeffnet die Bildschirmspiegelung des Systems (Samsung Smart View, Miracast, "Bildschirm uebertragen"). */
+fun openScreenMirroring(context: Context) {
+    val intents = listOf(
+        Intent("com.samsung.android.smartmirroring.CAST_SETTINGS"),
+        Intent().setClassName("com.samsung.android.smartmirroring", "com.samsung.android.smartmirroring.CaptureActivity"),
+        Intent(Settings.ACTION_CAST_SETTINGS),
+        Intent("android.settings.WIFI_DISPLAY_SETTINGS"),
+    )
+    for (i in intents) {
+        val ok = runCatching { context.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
+        if (ok) return
+    }
+    Toast.makeText(context, "Bitte \"Smart View\" / \"Bildschirm uebertragen\" in den Schnelleinstellungen nutzen", Toast.LENGTH_LONG).show()
 }
 
 /** Steuerung waehrend der Uebertragung: "Laeuft auf <TV>" mit Zurueck/Pause/Vor/Stopp. */
