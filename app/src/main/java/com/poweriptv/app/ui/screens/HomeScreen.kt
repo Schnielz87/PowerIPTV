@@ -194,34 +194,53 @@ fun HomeScreen(
                     }
                 }
 
+                // Zuletzt gesehen – getrennt nach Live TV, Filme und Serien
                 if (history.isNotEmpty() && source != null) {
-                    Text("Zuletzt gesehen", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
-                        items(history.take(20), key = { it.key }) { item ->
-                            Column(
-                                Modifier
-                                    .width(150.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .tvFocus(RoundedCornerShape(10.dp))
-                                    .clickable {
-                                        when {
-                                            item.type == ContentType.LIVE || !source.supportsDetails ->
-                                                startPlayback(context, container, listOf(PlayEntry(item.name, source.streamUrl(item), item, item.type == ContentType.LIVE)), 0)
-                                            else -> onOpenDetail(item)
+                    listOf(
+                        ContentType.LIVE to "Zuletzt gesehen: Live TV",
+                        ContentType.MOVIE to "Zuletzt gesehen: Filme",
+                        ContentType.SERIES to "Zuletzt gesehen: Serien",
+                    ).forEach { (type, label) ->
+                        val list = history.filter { it.type == type }.take(20)
+                        if (list.isNotEmpty()) {
+                            Text(label, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
+                                items(list, key = { it.key }) { item ->
+                                    // Filme/Serien im Hochformat (Poster), Sender im Querformat (Logo)
+                                    val poster = type != ContentType.LIVE
+                                    Column(
+                                        Modifier
+                                            .width(if (poster) 110.dp else 150.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .tvFocus(RoundedCornerShape(10.dp))
+                                            .clickable {
+                                                when {
+                                                    item.type == ContentType.LIVE || !source.supportsDetails -> {
+                                                        // Live: alle zuletzt gesehenen Sender als Liste (Kanal vor/zurueck)
+                                                        val entries = list.map { PlayEntry(it.name, source.streamUrl(it), it, it.type == ContentType.LIVE) }
+                                                        startPlayback(context, container, entries, list.indexOf(item))
+                                                    }
+                                                    else -> onOpenDetail(item)
+                                                }
+                                            }
+                                            .background(MaterialTheme.colorScheme.surface)
+                                            .padding(8.dp),
+                                    ) {
+                                        Box(
+                                            Modifier.fillMaxWidth().height(if (poster) 140.dp else 80.dp).clip(RoundedCornerShape(6.dp))
+                                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            if (!item.logo.isNullOrBlank()) AsyncImage(
+                                                item.logo, null,
+                                                contentScale = if (poster) ContentScale.Crop else ContentScale.Fit,
+                                                modifier = Modifier.fillMaxSize(),
+                                            )
                                         }
+                                        Text(item.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall,
+                                            modifier = Modifier.padding(top = 4.dp))
                                     }
-                                    .background(MaterialTheme.colorScheme.surface)
-                                    .padding(8.dp),
-                            ) {
-                                Box(
-                                    Modifier.fillMaxWidth().height(80.dp).clip(RoundedCornerShape(6.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    if (!item.logo.isNullOrBlank()) AsyncImage(item.logo, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
                                 }
-                                Text(item.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.padding(top = 4.dp))
                             }
                         }
                     }
