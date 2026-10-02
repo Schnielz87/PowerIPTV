@@ -190,7 +190,7 @@ class VlcPlayerActivity : ComponentActivity() {
                     if (buffering && error == null) CircularProgressIndicator(Modifier.align(Alignment.Center), color = BrandCyan)
                     CastingBar(container, Modifier.align(Alignment.Center), onStop = { mediaPlayer.play() })
                     FormatBadge(formatBadge) { formatBadge = null }
-                    if (showFormatDialog) VideoFormatDialog(scale, onSelect = { setScale(it) }, onDismiss = { showFormatDialog = false })
+                    if (showFormatDialog) VideoFormatDialog(scale, onSelect = { changeScale(it) }, onDismiss = { showFormatDialog = false })
                     if (showRecordDialog) RecordDialog(
                         container, current(),
                         onMessage = { toast = it },
@@ -472,7 +472,7 @@ class VlcPlayerActivity : ComponentActivity() {
         }
     }
 
-    private fun setScale(v: VideoScale) {
+    private fun changeScale(v: VideoScale) {
         scale = v
         applyScale()
         container.settings.setVideoScale(v)
@@ -481,7 +481,7 @@ class VlcPlayerActivity : ComponentActivity() {
 
     private fun cycleScale() {
         val all = VideoScale.entries
-        setScale(all[(all.indexOf(scale) + 1) % all.size])
+        changeScale(all[(all.indexOf(scale) + 1) % all.size])
     }
 
     private fun closePlayer() {

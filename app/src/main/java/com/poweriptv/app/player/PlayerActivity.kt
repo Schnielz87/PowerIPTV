@@ -356,7 +356,7 @@ class PlayerActivity : ComponentActivity() {
                         }
                     }
                     FormatBadge(formatBadge) { formatBadge = null }
-                    if (showFormatDialog) VideoFormatDialog(videoScale, onSelect = { setVideoScale(it) }, onDismiss = { showFormatDialog = false })
+                    if (showFormatDialog) VideoFormatDialog(videoScale, onSelect = { changeVideoScale(it) }, onDismiss = { showFormatDialog = false })
                     if (showRecordDialog) RecordDialog(
                         container, current(),
                         onMessage = { toast = it },
@@ -505,7 +505,7 @@ class PlayerActivity : ComponentActivity() {
         frame.post { frame.setAspectRatio(forced ?: natural) }
     }
 
-    private fun setVideoScale(v: VideoScale) {
+    private fun changeVideoScale(v: VideoScale) {
         videoScale = v
         playerView?.resizeMode = resizeModeFor(v)
         applyAspect()
@@ -515,7 +515,7 @@ class PlayerActivity : ComponentActivity() {
 
     private fun cycleVideoScale() {
         val all = VideoScale.entries
-        setVideoScale(all[(all.indexOf(videoScale) + 1) % all.size])
+        changeVideoScale(all[(all.indexOf(videoScale) + 1) % all.size])
     }
 
     /**
