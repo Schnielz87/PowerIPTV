@@ -439,20 +439,33 @@ class VlcPlayerActivity : ComponentActivity() {
     private var pendingSeek: Long = -1L
     private var pendingSeekAt by mutableStateOf(0L)
 
+    /** Gesammelte Spruenge: erst nach kurzer Pause wirklich spulen (sonst haengt VLC bei vielen Tastendruecken). */
+    private var seekJob: kotlinx.coroutines.Job? = null
+    private var seekOrigin = -1L
+
     private fun seekBy(deltaMs: Long) {
         val now = System.currentTimeMillis()
-        val base = if (pendingSeek >= 0 && now - pendingSeekAt < 2500) pendingSeek else mediaPlayer.time.coerceAtLeast(0)
+        val pending = pendingSeek >= 0 && now - pendingSeekAt < 2500
+        val base = if (pending) pendingSeek else mediaPlayer.time.coerceAtLeast(0)
+        if (!pending || seekJob?.isActive != true) seekOrigin = base
         val len = mediaPlayer.length
         var target = (base + deltaMs).coerceAtLeast(0)
         if (len > 0) target = target.coerceAtMost(len - 1000)
         pendingSeek = target
         pendingSeekAt = now
-        mediaPlayer.time = target
-        position = target
-        showOverlay = true // Zeitleiste kurz zeigen
-        val sign = if (deltaMs >= 0) "⏩ +" else "⏪ −"
-        toast = "$sign${formatTime(kotlin.math.abs(deltaMs))}  ·  ${formatTime(target)}" +
+        position = target // Zeitleiste springt sofort mit
+        showOverlay = true
+        val total = target - seekOrigin
+        val sign = if (total >= 0) "⏩ +" else "⏪ −"
+        toast = "$sign${formatTime(kotlin.math.abs(total))}  ·  ${formatTime(target)}" +
             if (len > 0) " / ${formatTime(len)}" else ""
+        // Erst 0,6 s nach dem letzten Tastendruck einmalig springen
+        seekJob?.cancel()
+        seekJob = lifecycleScope.launch {
+            delay(600)
+            mediaPlayer.time = pendingSeek
+            pendingSeekAt = System.currentTimeMillis()
+        }
     }
 
     private fun current(): PlayEntry? = container.playQueue.getOrNull(container.playIndex)
