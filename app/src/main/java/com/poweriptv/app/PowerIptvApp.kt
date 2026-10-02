@@ -4,7 +4,15 @@ import android.app.Application
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import com.poweriptv.app.ai.AiRecommender
+import com.poweriptv.app.data.CachedSource
 import com.poweriptv.app.data.ContentItem
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import com.poweriptv.app.data.ContentSource
 import com.poweriptv.app.data.EpgRepository
 import com.poweriptv.app.data.FavoritesRepository
@@ -41,7 +49,7 @@ class PowerIptvApp : Application(), ImageLoaderFactory {
 }
 
 /** Einfache manuelle Dependency Injection. */
-class AppContainer(app: Application) {
+class AppContainer(private val app: Application) {
     val json = Json { ignoreUnknownKeys = true; isLenient = true }
     val secure = SecureStore(app)
     val settings = SettingsRepository(app)
@@ -82,8 +90,37 @@ class AppContainer(app: Application) {
         ProfileType.M3U_URL, ProfileType.M3U_FILE -> M3uSource(profile, http)
     }
 
+    /** App-weiter Scope (laeuft unabhaengig vom aktuellen Bildschirm). */
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    private val _refreshing = MutableStateFlow(false)
+    /** Wird die Playlist gerade aktualisiert? */
+    val refreshing: StateFlow<Boolean> = _refreshing
+    private val _refreshError = MutableStateFlow<String?>(null)
+    val refreshError: StateFlow<String?> = _refreshError
+
+    /** Playlist (und TV-Guide) vom Server neu laden. Ohne [force] nur, wenn aelter als 24 h. */
+    fun refreshPlaylist(force: Boolean) {
+        val src = source as? CachedSource ?: return
+        if (_refreshing.value || (!force && !src.isStale())) return
+        _refreshing.value = true
+        _refreshError.value = null
+        scope.launch {
+            try {
+                src.refreshAll()
+                epg.ensureLoaded(src, force = true)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _refreshError.value = e.message ?: e.javaClass.simpleName
+            } finally {
+                _refreshing.value = false
+            }
+        }
+    }
+
     fun activate(profile: Profile?) {
-        source = profile?.let { createSource(it) }
+        source = profile?.let { CachedSource(createSource(it), app, json) }
         epg.clear()
         settings.setLastProfileId(profile?.id)
         favorites.bind(profile?.id)

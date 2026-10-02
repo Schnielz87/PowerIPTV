@@ -34,7 +34,9 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -65,6 +67,7 @@ import coil.compose.AsyncImage
 import com.poweriptv.app.AppContainer
 import com.poweriptv.app.PlayEntry
 import com.poweriptv.app.data.AccountInfo
+import com.poweriptv.app.data.CachedSource
 import com.poweriptv.app.data.ContentItem
 import com.poweriptv.app.data.ContentType
 import com.poweriptv.app.player.MultiViewActivity
@@ -93,6 +96,11 @@ fun HomeScreen(
     val source = container.source
     val context = LocalContext.current
     val history by container.history.items.collectAsState()
+    val refreshing by container.refreshing.collectAsState()
+    val refreshError by container.refreshError.collectAsState()
+    val cached = source as? CachedSource
+    // Beim Oeffnen: automatisch aktualisieren, wenn die letzte Aktualisierung > 24 h her ist
+    LaunchedEffect(source) { container.refreshPlaylist(force = false) }
     var account by remember { mutableStateOf<AccountInfo?>(null) }
     LaunchedEffect(source) { account = source?.accountInfo() }
     val firstFocus = remember { FocusRequester() }
@@ -102,6 +110,10 @@ fun HomeScreen(
         topBar = {
             BrandTopBar(subtitle = source?.profile?.name, actions = {
                 IconButton(onClick = onSearch, modifier = Modifier.tvFocus()) { Icon(Icons.Filled.Search, "Suche") }
+                IconButton(onClick = { container.refreshPlaylist(force = true) }, enabled = !refreshing, modifier = Modifier.tvFocus()) {
+                    if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    else Icon(Icons.Filled.Sync, "Playlist aktualisieren")
+                }
                 VpnBadge(container, onVpn)
             })
         },
@@ -114,6 +126,20 @@ fun HomeScreen(
                 Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
+                if (refreshing) {
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant).padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text("Playlist und TV-Guide werden aktualisiert...", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                refreshError?.let {
+                    Text("Aktualisierung fehlgeschlagen: $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
                 val big = listOf(
                     Triple("LIVE TV", Icons.Filled.LiveTv, ContentType.LIVE) to listOf(Color(0xFF5EC4F2), Color(0xFF2A7FC0)),
                     Triple("FILME", Icons.Filled.Movie, ContentType.MOVIE) to listOf(Color(0xFF3A8DC6), Color(0xFF123D6E)),
@@ -139,6 +165,7 @@ fun HomeScreen(
 
                 val tiles: List<Triple<String, ImageVector, () -> Unit>> = listOf(
                     Triple("Suche", Icons.Filled.Search, onSearch),
+                    Triple("Playlist aktualisieren", Icons.Filled.Sync, { container.refreshPlaylist(force = true) }),
                     Triple("TV-Guide (EPG)", Icons.Filled.CalendarViewWeek, onEpg),
                     Triple("Aufnahmen", Icons.Filled.FiberSmartRecord, onRecordings),
                     Triple("Multi-Screen", Icons.Filled.GridView, {
@@ -192,6 +219,18 @@ fun HomeScreen(
                     }
                 }
                 account?.let { AccountCard(it) }
+                cached?.let { c ->
+                    val last = if (refreshing) null else c.lastRefresh
+                    Text(
+                        "Playlist zuletzt aktualisiert: " + when {
+                            last == null -> "laeuft gerade..."
+                            last == 0L -> "noch nie"
+                            else -> DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(last))
+                        } + " · automatisch alle 24 Stunden",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }

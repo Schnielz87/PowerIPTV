@@ -30,7 +30,14 @@ class ProfileRepository(
 
     fun newId(): String = UUID.randomUUID().toString()
 
+    private fun clearPlaylistCache(id: String) {
+        File(context.filesDir, "playlist-cache/$id").deleteRecursively()
+        context.getSharedPreferences("playlist_refresh", Context.MODE_PRIVATE).edit().remove(id).apply()
+    }
+
     fun save(profile: Profile) {
+        // Zugangsdaten koennen sich geaendert haben -> gespeicherte Playlist verwerfen
+        clearPlaylistCache(profile.id)
         val list = _profiles.value.toMutableList()
         val idx = list.indexOfFirst { it.id == profile.id }
         if (idx >= 0) list[idx] = profile else list.add(profile)
@@ -38,6 +45,7 @@ class ProfileRepository(
     }
 
     fun delete(id: String) {
+        clearPlaylistCache(id)
         get(id)?.localFile?.takeIf { it.isNotBlank() }?.let { File(it).delete() }
         persist(_profiles.value.filterNot { it.id == id })
     }
