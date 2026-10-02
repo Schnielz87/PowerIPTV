@@ -191,7 +191,16 @@ class PlayerActivity : ComponentActivity() {
         // Online: ueber OkHttp (VPN-Kill-Switch + User-Agent). Lokale Dateien: direkt.
         val dataSourceFactory = DefaultDataSource.Factory(this, OkHttpDataSource.Factory(container.http))
         // Decoder-Fallback: schlaegt der Hardware-Decoder fehl, wird ein anderer versucht
-        val renderers = DefaultRenderersFactory(this).setEnableDecoderFallback(true)
+        // Eigener Audio-Pfad: hoert fuer die automatische Vorspann-Erkennung mit (Ton bleibt unveraendert)
+        val renderers = object : DefaultRenderersFactory(this) {
+            override fun buildAudioSink(
+                context: android.content.Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean,
+            ): androidx.media3.exoplayer.audio.AudioSink = androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
+                .setEnableFloatOutput(enableFloatOutput)
+                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                .setAudioProcessors(arrayOf(introFp))
+                .build()
+        }.setEnableDecoderFallback(true)
         player = ExoPlayer.Builder(this, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
             .setSeekBackIncrementMs(10_000)
@@ -394,6 +403,11 @@ class PlayerActivity : ComponentActivity() {
                     LaunchedEffect(Unit) {
                         while (true) {
                             delay(500)
+                            if (introDetector.active) {
+                                val p = player.currentPosition
+                                introFp.enabled = p < com.poweriptv.app.intro.IntroDetector.WINDOW_MS + 5_000
+                                introDetector.drain(introFp, p)
+                            }
                             if (!watchingRecording && !timeshiftActive) updateEpisodeFlow(player.currentPosition, player.duration, player.isPlaying)
                             checkSleep()
                         }
@@ -670,9 +684,29 @@ class PlayerActivity : ComponentActivity() {
         }
     }
 
+    // ---------- Automatische Vorspann-Erkennung (Ton-Fingerabdruck) ----------
+    private val introFp = com.poweriptv.app.intro.IntroFingerprinter()
+    private val introDetector by lazy { com.poweriptv.app.intro.IntroDetector(File(filesDir, "intro")) }
+    private var autoShowFrom = -1L
+
+    private fun autoIntro() = introDetector.detected
+
+    /** Folge beendet/gewechselt: Fingerabdruck speichern und im Hintergrund lernen. */
+    private fun finishIntroLearning() {
+        val work = runCatching { introDetector.finishEpisode() }.getOrNull() ?: return
+        container.scope.launch(Dispatchers.Default) { runCatching { work() } }
+    }
+
+    private fun startIntroLearning(entry: PlayEntry) {
+        autoShowFrom = -1L
+        if (EpisodeFlow.isEpisode(entry)) introDetector.startEpisode(entry.item!!.key, entry.url) else introDetector.stop()
+        introFp.enabled = introDetector.active
+    }
+
     private fun skipIntro() {
         introSkipped = true
         showSkipIntro = false
+        autoIntro()?.let { seekBy(it.endMs - player.currentPosition); return }
         // Gelerntes Intro-Ende anspringen, sonst Standardsprung
         val learned = current()?.item?.key?.let { container.resume.intro(it) }
         if (learned != null) seekBy(learned.second - lastFlowPos) else seekBy(EpisodeFlow.INTRO_SKIP)
@@ -722,6 +756,13 @@ class PlayerActivity : ComponentActivity() {
             if (rem in 1..EpisodeFlow.NEXT_BEFORE_END) ((rem + 999) / 1000).toInt() else null
         } else null
         learnIntro(pos)
+        // Automatisch erkannter Vorspann (Ton-Vergleich) hat Vorrang: Knopf ab Erkennung 7 s sichtbar
+        autoIntro()?.let { auto ->
+            if (autoShowFrom < 0) autoShowFrom = maxOf(auto.startMs, pos)
+            showSkipIntro = EpisodeFlow.isEpisode(e) && !introSkipped && isPlaying &&
+                pos in autoShowFrom..minOf(autoShowFrom + EpisodeFlow.INTRO_SHOW_MS, auto.endMs - 1_500)
+            return
+        }
         // Gelerntes Intro: Knopf genau zum Intro-Beginn; sonst kurz nach dem Start. Immer nur 7 s sichtbar.
         val showFrom = e?.item?.key?.let { container.resume.intro(it)?.first } ?: EpisodeFlow.INTRO_WINDOW_START
         showSkipIntro = EpisodeFlow.isEpisode(e) && !introSkipped && isPlaying &&
@@ -788,6 +829,8 @@ class PlayerActivity : ComponentActivity() {
         val entry = queue[container.playIndex]
         title = entry.title
         error = null
+        finishIntroLearning()
+        startIntroLearning(entry)
         // Serien-Komfort zuruecksetzen und Folge als "zuletzt gesehen" merken
         nextCancelled = false; nextCountdown = null; introSkipped = false; showSkipIntro = false
         lastFlowPos = 0L; streakStart = -1L
@@ -1036,6 +1079,8 @@ class PlayerActivity : ComponentActivity() {
     /** Wiedergabe stoppen (Ton sofort aus). */
     private fun stopPlayback() {
         saveResume()
+        finishIntroLearning()
+        introDetector.stop()
         stopTimeshift()
         withSwitch {
             player.playWhenReady = false

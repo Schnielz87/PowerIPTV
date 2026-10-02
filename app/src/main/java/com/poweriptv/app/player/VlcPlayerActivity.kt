@@ -597,6 +597,9 @@ class VlcPlayerActivity : ComponentActivity() {
         if (rem <= 60_000L && !sleepWarned) { sleepWarned = true; toast = "Sleep-Timer: Wiedergabe endet in 1 Minute" }
     }
 
+    private fun autoIntro(): com.poweriptv.app.intro.IntroDetector.Intro? = null
+    private var autoShowFrom = -1L
+
     private fun skipIntro() {
         introSkipped = true
         showSkipIntro = false
@@ -649,6 +652,13 @@ class VlcPlayerActivity : ComponentActivity() {
             if (rem in 1..EpisodeFlow.NEXT_BEFORE_END) ((rem + 999) / 1000).toInt() else null
         } else null
         learnIntro(pos)
+        // Automatisch erkannter Vorspann (Ton-Vergleich) hat Vorrang: Knopf ab Erkennung 7 s sichtbar
+        autoIntro()?.let { auto ->
+            if (autoShowFrom < 0) autoShowFrom = maxOf(auto.startMs, pos)
+            showSkipIntro = EpisodeFlow.isEpisode(e) && !introSkipped && isPlaying &&
+                pos in autoShowFrom..minOf(autoShowFrom + EpisodeFlow.INTRO_SHOW_MS, auto.endMs - 1_500)
+            return
+        }
         // Gelerntes Intro: Knopf genau zum Intro-Beginn; sonst kurz nach dem Start. Immer nur 7 s sichtbar.
         val showFrom = e?.item?.key?.let { container.resume.intro(it)?.first } ?: EpisodeFlow.INTRO_WINDOW_START
         showSkipIntro = EpisodeFlow.isEpisode(e) && !introSkipped && isPlaying &&
