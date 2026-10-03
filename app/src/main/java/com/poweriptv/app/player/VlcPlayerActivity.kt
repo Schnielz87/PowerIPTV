@@ -234,6 +234,7 @@ class VlcPlayerActivity : ComponentActivity() {
                                 updateEpisodeFlow(t, l, playing)
                             }
                             checkSleep()
+                            checkStall()
                         }
                     }
                     if (showFormatDialog) PlayerSettingsDialog(
@@ -427,6 +428,37 @@ class VlcPlayerActivity : ComponentActivity() {
     /** Startposition fuer "Weiterschauen" (wird gesetzt, sobald VLC die Laenge kennt). */
     private var resumeTarget = -1L
 
+    // ---------- Haenger-Waechter ----------
+    // Bleibt das Bild stehen (z.B. Anbieter kappt beim Spulen die Verbindung, VLC meldet aber keinen Fehler),
+    // wird der Stream automatisch an derselben Stelle neu geladen.
+    private var lastTick = -1L
+    private var stallSince = 0L
+    private var recoveries = 0
+    private var lastRecoveryAt = 0L
+
+    private fun checkStall() {
+        val e = current() ?: return
+        if (userPaused || error != null || watchingRecording || blockedRec != null) { stallSince = 0L; return }
+        // Nur wenn VLC abspielen will (laeuft oder puffert) – nicht bei Pause/Cast
+        if (!runCatching { mediaPlayer.isPlaying }.getOrDefault(false) && !buffering) { stallSince = 0L; return }
+        val t = runCatching { mediaPlayer.time }.getOrDefault(-1L)
+        val now = System.currentTimeMillis()
+        if (t != lastTick && t > 0) { lastTick = t; stallSince = 0L; return }
+        if (stallSince == 0L) { stallSince = now; return }
+        val limit = if (e.live) 12_000L else 10_000L
+        if (now - stallSince < limit) return
+        stallSince = 0L
+        if (now - lastRecoveryAt > 120_000L) recoveries = 0
+        if (++recoveries > 3) { error = "Der Stream hängt – bitte später erneut versuchen"; buffering = false; return }
+        lastRecoveryAt = now
+        // Ziel: letzter Sprung (falls gerade gespult wurde), sonst die zuletzt laufende Stelle
+        val target = if (!e.live) (if (pendingSeek > 0 && now - pendingSeekAt < 30_000) pendingSeek else lastTick).coerceAtLeast(0) else 0L
+        toast = "Verbindung hing – wird neu geladen …"
+        if (!e.live && target > 0 && length > 0) container.resume.save(e.url, target, length)
+        lastTick = -1L
+        play(container.playIndex)
+    }
+
     private fun applyResume() {
         val t = resumeTarget
         if (t <= 0) return
@@ -493,6 +525,7 @@ class VlcPlayerActivity : ComponentActivity() {
         title = entry.title
         error = null
         buffering = true
+        userPaused = false; stallSince = 0L
         // Serien-Komfort zuruecksetzen und Folge als "zuletzt gesehen" merken
         nextCancelled = false; nextCountdown = null; introSkipped = false; showSkipIntro = false
         lastFlowPos = 0L; streakStart = -1L
@@ -540,11 +573,14 @@ class VlcPlayerActivity : ComponentActivity() {
             setHWDecoderEnabled(true, false) // Hardware wenn moeglich, sonst automatisch Software
             // Live: groesserer Puffer gegen Ruckler; Filme/Serien: schneller Start
             if (entry.live) {
-                // Live: groesserer Puffer + keine starre Taktsynchronisation -> weniger Haenger
-                addOption(":network-caching=2500")
+                // Live: grosser Puffer + keine starre Taktsynchronisation -> kein Stocken
+                addOption(":network-caching=4000")
+                addOption(":live-caching=4000")
                 addOption(":clock-jitter=0")
                 addOption(":clock-synchro=0")
-            } else addOption(":network-caching=2000")
+            } else addOption(":network-caching=3000")
+            // Bricht die Verbindung ab (z.B. beim Spulen), automatisch an derselben Stelle neu verbinden
+            if (!local) addOption(":http-reconnect")
             if (local) addOption(":file-caching=300")
             addOption(":http-user-agent=${container.settings.userAgent.value}")
             // Untertitel-Stil (Groesse, dunkler Hintergrund)

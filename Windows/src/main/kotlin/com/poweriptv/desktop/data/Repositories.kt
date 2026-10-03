@@ -43,7 +43,7 @@ data class DesktopSettings(
     val aspect: String = "fit",
     val hardwareDecoding: Boolean = true,
     /** Netzwerk-Puffer in ms (VLC). */
-    val networkCaching: Int = 1500,
+    val networkCaching: Int = 3000,
     val autoNextEpisode: Boolean = true,
     val startFullscreen: Boolean = false,
     /** Bevorzugte Kategorie-Sprache (z.B. "DE"), leer = alle – wie in der Android-App. */

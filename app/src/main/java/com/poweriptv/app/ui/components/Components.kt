@@ -264,11 +264,9 @@ fun startPlayback(context: Context, container: AppContainer, entries: List<PlayE
     val useVlc = when (container.settings.playerEngineEnum()) {
         PlayerEngine.VLC -> true
         PlayerEngine.EXO -> false
-        PlayerEngine.AUTO -> container.settings.needsVlc(url) ||
-            entries[container.playIndex].let { e ->
-                !e.live && e.item?.categoryId?.isNotBlank() == true &&
-                    container.settings.categoryNeedsVlc(vlcCategoryKey(container.source?.profile?.id, e.item!!))
-            }
+        // Automatisch: immer zuerst der Standard-Player (spult am zuverlaessigsten);
+        // VLC nur fuer genau den Stream, den der Standard-Player nicht abspielen konnte
+        PlayerEngine.AUTO -> container.settings.needsVlc(url)
     }
     context.startActivity(Intent(context, if (useVlc) VlcPlayerActivity::class.java else PlayerActivity::class.java))
 }

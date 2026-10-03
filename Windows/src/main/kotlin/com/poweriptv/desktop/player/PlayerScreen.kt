@@ -240,7 +240,7 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
     // --- Lebenszyklus ---
     LaunchedEffect(req.url) {
         // Beim Wechsel Fenster <-> Vollbild laeuft der Stream einfach weiter
-        if (ctl.currentUrl != req.url) ctl.play(req.url, req.startAt)
+        if (ctl.currentUrl != req.url) ctl.play(req.url, req.startAt, live = req.isLive)
         poke()
         runCatching { focus.requestFocus() }
     }
@@ -265,6 +265,7 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
             now = System.currentTimeMillis()
             if (++tick % 20 == 0 && ctl.playing) savePosition()
             if (ctl.playing && ctl.length > 0) learnIntro(ctl.time)
+            ctl.watchdog()?.let { toast = it }
             // Sleep-Timer: 1 Minute vorher warnen, dann Player schliessen
             val until = app.sleepUntil
             if (until > 0) {

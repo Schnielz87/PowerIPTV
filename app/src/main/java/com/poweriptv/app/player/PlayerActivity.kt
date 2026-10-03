@@ -205,6 +205,14 @@ class PlayerActivity : ComponentActivity() {
         }.setEnableDecoderFallback(true)
         player = ExoPlayer.Builder(this, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
+            // Grosser Puffer gegen Stocken (v.a. Live TV): bis 60 s vorladen, Start nach 2,5 s,
+            // nach einem Aussetzer erst mit 6 s Vorrat weiter (verhindert Dauer-Ruckeln)
+            .setLoadControl(
+                androidx.media3.exoplayer.DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(30_000, 60_000, 2_500, 6_000)
+                    .setPrioritizeTimeOverSizeThresholds(true)
+                    .build(),
+            )
             .setSeekBackIncrementMs(10_000)
             .setSeekForwardIncrementMs(10_000)
             .build()
@@ -226,11 +234,24 @@ class PlayerActivity : ComponentActivity() {
                     if (switchToVlc()) return
                 }
                 val cause = generateSequence(e as Throwable) { it.cause }.firstOrNull { it is VpnRequiredException }
+                // Netzwerk-Aussetzer: automatisch neu verbinden (Live: an den aktuellen Live-Punkt, Filme: gleiche Stelle)
+                val behindLive = e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW
+                val network = e.errorCode in 2000..2999 || behindLive
+                if (cause == null && network && netRetries < 5) {
+                    netRetries++
+                    toast = "Verbindung unterbrochen – verbinde neu ($netRetries/5) …"
+                    lifecycleScope.launch {
+                        delay(1500)
+                        if (behindLive || current()?.live == true) player.seekToDefaultPosition()
+                        player.prepare(); player.play()
+                    }
+                    return
+                }
                 error = cause?.message ?: "Wiedergabe fehlgeschlagen: ${e.errorCodeName}"
             }
 
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_READY) error = null
+                if (state == Player.STATE_READY) { error = null; netRetries = 0 }
                 // Aufnahme ist zu Ende -> wieder normal live schauen
                 if (state == Player.STATE_ENDED && current()?.live == true && watchingRecording) { play(container.playIndex); return }
                 if (state == Player.STATE_ENDED && current()?.live != true) {
@@ -525,17 +546,16 @@ class PlayerActivity : ComponentActivity() {
      * damit er beim naechsten Mal direkt mit VLC startet.
      */
     private var switchedToVlc = false
+    /** Automatische Neuverbindungen bei Netzwerk-Aussetzern (wird bei laufendem Bild zurueckgesetzt). */
+    private var netRetries = 0
 
     private fun switchToVlc(): Boolean {
         if (switchedToVlc) return true
         if (container.settings.playerEngineEnum() != PlayerEngine.AUTO) return false
         switchedToVlc = true
         val entry = current() ?: return false
+        // Nur diesen Stream merken (nicht die ganze Kategorie) – andere Titel bleiben im Standard-Player
         container.settings.markNeedsVlc(entry.url)
-        // Filme/Serien: ganze Kategorie merken (gleiches Dateiformat) -> naechster Titel startet direkt mit VLC
-        entry.item?.takeIf { !entry.live && it.categoryId.isNotBlank() }?.let {
-            container.settings.markCategoryNeedsVlc(vlcCategoryKey(container.source?.profile?.id, it))
-        }
         stopPlayback()
         startActivity(Intent(this, VlcPlayerActivity::class.java).putExtra(VlcPlayerActivity.EXTRA_INFO, "Kompatibilitaetsmodus (VLC)"))
         finish()

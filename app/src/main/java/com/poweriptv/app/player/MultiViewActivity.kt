@@ -330,7 +330,7 @@ class MultiViewActivity : ComponentActivity() {
      */
     private fun createPlayer(index: Int): ExoPlayer {
         val load = androidx.media3.exoplayer.DefaultLoadControl.Builder()
-            .setBufferDurationsMs(4_000, 12_000, 1_500, 2_500)
+            .setBufferDurationsMs(6_000, 15_000, 2_500, 5_000)
             .build()
         val p = ExoPlayer.Builder(this, androidx.media3.exoplayer.DefaultRenderersFactory(this).setEnableDecoderFallback(true))
             .setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(this, OkHttpDataSource.Factory(container.http))))

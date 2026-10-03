@@ -239,6 +239,10 @@ class AppContainer(private val app: Application) {
     val updates by lazy { com.poweriptv.app.update.UpdateManager(app, { http }, json, scope) }
 
     init {
+        // Einmalig: alte VLC-Zuordnungen (ganze Kategorien) zuruecksetzen -> Standard-Player zuerst
+        app.getSharedPreferences("migrations", android.content.Context.MODE_PRIVATE).let { m ->
+            if (!m.getBoolean("vlc_reset_v2", false)) { settings.clearVlcStreams(); m.edit().putBoolean("vlc_reset_v2", true).apply() }
+        }
         activate(profiles.get(settings.lastProfileId.value))
         updates.startAutoCheck()
         // Playlist + TV-Guide alle 24 h automatisch aktualisieren – auch wenn die App laenger offen ist

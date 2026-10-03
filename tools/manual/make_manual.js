@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.78 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.79 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -197,6 +197,9 @@ c.push(tip('Beim Umzug vom Handy auf den Fire TV: Sicherung mit Passwort erstell
 // 13
 c.push(h1('13. Hilfe bei Problemen'));
 c.push(table(['Problem', 'Lösung'], [
+  ['Bild bleibt beim Spulen stehen', 'Behoben ab 1.1.79: Bei Zugängen mit nur 1 Stream lädt die App beim Spulen keine Vorschaubilder mehr (die 2. Verbindung ließ den Anbieter den Film abbrechen). Hängt das Bild trotzdem länger als 10 Sekunden, lädt der Player den Stream automatisch an derselben Stelle neu.'],
+  ['Live TV stockt', 'Beide Player puffern Live TV jetzt größer (Standard-Player bis 60 s, nach einem Aussetzer erst mit 6 s Vorrat weiter; VLC 4 s) und verbinden sich nach Unterbrechungen automatisch neu. Unter Windows: Einstellungen → Player → Puffer „Groß“.'],
+  ['Wann wird VLC benutzt?', 'Im Modus „Automatisch“ startet immer zuerst der Standard-Player. Nur wenn er einen bestimmten Stream nicht abspielen kann (z.B. seltene Ton- oder Bildformate), wechselt die App für genau diesen Titel zu VLC.'],
   ['VLC ruckelt oder hängt', 'Einstellungen → Player → VLC-Leistung auf „Schnell“ stellen (bei TV-Sticks automatisch).'],
   ['Nur Ton, kein Bild', 'Der Sender nutzt ein altes Format – die App wechselt automatisch zu VLC. Sonst Einstellungen → Player → VLC.'],
   ['Bild bleibt bei Aufnahme stehen', 'Der Zugang erlaubt nur eine Verbindung. Den aufgenommenen Sender schauen oder die Aufnahme stoppen.'],

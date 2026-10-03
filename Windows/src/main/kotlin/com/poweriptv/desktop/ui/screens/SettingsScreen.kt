@@ -78,7 +78,7 @@ fun SettingsScreen(app: AppState) {
                 Toggle("Nächste Folge automatisch abspielen", s.autoNextEpisode) { v -> app.settings.update { it.copy(autoNextEpisode = v) } }
                 Text("Puffer (bei Rucklern erhöhen)")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(800 to "Kurz", 1500 to "Normal", 3000 to "Groß", 6000 to "Sehr groß").forEach { (ms, l) ->
+                    listOf(1500 to "Kurz", 3000 to "Normal", 6000 to "Groß", 10000 to "Sehr groß").forEach { (ms, l) ->
                         FilterChip(selected = s.networkCaching == ms, onClick = { app.settings.update { it.copy(networkCaching = ms) } }, label = { Text(l) }, modifier = Modifier.handCursor())
                     }
                 }

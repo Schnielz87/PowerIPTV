@@ -103,7 +103,7 @@ fun MultiViewScreen(app: AppState) {
             val p = players[i] ?: continue
             if (i in shouldRun && item != null) {
                 if (i !in running) {
-                    p.play(item.url ?: src.streamUrl(item)); running.add(i)
+                    p.play(item.url ?: src.streamUrl(item), live = true); running.add(i)
                 }
                 p.muteAudio(i != audioSlot)
             } else if (i in running) {

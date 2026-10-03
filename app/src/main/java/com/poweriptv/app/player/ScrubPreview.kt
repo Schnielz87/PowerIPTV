@@ -117,7 +117,10 @@ class ScrubPreview private constructor(private val source: String, private val u
             val allowed = when (mode) {
                 ScrubPreviewMode.OFF -> false
                 ScrubPreviewMode.ALWAYS -> true
-                ScrubPreviewMode.AUTO -> local || !container.settings.scrubBlocked.value
+                // Automatik: nur wenn der Zugang sicher eine 2. Verbindung erlaubt – sonst kappt der Anbieter
+                // beim Spulen die Film-Verbindung und das Bild bleibt stehen (v.a. bei Zugaengen mit 1 Stream)
+                ScrubPreviewMode.AUTO -> local || (!container.settings.scrubBlocked.value &&
+                    ((container.maxConnections ?: 1) - container.recordings.running().size) >= 2)
             }
             if (!allowed) return null
             // Vorschau laeuft nicht ueber den VPN-Tunnel-Schutz der App -> bei Pflicht-VPN ohne Tunnel nicht laden

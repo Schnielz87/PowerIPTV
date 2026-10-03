@@ -181,7 +181,12 @@ class PlayerController(
     var currentUrl: String? = null
         private set
 
-    fun play(url: String, startAt: Long = 0L) {
+    /** Live-Stream? -> groesserer Puffer (gegen Stocken). */
+    private var live = false
+
+    fun play(url: String, startAt: Long = 0L, live: Boolean = this.live) {
+        this.live = live
+        userPaused = false; stallSince = 0L; lastTick = -1L
         val p = player ?: return
         currentUrl = url
         // VPN-Kill-Switch gilt auch fuer Streams (wie Android)
@@ -192,7 +197,15 @@ class PlayerController(
         time = startAt; length = 0L; seekable = false
         audioTracks = emptyList(); subtitleTracks = emptyList()
         pendingSeek = null
-        val opts = if (startAt > 0) mediaOptions + ":start-time=${startAt / 1000.0}" else mediaOptions
+        val base = mediaOptions.map { o ->
+            // Live: mindestens 4 s Puffer, Filme: mindestens 3 s (wie Android)
+            if (o.startsWith(":network-caching=")) ":network-caching=" + maxOf(networkCaching, if (live) 4000 else 3000) else o
+        } + listOfNotNull(
+            if (live) ":live-caching=4000" else null,
+            // Bricht die Verbindung ab (z.B. beim Spulen), automatisch neu verbinden
+            if (!url.startsWith("file:")) ":http-reconnect" else null,
+        )
+        val opts = (if (startAt > 0) base + ":start-time=${startAt / 1000.0}" else base).toTypedArray()
         p.media().play(url, *opts)
         p.audio().setVolume(volume)
         p.audio().setMute(muted)
@@ -207,10 +220,37 @@ class PlayerController(
     fun togglePause() {
         val p = player ?: return
         if (ended) { currentUrl?.let { play(it) }; return }
+        userPaused = p.status().isPlaying
         if (p.status().isPlaying) p.controls().setPause(true) else p.controls().play()
     }
 
-    fun pause() = player?.controls()?.setPause(true)
+    fun pause() { userPaused = true; player?.controls()?.setPause(true) }
+
+    // ---------- Haenger-Waechter (wie Android) ----------
+    // Bleibt das Bild stehen (Anbieter kappt beim Spulen die Verbindung, VLC meldet keinen Fehler),
+    // wird der Stream automatisch an derselben Stelle neu geladen.
+    private var userPaused = false
+    private var lastTick = -1L
+    private var stallSince = 0L
+    private var recoveries = 0
+    private var lastRecoveryAt = 0L
+
+    /** Alle 0,5 s aus der Oberflaeche aufrufen. Liefert einen Hinweistext, wenn neu geladen wurde. */
+    fun watchdog(): String? {
+        val url = currentUrl ?: return null
+        if (userPaused || error != null || castingTo != null || (!playing && !buffering)) { stallSince = 0L; return null }
+        val now = System.currentTimeMillis()
+        if (time != lastTick && time > 0) { lastTick = time; stallSince = 0L; return null }
+        if (stallSince == 0L) { stallSince = now; return null }
+        if (now - stallSince < (if (live) 12_000L else 10_000L)) return null
+        stallSince = 0L
+        if (now - lastRecoveryAt > 120_000L) recoveries = 0
+        if (++recoveries > 3) { error = "Der Stream hängt – bitte später erneut versuchen"; buffering = false; return null }
+        lastRecoveryAt = now
+        val target = if (live) 0L else (pendingSeek ?: time).coerceAtLeast(0L)
+        play(url, target, live)
+        return "Verbindung hing – wird neu geladen …"
+    }
 
     /** Verbindung zum Anbieter freigeben, letztes Bild bleibt stehen (Multi-View-Limit). */
     fun stopKeepFrame() {
