@@ -217,6 +217,8 @@ class PlayerActivity : ComponentActivity() {
                     .setPrioritizeTimeOverSizeThresholds(true)
                     .build(),
             )
+            // Spulen zum naechsten Schluesselbild: viel schneller ueber das Internet (kein Nachladen bis zur exakten Stelle)
+            .setSeekParameters(androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC)
             .setSeekBackIncrementMs(10_000)
             .setSeekForwardIncrementMs(10_000)
             .build()
@@ -610,12 +612,27 @@ class PlayerActivity : ComponentActivity() {
         if (dur > 0) container.resume.save(e.url, player.currentPosition, dur)
     }
 
+    /** Gesammeltes Spulen: mehrere Tastendruecke = EIN Sprung (jeder Sprung kostet eine neue Verbindung zum Anbieter). */
+    private var seekTarget = -1L
+    private var seekOrigin = 0L
+    private var seekJob: kotlinx.coroutines.Job? = null
+
     private fun seekBy(deltaMs: Long) {
         val duration = player.duration.takeIf { it > 0 } ?: return
-        val target = (player.currentPosition + deltaMs).coerceIn(0, duration - 1000)
-        withSwitch { player.seekTo(target) }
-        val sign = if (deltaMs >= 0) "⏩ +" else "⏪ −"
-        toast = "$sign${formatTime(kotlin.math.abs(deltaMs))}  ·  ${formatTime(target)} / ${formatTime(duration)}"
+        val pending = seekJob?.isActive == true && seekTarget >= 0
+        if (!pending) seekOrigin = player.currentPosition
+        val base = if (pending) seekTarget else player.currentPosition
+        val target = (base + deltaMs).coerceIn(0, duration - 1000)
+        seekTarget = target
+        val total = target - seekOrigin
+        val sign = if (total >= 0) "⏩ +" else "⏪ −"
+        toast = "$sign${formatTime(kotlin.math.abs(total))}  ·  ${formatTime(target)} / ${formatTime(duration)}"
+        seekJob?.cancel()
+        seekJob = lifecycleScope.launch {
+            delay(450)
+            withSwitch { player.seekTo(seekTarget) }
+            seekTarget = -1L
+        }
     }
 
     private fun formatTime(ms: Long): String {
@@ -762,6 +779,9 @@ class PlayerActivity : ComponentActivity() {
             override fun seekToNext() { if (multi()) next() else super.seekToNext() }
             override fun seekToPreviousMediaItem() { if (multi()) previous() else super.seekToPreviousMediaItem() }
             override fun seekToNextMediaItem() { if (multi()) next() else super.seekToNextMediaItem() }
+            // ⏪10 / 10⏩ der Leiste: mehrere Tipps sammeln -> nur EIN Sprung (schneller, eine Verbindung)
+            override fun seekBack() { if (current()?.live == true) super.seekBack() else seekBy(-10_000) }
+            override fun seekForward() { if (current()?.live == true) super.seekForward() else seekBy(10_000) }
         }
     }
 
@@ -991,7 +1011,7 @@ class PlayerActivity : ComponentActivity() {
         val resume = {
             runOnUiThread {
                 lifecycleScope.launch {
-                    delay(500) // Anbieter kurz Zeit geben, die Vorschau-Verbindung abzumelden
+                    delay(250) // Anbieter kurz Zeit geben, die Vorschau-Verbindung abzumelden
                     scrubSuspended = false
                     withSwitch {
                         target?.let { player.seekTo(it) }

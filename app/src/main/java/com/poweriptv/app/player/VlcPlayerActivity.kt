@@ -458,7 +458,7 @@ class VlcPlayerActivity : ComponentActivity() {
                         val resume = {
                             runOnUiThread {
                                 lifecycleScope.launch {
-                                    delay(500) // Anbieter kurz Zeit geben, die Vorschau-Verbindung abzumelden
+                                    delay(250) // Anbieter kurz Zeit geben, die Vorschau-Verbindung abzumelden
                                     scrubSuspended = false
                                     userPaused = false; stallSince = 0L
                                     if (target != null) { resumeTarget = target; position = target }
@@ -579,9 +579,8 @@ class VlcPlayerActivity : ComponentActivity() {
         seekJob?.cancel()
         seekJob = lifecycleScope.launch {
             delay(600)
-            // Grosse Spruenge: schneller Sprung zum naechsten Schluesselbild; kleine: exakt
-            val jump = kotlin.math.abs(pendingSeek - seekOrigin)
-            mediaPlayer.setTime(pendingSeek, jump > 30_000)
+            // Immer schneller Sprung zum naechsten Schluesselbild (exakt dauert ueber das Internet oft Sekunden)
+            mediaPlayer.setTime(pendingSeek, true)
             pendingSeekAt = System.currentTimeMillis()
         }
     }
@@ -654,7 +653,10 @@ class VlcPlayerActivity : ComponentActivity() {
                 addOption(":live-caching=4000")
                 addOption(":clock-jitter=0")
                 addOption(":clock-synchro=0")
-            } else addOption(":network-caching=3000")
+            } else {
+                addOption(":network-caching=3000")
+                addOption(":input-fast-seek") // Spulen: naechstes Schluesselbild statt exakt -> deutlich schneller
+            }
             // Bricht die Verbindung ab (z.B. beim Spulen), automatisch an derselben Stelle neu verbinden
             if (!local) addOption(":http-reconnect")
             if (local) addOption(":file-caching=300")

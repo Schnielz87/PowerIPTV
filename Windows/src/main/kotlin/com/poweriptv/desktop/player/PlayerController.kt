@@ -207,7 +207,7 @@ class PlayerController(
             // Live: mindestens 4 s Puffer, Filme: mindestens 3 s (wie Android)
             if (o.startsWith(":network-caching=")) ":network-caching=" + maxOf(networkCaching, if (live) 4000 else 3000) else o
         } + listOfNotNull(
-            if (live) ":live-caching=4000" else null,
+            if (live) ":live-caching=4000" else ":input-fast-seek", // Filme: Spulen zum naechsten Schluesselbild (schneller)
             // Bricht die Verbindung ab (z.B. beim Spulen), automatisch neu verbinden
             if (!url.startsWith("file:")) ":http-reconnect" else null,
         )
