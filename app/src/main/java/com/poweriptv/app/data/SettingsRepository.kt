@@ -57,6 +57,7 @@ class SettingsRepository(context: Context) {
     private val _scrub = str(K_SCRUB, "AUTO")
     private val _subSize = str(K_SUB_SIZE, "NORMAL")
     private val _vlcPerf = str(K_VLC_PERF, "AUTO")
+    private val _introSound = bool(K_INTRO_SOUND, true)
     private val _subBg = bool(K_SUB_BG, false)
     private val _scrubBlocked = bool(K_SCRUB_BLOCKED, false)
     private val _resize = str(K_RESIZE, VideoScale.FIT.name)
@@ -89,6 +90,9 @@ class SettingsRepository(context: Context) {
     val subtitleSize: StateFlow<String> = _subSize
     /** VLC-Leistung: AUTO (schwache Geraete -> FAST), QUALITY oder FAST. */
     val vlcPerformance: StateFlow<String> = _vlcPerf
+    /** Start-Klang beim Oeffnen der App. */
+    val introSound: StateFlow<Boolean> = _introSound
+    fun setIntroSound(v: Boolean) = putBool(K_INTRO_SOUND, v, _introSound)
     fun setVlcPerformance(v: String) = putStr(K_VLC_PERF, v, _vlcPerf)
     val subtitleBackground: StateFlow<Boolean> = _subBg
     fun setSubtitleSize(v: String) = putStr(K_SUB_SIZE, v, _subSize)
@@ -167,6 +171,7 @@ class SettingsRepository(context: Context) {
         private const val K_SCRUB = "scrub_preview"
         private const val K_SUB_SIZE = "subtitle_size"
         private const val K_VLC_PERF = "vlc_performance"
+        private const val K_INTRO_SOUND = "intro_sound"
         private const val K_SUB_BG = "subtitle_bg"
         private const val K_SCRUB_BLOCKED = "scrub_preview_blocked"
         private const val K_VLC_STREAMS = "vlc_streams"

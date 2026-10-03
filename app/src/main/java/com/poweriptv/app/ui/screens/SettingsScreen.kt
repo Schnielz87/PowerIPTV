@@ -369,6 +369,8 @@ fun SettingsScreen(
                         Text(l)
                     }
                 }
+                val introSound by s.introSound.collectAsState()
+                SwitchRow("Start-Klang", "Kurzer Klang beim Oeffnen der App", introSound) { s.setIntroSound(it) }
                 val afr by s.autoFrameRate.collectAsState()
                 val scale by s.videoScale.collectAsState()
                 SwitchRow(

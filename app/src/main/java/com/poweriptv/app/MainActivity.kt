@@ -115,7 +115,7 @@ class MainActivity : ComponentActivity() {
                     val safeArea = if (isTv) Modifier.padding(horizontal = 24.dp, vertical = 12.dp) else Modifier
                     Box(Modifier.fillMaxSize().background(Background).then(safeArea)) {
                         var splash by rememberSaveable { mutableStateOf(true) }
-                        if (splash) SplashScreen(onFinished = { splash = false })
+                        if (splash) SplashScreen(onFinished = { splash = false }, playSound = container.settings.introSound.value)
                         else AppNavigation(container = container, onConnectVpn = ::connectVpn)
                         com.poweriptv.app.ui.components.ResumePromptDialog(container)
                         com.poweriptv.app.ui.components.PinGateDialog(container)

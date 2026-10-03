@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.69 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.70 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -171,7 +171,7 @@ c.push(bullet([b('Bild-in-Bild: '), t('Auf dem Handy läuft der Sender beim Verl
 // 12
 c.push(h1('12. Einstellungen'));
 c.push(table(['Bereich', 'Was man einstellen kann'], [
-  ['Player', 'Automatisch / Standard / VLC, VLC-Leistung (Automatisch / Schnell / Qualität), Bildwiederholrate (AFR), Bildformat, Vorschaubilder beim Spulen'],
+  ['Player', 'Start-Klang an/aus, Automatisch / Standard / VLC, VLC-Leistung (Automatisch / Schnell / Qualität), Bildwiederholrate (AFR), Bildformat, Vorschaubilder beim Spulen'],
   ['Live-Format & User-Agent', 'Stream-Format (TS/HLS) und Kennung gegenüber dem Anbieter'],
   ['VPN', 'WireGuard-Konfiguration, Auto-Verbinden, Kill-Switch („nur mit VPN abspielen“)'],
   ['Kindersicherung', 'Erst mit festgelegter PIN aktiv (grüner Hinweis „AKTIV“ oben). Sperrt Kategorien, Erwachseneninhalte automatisch und gilt überall – auch in Verlauf, Weiterschauen, Favoriten, Suche und Programmführer.'],

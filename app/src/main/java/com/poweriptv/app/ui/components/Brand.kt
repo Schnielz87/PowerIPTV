@@ -49,8 +49,8 @@ fun PortivaLogo(modifier: Modifier = Modifier) {
 
 /** Schriftzug im Portiva-Stil: "PORTIVA" + "PowerIPTV" (statt "Portable KI-Mitarbeiter-Plattform"). */
 @Composable
-fun BrandWordmark(large: Boolean = false) {
-    Column {
+fun BrandWordmark(large: Boolean = false, centered: Boolean = false) {
+    Column(horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start) {
         Text(
             "PORTIVA",
             color = Color.White,
@@ -96,13 +96,21 @@ fun BrandTopBar(subtitle: String? = null, actions: @Composable () -> Unit = {}) 
 
 /** Kurzer Startbildschirm mit Logo-Animation. */
 @Composable
-fun SplashScreen(onFinished: () -> Unit) {
+fun SplashScreen(onFinished: () -> Unit, playSound: Boolean = true) {
     val scale = remember { Animatable(0.7f) }
     val alpha = remember { Animatable(0f) }
+    val context = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(Unit) {
-        alpha.animateTo(1f, tween(450))
-        scale.animateTo(1f, tween(450))
-        delay(500)
+        // Eigener Start-Klang (zwei tiefe Schlaege + aufsteigender Akkord); laeuft nach dem Splash weiter aus
+        if (playSound) runCatching {
+            android.media.MediaPlayer.create(context.applicationContext, com.poweriptv.app.R.raw.intro_sound)?.apply {
+                setOnCompletionListener { it.release() }
+                start()
+            }
+        }
+        alpha.animateTo(1f, tween(500))
+        scale.animateTo(1f, tween(600))
+        delay(1100)
         onFinished()
     }
     Box(
@@ -118,7 +126,7 @@ fun SplashScreen(onFinished: () -> Unit) {
         ) {
             PortivaLogo(Modifier.size(140.dp))
             Spacer(Modifier.height(24.dp))
-            BrandWordmark(large = true)
+            BrandWordmark(large = true, centered = true)
             Spacer(Modifier.height(8.dp))
             Text("Live TV · Filme · Serien – sicher per VPN", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
