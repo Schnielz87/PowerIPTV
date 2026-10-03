@@ -46,6 +46,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
+import androidx.compose.material.icons.filled.PauseCircle
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -99,6 +102,34 @@ class MultiViewActivity : ComponentActivity() {
 
     private fun touch() { lastTouch = System.currentTimeMillis(); controlsVisible = true }
 
+    // ---------- Verbindungslimit des Zugangs ----------
+    /** Zuletzt ausgewaehlte Fenster zuerst (die laufen bei begrenztem Zugang). */
+    private val recent = mutableListOf<Int>()
+    /** Fenster, die gerade wirklich streamen. */
+    private val running = mutableStateListOf<Int>()
+    /** Erlaubte gleichzeitige Streams (null = unbekannt -> alle laufen). */
+    private var connLimit by mutableStateOf<Int?>(null)
+
+    /** Wie viele Streams duerfen im Multi-View laufen (laufende Aufnahmen belegen auch Verbindungen). */
+    private fun allowedStreams(): Int? = connLimit?.let { (it - container.recordings.running().size).coerceAtLeast(1) }
+
+    /** Passt an, welche Fenster laufen: bei erreichtem Limit nur die zuletzt ausgewaehlten. */
+    private fun updateRunning() {
+        val filled = (0 until 4).filter { slots[it] != null && (fourWay || it < 2) }
+        val order = (listOf(audioSlot) + recent + filled).distinct().filter { it in filled }
+        val allowed = allowedStreams() ?: filled.size
+        val shouldRun = order.take(allowed).toSet()
+        for (i in 0 until 4) {
+            val p = players[i] ?: continue
+            if (i in shouldRun) {
+                if (i !in running) { p.prepare(); p.playWhenReady = true; running.add(i) }
+            } else if (i in running || p.playbackState != androidx.media3.common.Player.STATE_IDLE) {
+                p.stop() // Verbindung zum Anbieter freigeben, letztes Bild bleibt stehen
+                running.remove(i)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         PlayerActivity.closeActive()
@@ -113,6 +144,12 @@ class MultiViewActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).hide(WindowInsetsCompat.Type.systemBars())
 
+        // Verbindungslimit des Zugangs (Xtream: max_connections)
+        connLimit = container.maxConnections
+        if (connLimit == null) lifecycleScope.launch {
+            val m = runCatching { container.source?.accountInfo()?.maxConnections?.toIntOrNull() }.getOrNull()
+            if (m != null) { connLimit = m; container.maxConnections = m; updateRunning() }
+        }
         container.playQueue.getOrNull(container.playIndex)?.takeIf { it.live }?.let { setSlot(0, it) }
 
         setContent {
@@ -143,6 +180,11 @@ class MultiViewActivity : ComponentActivity() {
                             Icon(if (fourWay) Icons.Filled.Splitscreen else Icons.Filled.GridView, "Layout", tint = Color.White)
                         }
                         Text(if (fourWay) "4 Fenster" else "2 Fenster", color = Color.White, style = MaterialTheme.typography.labelMedium)
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            allowedStreams()?.let { "Streams: ${running.size} / $it" } ?: "Streams: ${running.size}",
+                            color = BrandCyan, style = MaterialTheme.typography.labelMedium,
+                        )
                         Spacer(Modifier.width(6.dp))
                         IconButton(onClick = { finish() }, modifier = Modifier.tvFocus(CircleShape)) { Icon(Icons.Filled.Close, "Multi-View schliessen", tint = Color.White) }
                     }
@@ -155,8 +197,9 @@ class MultiViewActivity : ComponentActivity() {
     private fun setLayout(four: Boolean) {
         fourWay = four
         applyTrackLimits()
+        updateRunning()
         if (!four) {
-            for (i in 2..3) { players[i]?.release(); players[i] = null; slots[i] = null }
+            for (i in 2..3) { players[i]?.release(); players[i] = null; slots[i] = null; running.remove(i); recent.remove(i) }
             if (audioSlot > 1) selectAudio(0)
         }
     }
@@ -187,6 +230,7 @@ class MultiViewActivity : ComponentActivity() {
                     AndroidView(
                         factory = { ctx ->
                             PlayerView(ctx).apply {
+                                setKeepContentOnPlayerReset(true) // pausiert: letztes Bild bleibt stehen
                                 layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                                 useController = false
                                 setShutterBackgroundColor(android.graphics.Color.BLACK)
@@ -197,6 +241,17 @@ class MultiViewActivity : ComponentActivity() {
                         update = { it.player = players[index] },
                         modifier = Modifier.fillMaxSize(),
                     )
+                }
+                if (index !in running) {
+                    // Wegen Verbindungslimit angehalten
+                    Column(
+                        Modifier.align(Alignment.Center).clip(RoundedCornerShape(10.dp)).background(Color(0xB0000000)).padding(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Icon(Icons.Filled.PauseCircle, null, tint = Color.White, modifier = Modifier.size(30.dp))
+                        Text("Pausiert (Limit des Zugangs)", color = Color.White, style = MaterialTheme.typography.labelMedium)
+                        Text("Antippen zum Anschauen", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall)
+                    }
                 }
                 if (controlsVisible || selected) Row(
                     Modifier.align(Alignment.TopStart).padding(6.dp)
@@ -284,7 +339,7 @@ class MultiViewActivity : ComponentActivity() {
         p.addListener(object : androidx.media3.common.Player.Listener {
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                 // Stream abgebrochen -> nach 2 s selbst neu verbinden
-                retry.postDelayed({ if (players[index] === p) { p.prepare(); p.playWhenReady = true } }, 2_000)
+                retry.postDelayed({ if (players[index] === p && index in running) { p.prepare(); p.playWhenReady = true } }, 2_000)
             }
         })
         return p
@@ -306,10 +361,22 @@ class MultiViewActivity : ComponentActivity() {
         val builder = MediaItem.Builder().setUri(entry.url)
         if (entry.url.contains(".m3u8", true)) builder.setMimeType(MimeTypes.APPLICATION_M3U8)
         p.setMediaItem(builder.build())
-        p.prepare()
-        p.playWhenReady = true
+        running.remove(index)
         slots[index] = entry
-        if (slots.count { it != null } == 1) audioSlot = index
+        recent.remove(index); recent.add(0, index)
+        val filledCount = slots.count { it != null }
+        val limit = allowedStreams()
+        if (filledCount == 1) audioSlot = index
+        // Limit erreicht: das neue Fenster wird ausgewaehlt (laeuft + Ton), andere pausieren
+        if (limit != null && filledCount > limit) {
+            audioSlot = index
+            android.widget.Toast.makeText(
+                this,
+                "Dein Zugang erlaubt $limit gleichzeitige${if (limit == 1) "n" else ""} Stream${if (limit == 1) "" else "s"} – " +
+                    "es laeuft nur das ausgewaehlte Fenster. Antippen zum Wechseln.",
+                android.widget.Toast.LENGTH_LONG,
+            ).show()
+        }
         applyAudio()
     }
 
@@ -317,18 +384,21 @@ class MultiViewActivity : ComponentActivity() {
         players[index]?.release()
         players[index] = null
         slots[index] = null
+        running.remove(index); recent.remove(index)
         if (audioSlot == index) slots.indexOfFirst { it != null }.takeIf { it >= 0 }?.let { audioSlot = it }
         applyAudio()
     }
 
     private fun selectAudio(index: Int) {
         audioSlot = index
+        recent.remove(index); recent.add(0, index)
         applyAudio()
     }
 
     private fun applyAudio() {
         players.forEachIndexed { i, p -> p?.volume = if (i == audioSlot) 1f else 0f }
         applyTrackLimits()
+        updateRunning()
     }
 
     override fun onStop() {
@@ -338,7 +408,7 @@ class MultiViewActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        players.forEach { it?.play() }
+        running.forEach { players[it]?.play() }
     }
 
     override fun onDestroy() {
