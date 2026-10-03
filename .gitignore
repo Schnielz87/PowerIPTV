@@ -11,3 +11,4 @@
 *.keystore
 *.jks
 /Windows/build/
+/Windows/.kotlin/
