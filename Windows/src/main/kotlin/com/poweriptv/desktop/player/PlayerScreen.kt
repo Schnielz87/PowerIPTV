@@ -57,7 +57,6 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -126,11 +125,10 @@ private val BlankCursor: PointerIcon by lazy {
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun PlayerScreen(app: AppState, req: PlayRequest) {
-    val settings = app.settings.value
-    val ctl = remember { PlayerController(settings.networkCaching, settings.hardwareDecoding).apply { setVolumeTo(settings.volume) } }
+    val ctl = remember { app.playerController() }
     val current by rememberUpdatedState(req)
     val isLive = req.item.type == ContentType.LIVE
-    var aspect by remember { mutableStateOf(settings.aspect) }
+    val aspect = app.playerAspect
     var lastMove by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var menuOpen by remember { mutableStateOf(false) }
@@ -179,22 +177,17 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
     fun close() {
         savePosition()
         if (!app.settings.value.startFullscreen) app.setFullscreen(false)
-        app.playing = null
+        app.closePlayer()
     }
 
     fun poke() { lastMove = System.currentTimeMillis() }
 
     // --- Lebenszyklus ---
     LaunchedEffect(req.url) {
-        ctl.play(req.url, req.startAt)
+        // Beim Wechsel Fenster <-> Vollbild laeuft der Stream einfach weiter
+        if (ctl.currentUrl != req.url) ctl.play(req.url, req.startAt)
         poke()
         runCatching { focus.requestFocus() }
-    }
-    DisposableEffect(Unit) {
-        onDispose {
-            app.settings.update { it.copy(volume = ctl.volume, aspect = aspect) }
-            ctl.release()
-        }
     }
     // Serie ohne Episodenliste (z.B. aus "Weiterschauen"): Liste nachladen fuer "Naechste Folge"
     LaunchedEffect(req.item.key) {
@@ -249,6 +242,8 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                     Key.PageUp, Key.ChannelUp -> { zap(-1); true }
                     Key.PageDown, Key.ChannelDown -> { zap(1); true }
                     Key.M -> { ctl.toggleMute(); true }
+                    // Z = Zoomen an/aus (Kino-Balken oben/unten wegschneiden)
+                    Key.Z -> { app.playerAspect = if (app.playerAspect == "fill") "fit" else "fill"; true }
                     Key.F, Key.F11 -> { app.toggleFullscreen(); true }
                     Key.L -> { if (isLive) showChannels = !showChannels; true }
                     Key.N -> { playNext(); true }
@@ -333,7 +328,7 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                         Text(it, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.18f)).padding(horizontal = 8.dp, vertical = 3.dp))
                         Spacer(Modifier.width(8.dp))
                     }
-                    SettingsMenu(ctl, aspect, isLive, onAspect = { aspect = it }, onOpenChange = { menuOpen = it; poke() })
+                    SettingsMenu(ctl, aspect, isLive, onAspect = { app.playerAspect = it }, onOpenChange = { menuOpen = it; poke() })
                     if (isLive && req.channels.isNotEmpty()) RoundIcon(Icons.Filled.FormatListBulleted, "Senderliste (L)") { showChannels = !showChannels }
                     RoundIcon(if (app.isFullscreen) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen, "Vollbild (F)") { app.toggleFullscreen() }
                 }

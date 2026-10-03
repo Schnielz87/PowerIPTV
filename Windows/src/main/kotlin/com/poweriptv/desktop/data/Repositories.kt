@@ -43,6 +43,8 @@ data class DesktopSettings(
     val networkCaching: Int = 1500,
     val autoNextEpisode: Boolean = true,
     val startFullscreen: Boolean = false,
+    /** Bevorzugte Kategorie-Sprache (z.B. "DE"), leer = alle – wie in der Android-App. */
+    val categoryLanguage: String = "",
 )
 
 class SettingsStore {
@@ -142,5 +144,46 @@ class LibraryStore(profileId: String) {
 
     companion object {
         fun episodeKey(episodeId: String) = "EPISODE:$episodeId"
+    }
+}
+
+@Serializable
+private data class CategoryPrefsData(
+    val hidden: Map<String, List<String>> = emptyMap(),
+    val pinned: Map<String, List<String>> = emptyMap(),
+)
+
+/** Kategorien je Zugang und Bereich ausblenden oder oben anheften (wie Android). scope = "<profilId>|<Typ>". */
+class CategoryPrefsStore {
+    private val file = JsonFile(AppDirs.file("category_prefs.json"), CategoryPrefsData.serializer()) { CategoryPrefsData() }
+    private var data = file.read()
+    private val _version = MutableStateFlow(0)
+    val version: StateFlow<Int> = _version.asStateFlow()
+
+    fun hidden(scope: String): Set<String> = data.hidden[scope].orEmpty().toSet()
+    fun pinned(scope: String): List<String> = data.pinned[scope].orEmpty()
+
+    fun setHidden(scope: String, id: String, hide: Boolean) {
+        val set = hidden(scope).toMutableSet().apply { if (hide) add(id) else remove(id) }
+        data = data.copy(hidden = data.hidden + (scope to set.toList()))
+        if (hide) setPinned(scope, id, false) else save()
+    }
+
+    fun setPinned(scope: String, id: String, pin: Boolean) {
+        val list = pinned(scope).filterNot { it == id }.let { if (pin) it + id else it }
+        data = data.copy(pinned = data.pinned + (scope to list))
+        save()
+    }
+
+    fun <T> arrange(scope: String, items: List<T>, id: (T) -> String): List<T> {
+        val pins = pinned(scope)
+        if (pins.isEmpty()) return items
+        val byId = items.associateBy(id)
+        return pins.mapNotNull { byId[it] } + items.filterNot { id(it) in pins }
+    }
+
+    private fun save() {
+        file.write(data)
+        _version.value++
     }
 }

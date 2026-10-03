@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.poweriptv.app.AppContainer
 import com.poweriptv.app.data.Profile
 import com.poweriptv.app.data.ProfileType
@@ -138,12 +139,18 @@ fun ProfilesScreen(
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(p.name, fontWeight = FontWeight.SemiBold, color = if (active) BrandCyan else Color.Unspecified)
+                                Text(
+                                    p.name, fontWeight = FontWeight.SemiBold, color = if (active) BrandCyan else Color.Unspecified,
+                                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false),
+                                )
                                 if (active) {
                                     Spacer(Modifier.width(8.dp))
+                                    // Abzeichen immer einzeilig (kein Umbruch bei schmalen Displays)
                                     Text(
                                         "AKTIV",
-                                        style = MaterialTheme.typography.labelSmall,
+                                        fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp,
+                                        maxLines = 1, softWrap = false,
                                         color = Color(0xFF06101E),
                                         modifier = Modifier.clip(RoundedCornerShape(50)).background(BrandCyan).padding(horizontal = 8.dp, vertical = 2.dp),
                                     )

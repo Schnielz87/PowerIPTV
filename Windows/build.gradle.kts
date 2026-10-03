@@ -30,6 +30,8 @@ sourceSets {
                 "com/poweriptv/app/data/JsonExt.kt",
                 "com/poweriptv/app/data/M3uSource.kt",
                 "com/poweriptv/app/data/XtreamSource.kt",
+                "com/poweriptv/app/ui/components/CategoryRules.kt",
+                "com/poweriptv/app/ui/components/ContentFilter.kt",
             )
         }
     }

@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.72 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.74 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -208,8 +208,11 @@ c.push(step('Danach startet Portiva über das Startmenü oder die Desktop-Verkn�
 c.push(p('Ohne Installation: „Portiva-Windows-Portable-…zip“ entpacken und „Portiva.exe“ starten. Updates: einfach die neue Setup-Datei ausführen – Zugänge, Favoriten und Verlauf bleiben erhalten.'));
 c.push(h2('Bedienung'));
 c.push(bullet([b('Linke Leiste: '), t('Start, Live TV, Filme, Serien, Favoriten, Suche, Einstellungen und der aktive Zugang.')]));
+c.push(bullet([b('Startseite: '), t('wie am Handy: große Kacheln, darunter die kleinen Kacheln (Suche, Playlist aktualisieren, Favoriten, Benutzer wechseln, Einstellungen …), Weiterschauen und „Zuletzt gesehen“ für Live TV, Filme und Serien. Oben rechts das Benutzer-Männchen zum schnellen Wechseln. Mit „bald“ markierte Kacheln folgen mit den nächsten Updates.')]));
+c.push(bullet([b('Kategorien: '), t('genau wie in der Android-App – Sprache (Globus, z.B. DE/EN), Kategorie-Filter (Trichter), Favoriten, Zuletzt gesehen, Alle. Rechtsklick auf eine Kategorie: oben anheften oder ausblenden. Rechts daneben: Suche („Nur hier“/„Überall“), Filter & Sortierung (Bewertung, Jahr, Genre).')]));
+c.push(bullet([b('Vollbild: '), t('F, F11 oder Doppelklick – deckt den ganzen Bildschirm ab (ohne Titel- und Taskleiste). Esc beendet das Vollbild. Kino-Filme haben oben und unten schwarze Balken; Taste Z (Zoomen) füllt den Bildschirm.')]));
 c.push(bullet([b('Rechtsklick '), t('auf Sender, Film, Serie oder Folge: Favorit, gesehen markieren, aus „Weiterschauen“ entfernen.')]));
-c.push(bullet([b('Startseite: '), t('Kacheln, Weiterschauen, zuletzt gesehene Sender, Favoriten; oben Ablaufdatum und Streams des Zugangs.')]));
+
 c.push(bullet([b('Player: '), t('Klick = Pause, Doppelklick = Vollbild, Mausrad = Lautstärke. Zahnrad: Bildformat, Tonspur, Untertitel, Geschwindigkeit. Bei Serien „Nächste Folge“ 40 Sekunden vor Schluss.')]));
 c.push(table(['Taste', 'Funktion'], [
   ['Leertaste / K', 'Pause / Weiter'],
@@ -217,6 +220,7 @@ c.push(table(['Taste', 'Funktion'], [
   ['↑ / ↓', 'Lautstärke; bei Live TV: Sender wechseln'],
   ['Bild ↑ / Bild ↓', 'Sender wechseln'],
   ['M', 'Ton aus / an'],
+  ['Z', 'Zoomen an / aus (schwarze Balken weg)'],
   ['F, F11, Doppelklick', 'Vollbild an / aus'],
   ['L', 'Senderliste (Live TV)'],
   ['N', 'Nächste Folge'],

@@ -4,7 +4,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowState
 import com.poweriptv.app.data.ContentItem
 import com.poweriptv.app.data.ContentType
@@ -62,6 +61,9 @@ class AppState(val window: WindowState) {
     var playing by mutableStateOf<PlayRequest?>(null)
     /** Zuletzt gewaehlte Kategorie je Bereich (bleibt beim Hin- und Herwechseln erhalten). */
     val selectedCategory = androidx.compose.runtime.mutableStateMapOf<ContentType, String>()
+    /** Filter & Sortierung je Bereich (bleiben erhalten, wie Android). */
+    val browseFilters = androidx.compose.runtime.mutableStateMapOf<ContentType, com.poweriptv.app.ui.components.ContentFilter>()
+    val categoryPrefs = com.poweriptv.desktop.data.CategoryPrefsStore()
     var refreshing by mutableStateOf(false); private set
     var refreshError by mutableStateOf<String?>(null); private set
     /** Wird bei jeder Aktualisierung erhoeht, damit Listen neu laden. */
@@ -79,6 +81,7 @@ class AppState(val window: WindowState) {
         library = LibraryStore(p.id)
         settings.update { it.copy(lastProfileId = p.id) }
         stack.clear(); stack += Screen.Home
+        selectedCategory.clear()
         dataVersion++
         if (source?.isStale() == true) refresh()
     }
@@ -138,19 +141,32 @@ class AppState(val window: WindowState) {
         )
     }
 
-    private var placementBeforeFullscreen = WindowPlacement.Floating
+    // --- Vollbild: eigenes randloses Fenster ueber den ganzen Bildschirm (ohne Titel- und Taskleiste) ---
+    private var fullscreenState by mutableStateOf(false)
+    /** Hauptfenster (fuer den Bildschirm, auf dem das Vollbild erscheinen soll). */
+    var mainWindow: java.awt.Window? = null
 
-    fun toggleFullscreen() = setFullscreen(!isFullscreen)
+    fun toggleFullscreen() = setFullscreen(!fullscreenState)
 
-    fun setFullscreen(on: Boolean) {
-        if (on == isFullscreen) return
-        if (on) {
-            placementBeforeFullscreen = window.placement
-            window.placement = WindowPlacement.Fullscreen
-        } else {
-            window.placement = placementBeforeFullscreen
-        }
+    fun setFullscreen(on: Boolean) { fullscreenState = on }
+
+    val isFullscreen: Boolean get() = fullscreenState
+
+    // --- Player: bleibt beim Wechsel zwischen Fenster und Vollbild erhalten (Stream laeuft weiter) ---
+    var player: com.poweriptv.desktop.player.PlayerController? = null; private set
+    var playerAspect by mutableStateOf(settings.value.aspect)
+
+    fun playerController(): com.poweriptv.desktop.player.PlayerController =
+        player ?: com.poweriptv.desktop.player.PlayerController(settings.value.networkCaching, settings.value.hardwareDecoding)
+            .apply { setVolumeTo(settings.value.volume) }.also { player = it }
+
+    /** Player schliessen: Einstellungen merken und VLC freigeben. */
+    fun closePlayer() {
+        player?.let { p -> settings.update { it.copy(volume = p.volume, aspect = playerAspect) }; p.release() }
+        player = null
+        playing = null
     }
 
-    val isFullscreen: Boolean get() = window.placement == WindowPlacement.Fullscreen
+    /** Startbildschirm nur einmal pro Programmstart. */
+    var splashDone by mutableStateOf(System.getProperty("portiva.nosplash") != null)
 }

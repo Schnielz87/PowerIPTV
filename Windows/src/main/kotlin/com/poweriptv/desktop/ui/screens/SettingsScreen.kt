@@ -118,6 +118,7 @@ val Shortcuts = listOf(
     "↑ / ↓ oder Mausrad" to "Lautstärke (Live TV: ↑/↓ = Sender wechseln)",
     "Bild ↑ / Bild ↓" to "Sender wechseln (Live TV)",
     "M" to "Ton aus / an",
+    "Z" to "Zoomen an / aus (schwarze Balken weg)",
     "F, F11 oder Doppelklick" to "Vollbild",
     "L" to "Senderliste (Live TV)",
     "N" to "Nächste Folge (Serien)",

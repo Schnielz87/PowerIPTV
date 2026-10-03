@@ -51,6 +51,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import com.poweriptv.app.data.M3uSource
 import com.poweriptv.app.data.Profile
 import com.poweriptv.app.data.ProfileType
@@ -113,7 +115,13 @@ fun ProfilesScreen(app: AppState) {
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
                         )
                     }
-                    if (active) Text("Aktiv", color = BrandCyan)
+                    if (active) {
+                        Text(
+                            "AKTIV", fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp,
+                            maxLines = 1, softWrap = false, color = androidx.compose.ui.graphics.Color(0xFF06101E),
+                            modifier = Modifier.clip(RoundedCornerShape(50)).background(BrandCyan).padding(horizontal = 8.dp, vertical = 2.dp),
+                        )
+                    }
                     IconButton(onClick = { deleteAsk = p }, modifier = Modifier.handCursor()) { Icon(Icons.Filled.Delete, "Löschen") }
                 }
             }

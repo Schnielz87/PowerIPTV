@@ -15,9 +15,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -48,6 +46,11 @@ import com.poweriptv.desktop.ui.screens.SettingsScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.awt.Dimension
+import java.awt.GraphicsEnvironment
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import java.io.BufferedInputStream
 import javax.sound.sampled.AudioSystem
 
@@ -57,30 +60,62 @@ val AppVersion: String = System.getProperty("jpackage.app-version") ?: "dev"
 fun main() = application {
     val windowState = rememberWindowState(size = DpSize(1360.dp, 860.dp), position = WindowPosition(Alignment.Center))
     val app = remember { AppState(windowState) }
-    Window(
-        onCloseRequest = {
-            app.shutdown()
-            exitApplication()
-        },
-        state = windowState,
-        title = "Portiva – PowerIPTV",
-        icon = painterResource("app_logo.xml"),
-    ) {
+    val icon = painterResource("app_logo.xml")
+    val title = "Portiva – PowerIPTV"
+    val quit = {
+        app.shutdown()
+        exitApplication()
+    }
+    // F11 schaltet ueberall ins Vollbild
+    val globalKeys: (androidx.compose.ui.input.key.KeyEvent) -> Boolean = { e ->
+        if (e.type == KeyEventType.KeyDown && e.key == Key.F11) { app.toggleFullscreen(); true } else false
+    }
+
+    Window(onCloseRequest = quit, state = windowState, title = title, icon = icon, onPreviewKeyEvent = globalKeys) {
         LaunchedEffect(Unit) {
+            app.mainWindow = window
             window.minimumSize = Dimension(980, 620)
             if (app.settings.value.startFullscreen) app.setFullscreen(true)
         }
         PowerTheme {
-            Surface(color = Background, contentColor = Color.White) { Root(app) }
+            Surface(color = Background, contentColor = Color.White) {
+                // Im Vollbild zeigt das randlose Fenster den Inhalt (hier nur schwarz, damit nichts doppelt laeuft)
+                if (!app.isFullscreen) Root(app) else Box(Modifier.fillMaxSize().background(Color.Black))
+            }
+        }
+    }
+
+    if (app.isFullscreen) {
+        // Echtes Vollbild: randloses Fenster exakt ueber dem Bildschirm des Hauptfensters (deckt Titel- und Taskleiste ab)
+        val screen = remember {
+            (app.mainWindow?.graphicsConfiguration ?: GraphicsEnvironment.getLocalGraphicsEnvironment().defaultScreenDevice.defaultConfiguration).bounds
+        }
+        val fsState = rememberWindowState(
+            position = WindowPosition(screen.x.dp, screen.y.dp),
+            size = DpSize(screen.width.dp, screen.height.dp),
+        )
+        Window(
+            onCloseRequest = { app.setFullscreen(false) },
+            state = fsState, title = title, icon = icon,
+            undecorated = true, resizable = false,
+            onPreviewKeyEvent = globalKeys,
+        ) {
+            LaunchedEffect(Unit) {
+                window.setBounds(screen)
+                window.toFront()
+                window.requestFocus()
+            }
+            PowerTheme {
+                Surface(color = Background, contentColor = Color.White) { Root(app) }
+            }
         }
     }
 }
 
 @Composable
 private fun Root(app: AppState) {
-    var splash by remember { mutableStateOf(System.getProperty("portiva.nosplash") == null) }
-    if (splash) {
-        SplashScreen(playSound = app.settings.value.introSound) { splash = false }
+    if (!app.splashDone) {
+        SplashScreen(playSound = app.settings.value.introSound) { app.splashDone = true }
         return
     }
     Box(Modifier.fillMaxSize()) {
@@ -144,6 +179,6 @@ private fun playIntroSound() {
 }
 
 fun AppState.shutdown() {
-    playing = null
+    closePlayer()
     Vlc.release()
 }

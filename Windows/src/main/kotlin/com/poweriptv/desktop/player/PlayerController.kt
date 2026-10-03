@@ -166,7 +166,9 @@ class PlayerController(
     private var released = false
 
     // --- Steuerung ---
-    private var currentUrl: String? = null
+    /** Laufender Stream (verhindert Neustart beim Wechsel ins Vollbild-Fenster). */
+    var currentUrl: String? = null
+        private set
 
     fun play(url: String, startAt: Long = 0L) {
         val p = player ?: return
