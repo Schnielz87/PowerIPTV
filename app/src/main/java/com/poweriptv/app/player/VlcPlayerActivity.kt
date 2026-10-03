@@ -106,6 +106,8 @@ class VlcPlayerActivity : ComponentActivity() {
     private var showRecordDialog by mutableStateOf(false)
     private var showFormatDialog by mutableStateOf(false)
     private var showSendDialog by mutableStateOf(false)
+    /** Uebertragen-Dialog offen -> Leiste nicht ausblenden (sonst schliesst sich der Dialog mitten in der Suche). */
+    private var castDialogOpen by mutableStateOf(false)
     /** Live: Senderliste im Bild und zuletzt gesehener Sender (Zurueck-Zappen). */
     private var showChannels by mutableStateOf(false)
     private var lastChannel = -1
@@ -250,13 +252,7 @@ class VlcPlayerActivity : ComponentActivity() {
                             container, e,
                             position = { runCatching { mediaPlayer.time }.getOrDefault(position).takeIf { it > 0 } ?: position },
                             duration = { length },
-                            onSent = { name ->
-                                showSendDialog = false
-                                saveResume()
-                                runCatching { mediaPlayer.stop() }
-                                android.widget.Toast.makeText(this@VlcPlayerActivity, "Läuft jetzt auf „$name“", android.widget.Toast.LENGTH_SHORT).show()
-                                finish()
-                            },
+                            onSent = { name -> showSendDialog = false; sentToDevice(name) },
                             onDismiss = { showSendDialog = false },
                         )
                     }
@@ -346,7 +342,7 @@ class VlcPlayerActivity : ComponentActivity() {
             while (showOverlay) {
                 delay(500)
                 val idle = System.currentTimeMillis() - maxOf(lastInteraction, pendingSeekAt) > 5000
-                val busy = userPaused || dragging != null || showFormatDialog || showRecordDialog || error != null
+                val busy = userPaused || dragging != null || showFormatDialog || showRecordDialog || error != null || castDialogOpen || showSendDialog
                 if (idle && !busy) { showOverlay = false; controlFocused = false }
             }
         }
@@ -377,7 +373,17 @@ class VlcPlayerActivity : ComponentActivity() {
                         Icon(if (isFav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, "Favorit", tint = if (isFav) Color(0xFFFF5370) else Color.White)
                     }
                 }
-                CastButton(container, current(), current()?.item?.logo, tint = Color.White, onCasting = { mediaPlayer.pause() })
+                CastButton(
+                    container, current(), current()?.item?.logo, tint = Color.White,
+                    onCasting = { mediaPlayer.pause() },
+                    onOpenChange = { castDialogOpen = it; if (it) lastInteraction = System.currentTimeMillis() },
+                    // Portiva Link: auch hier die Portiva-Geraete (TV-Stick, Tablet, PC) anbieten
+                    link = if (canSendToDevice(current()) && !watchingRecording) com.poweriptv.app.ui.components.PortivaLinkTarget(
+                        position = { runCatching { mediaPlayer.time }.getOrDefault(position).takeIf { it > 0 } ?: position },
+                        duration = { length },
+                        onSent = { name -> sentToDevice(name) },
+                    ) else null,
+                )
                 // Portiva Link: auf einem anderen Portiva-Geraet (TV-Stick, Tablet, PC) weiterschauen
                 if (canSendToDevice(current()) && !watchingRecording) {
                     IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { showSendDialog = true }) {
@@ -528,6 +534,14 @@ class VlcPlayerActivity : ComponentActivity() {
     }
 
     /** Position des laufenden Films/der Episode merken (Weiterschauen). */
+    /** Wiedergabe laeuft jetzt auf einem anderen Portiva-Geraet -> hier beenden. */
+    private fun sentToDevice(name: String) {
+        saveResume()
+        runCatching { mediaPlayer.stop() }
+        android.widget.Toast.makeText(this, "Läuft jetzt auf „$name“", android.widget.Toast.LENGTH_SHORT).show()
+        finish()
+    }
+
     private fun saveResume() {
         val e = current() ?: return
         if (e.live || resumeTarget > 0) return // noch nicht an die gemerkte Stelle gesprungen

@@ -22,6 +22,9 @@ import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ScreenShare
 import androidx.compose.material.icons.filled.Speaker
+import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.PhoneAndroid
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.verticalScroll
@@ -70,11 +73,17 @@ fun CastButton(
     poster: String? = null,
     tint: Color = MaterialTheme.colorScheme.onSurface,
     onCasting: () -> Unit = {},
+    /** Dialog offen/zu – der Player blendet seine Leiste solange nicht aus (sonst schliesst sich der Dialog mit). */
+    onOpenChange: (Boolean) -> Unit = {},
+    /** Portiva Link: an ein anderes Portiva-Geraet senden (nur im Player). */
+    link: PortivaLinkTarget? = null,
 ) {
     val available by container.cast.available.collectAsState()
-    if (!available) return
-    val connected by container.cast.connectedTo.collectAsState()
     var open by remember { mutableStateOf(false) }
+    DisposableEffect(open) { onOpenChange(open); onDispose { if (open) onOpenChange(false) } }
+    // Ohne Google Cast (z.B. Fire TV) trotzdem anzeigen, wenn an Portiva-Geraete gesendet werden kann
+    if (!available && link == null) return
+    val connected by container.cast.connectedTo.collectAsState()
     IconButton(onClick = { open = true }, modifier = Modifier.tvFocus(CircleShape)) {
         Icon(
             if (connected != null) Icons.Filled.CastConnected else Icons.Filled.Cast,
@@ -82,17 +91,27 @@ fun CastButton(
             tint = if (connected != null) BrandCyan else tint,
         )
     }
-    if (open) CastDialog(container, entry, poster, onDismiss = { open = false }, onCasting = { open = false; onCasting() })
+    if (open) CastDialog(container, entry, poster, link, onDismiss = { open = false }, onCasting = { open = false; onCasting() })
 }
+
+/** Was der Player fuer "An Portiva-Geraet senden" mitgibt. */
+class PortivaLinkTarget(
+    val position: () -> Long,
+    val duration: () -> Long,
+    /** Wurde gesendet -> hier stoppen (Name des Zielgeraets). */
+    val onSent: (String) -> Unit,
+)
 
 @Composable
 private fun CastDialog(
     container: AppContainer,
     entry: PlayEntry?,
     poster: String?,
+    link: PortivaLinkTarget?,
     onDismiss: () -> Unit,
     onCasting: () -> Unit,
 ) {
+    val castAvailable by container.cast.available.collectAsState()
     val cast = container.cast
     val devices by cast.devices.collectAsState()
     val searching by cast.searching.collectAsState()
@@ -101,8 +120,19 @@ private fun CastDialog(
     val casting = entry != null && !entry.url.startsWith("/")
 
     DisposableEffect(Unit) {
-        cast.startDiscovery()
-        onDispose { cast.stopDiscovery() }
+        if (castAvailable) cast.startDiscovery()
+        onDispose { if (castAvailable) cast.stopDiscovery() }
+    }
+    // Portiva Link: andere Portiva-Geraete im Heimnetz (TV-Stick, Tablet, PC)
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var linkRound by remember { mutableStateOf(0) }
+    var linkDevices by remember { mutableStateOf<List<com.poweriptv.app.link.LinkDevice>?>(null) }
+    var linkStatus by remember { mutableStateOf<String?>(null) }
+    val canLink = link != null && entry != null && entry.url.startsWith("http", ignoreCase = true)
+    androidx.compose.runtime.LaunchedEffect(linkRound) {
+        if (!canLink) return@LaunchedEffect
+        linkDevices = null
+        linkDevices = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.poweriptv.app.link.LinkClient.discover(container.link.port) }
     }
 
     AlertDialog(
@@ -126,14 +156,16 @@ private fun CastDialog(
                     }
                 } else {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (searching) {
+                        if (!castAvailable) {
+                            Text("Geräte im Heimnetz", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                        } else if (searching) {
                             CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(10.dp))
                             Text("Suche im WLAN...", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                         } else {
-                            Text("${devices.size} Geraet(e) gefunden", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                            Text("${devices.size} Cast-Gerät(e) gefunden", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                         }
-                        TextButton(onClick = { cast.rescan() }, modifier = Modifier.tvFocus(RoundedCornerShape(50))) {
+                        TextButton(onClick = { if (castAvailable) cast.rescan(); linkRound++ }, modifier = Modifier.tvFocus(RoundedCornerShape(50))) {
                             Icon(Icons.Filled.Refresh, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("Neu suchen")
                         }
                     }
@@ -164,7 +196,50 @@ private fun CastDialog(
                             }
                         }
                     }
-                    Text(
+                    if (canLink) {
+                        Text("Portiva-Geräte (TV-Stick, Tablet, PC) – dort an derselben Stelle weiterschauen", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
+                        val ld = linkDevices
+                        when {
+                            ld == null -> Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(10.dp))
+                                Text("Suche Portiva-Geräte …", style = MaterialTheme.typography.bodySmall)
+                            }
+                            ld.isEmpty() -> Text(
+                                "Keins gefunden – Portiva muss auf dem anderen Gerät geöffnet sein (gleiches WLAN, ab Version 1.1.82).",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            else -> ld.forEach { d ->
+                                Row(
+                                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).tvFocus(RoundedCornerShape(10.dp))
+                                        .clickable {
+                                            linkStatus = "Sende an ${d.name} …"
+                                            scope.launch {
+                                                val dur = link!!.duration()
+                                                val play = com.poweriptv.app.link.LinkPlay(
+                                                    entry!!.title, entry.url, entry.live, if (entry.live) 0 else link.position(), if (dur > 0) dur else 0,
+                                                    poster, container.deviceName(),
+                                                )
+                                                val err = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.poweriptv.app.link.LinkClient.sendPlay(d, play) }
+                                                if (err == null) { onDismiss(); link.onSent(d.name) } else linkStatus = err
+                                            }
+                                        }
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(if (d.platform == "windows") Icons.Filled.Computer else if (d.platform.contains("tv")) Icons.Filled.Tv else Icons.Filled.PhoneAndroid, null, tint = BrandCyan)
+                                    Spacer(Modifier.width(12.dp))
+                                    Column {
+                                        Text(d.name, fontWeight = FontWeight.SemiBold)
+                                        Text("Portiva", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+                        linkStatus?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) }
+                    }
+                    if (castAvailable) Text(
                         "Google Cast: Chromecast, Google TV und Fernseher mit \"Chromecast built-in\" im selben WLAN.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

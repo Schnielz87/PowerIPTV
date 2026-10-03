@@ -415,8 +415,8 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                         }
                         RoundIcon(Icons.Filled.History, "Zum vorherigen Sender (B)") { zapBack() }
                     }
-                    CastMenu(ctl) { toast = it }
-                    LinkSendMenu(app, req, ctl) { toast = it }
+                    CastMenu(ctl, onOpenChange = { menuOpen = it; poke() }) { toast = it }
+                    LinkSendMenu(app, req, ctl, onOpenChange = { menuOpen = it; poke() }) { toast = it }
                     SettingsMenu(ctl, aspect, isLive, onAspect = { app.playerAspect = it }, onOpenChange = { menuOpen = it; poke() },
                         sleepMinutes = app.sleepUntil.takeIf { it > 0 }?.let { ((it - now) / 60_000L + 1).toInt() }, onSleep = ::setSleep)
                     if (isLive && req.channels.isNotEmpty()) RoundIcon(Icons.Filled.FormatListBulleted, "Senderliste (L)") { showChannels = !showChannels }
@@ -688,9 +688,11 @@ private fun RecordDialog(app: AppState, req: PlayRequest, onDismiss: () -> Unit,
 
 /** Portiva Link: auf einem anderen Portiva-Geraet (TV-Stick, Tablet, Handy) an derselben Stelle weiterschauen. */
 @Composable
-private fun LinkSendMenu(app: AppState, req: PlayRequest, ctl: PlayerController, onInfo: (String) -> Unit) {
+private fun LinkSendMenu(app: AppState, req: PlayRequest, ctl: PlayerController, onOpenChange: (Boolean) -> Unit, onInfo: (String) -> Unit) {
     if (!req.url.startsWith("http", ignoreCase = true)) return
     var open by remember { mutableStateOf(false) }
+    // Menue offen -> Leiste bleibt sichtbar (sonst schliesst sich das Menue mitten in der Suche)
+    androidx.compose.runtime.DisposableEffect(open) { onOpenChange(open); onDispose { if (open) onOpenChange(false) } }
     var devices by remember { mutableStateOf<List<com.poweriptv.app.link.LinkDevice>?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     LaunchedEffect(open) {
@@ -726,8 +728,10 @@ private fun LinkSendMenu(app: AppState, req: PlayRequest, ctl: PlayerController,
 
 /** Cast-Knopf: Geraete im Heimnetz suchen und den Stream dort abspielen. */
 @Composable
-private fun CastMenu(ctl: PlayerController, onInfo: (String) -> Unit) {
+private fun CastMenu(ctl: PlayerController, onOpenChange: (Boolean) -> Unit, onInfo: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
+    // Menue offen -> Leiste bleibt sichtbar (sonst schliesst sich das Menue mitten in der Suche)
+    androidx.compose.runtime.DisposableEffect(open) { onOpenChange(open); onDispose { if (open) onOpenChange(false) } }
     val devices by CastDiscovery.devices.collectAsState()
     Box {
         RoundIcon(if (ctl.castingTo != null) Icons.Filled.CastConnected else Icons.Filled.Cast, "Auf Fernseher übertragen",

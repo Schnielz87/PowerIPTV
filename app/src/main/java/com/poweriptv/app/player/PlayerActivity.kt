@@ -126,6 +126,8 @@ class PlayerActivity : ComponentActivity() {
     private var showRecordDialog by mutableStateOf(false)
     private var showFormatDialog by mutableStateOf(false)
     private var showSendDialog by mutableStateOf(false)
+    /** Uebertragen-Dialog offen -> Leiste nicht ausblenden (sonst schliesst sich der Dialog mitten in der Suche). */
+    private var castDialogOpen by mutableStateOf(false)
     /** Live: Senderliste im Bild und zuletzt gesehener Sender (Zurueck-Zappen). */
     private var showChannels by mutableStateOf(false)
     private var lastChannel = -1
@@ -367,7 +369,7 @@ class PlayerActivity : ComponentActivity() {
                         while (showOverlay) {
                             delay(500)
                             val idle = System.currentTimeMillis() - lastInteraction > 5000
-                            val busy = !player.playWhenReady || error != null || showRecordDialog || showFormatDialog || scrubPos != null
+                            val busy = !player.playWhenReady || error != null || showRecordDialog || showFormatDialog || scrubPos != null || castDialogOpen || showSendDialog
                             if (idle && !busy) hideOverlay()
                         }
                     }
@@ -451,12 +453,7 @@ class PlayerActivity : ComponentActivity() {
                         SendToDeviceDialog(
                             container, e,
                             position = { player.currentPosition }, duration = { player.duration },
-                            onSent = { name ->
-                                showSendDialog = false
-                                stopPlayback()
-                                android.widget.Toast.makeText(this@PlayerActivity, "Läuft jetzt auf „$name“", android.widget.Toast.LENGTH_SHORT).show()
-                                finish()
-                            },
+                            onSent = { name -> showSendDialog = false; sentToDevice(name) },
                             onDismiss = { showSendDialog = false },
                         )
                     }
@@ -537,9 +534,16 @@ class PlayerActivity : ComponentActivity() {
                         Icon(if (isFav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, "Favorit", tint = if (isFav) Color(0xFFFF5370) else Color.White)
                     }
                 }
-                CastButton(container, entry, entry?.item?.logo, tint = Color.White, onCasting = {
-                    withSwitch { player.pause() } // lokal pausieren, laeuft jetzt auf dem TV
-                })
+                CastButton(
+                    container, entry, entry?.item?.logo, tint = Color.White,
+                    onCasting = { withSwitch { player.pause() } }, // lokal pausieren, laeuft jetzt auf dem TV
+                    onOpenChange = { castDialogOpen = it; if (it) lastInteraction = System.currentTimeMillis() },
+                    // Portiva Link: auch hier die Portiva-Geraete (TV-Stick, Tablet, PC) anbieten
+                    link = if (canSendToDevice(entry) && !watchingRecording) com.poweriptv.app.ui.components.PortivaLinkTarget(
+                        position = { player.currentPosition }, duration = { player.duration },
+                        onSent = { name -> sentToDevice(name) },
+                    ) else null,
+                )
                 // Portiva Link: auf einem anderen Portiva-Geraet (TV-Stick, Tablet, PC) weiterschauen
                 if (canSendToDevice(entry) && !watchingRecording) {
                     IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { showSendDialog = true }) {
@@ -1189,6 +1193,13 @@ class PlayerActivity : ComponentActivity() {
     }
 
     /** Wiedergabe stoppen (Ton sofort aus). */
+    /** Wiedergabe laeuft jetzt auf einem anderen Portiva-Geraet -> hier beenden. */
+    private fun sentToDevice(name: String) {
+        stopPlayback()
+        android.widget.Toast.makeText(this, "Läuft jetzt auf „$name“", android.widget.Toast.LENGTH_SHORT).show()
+        finish()
+    }
+
     private fun stopPlayback() {
         saveResume()
         finishIntroLearning()

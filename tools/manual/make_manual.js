@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.82 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.83 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -314,8 +314,8 @@ c.push(step('Am Handy: Benutzer wechseln → beim gewünschten Zugang auf das QR
 c.push(step('Der Zugang erscheint sofort auf dem TV und wird aktiviert. Beim Samsung-TV dauert es einige Sekunden (der Fernseher holt den Zugang beim Handy ab – Portiva am Handy so lange geöffnet lassen).', 'n11'));
 c.push(tip('Der QR-Code eines Zugangs enthält die Zugangsdaten – nur dir selbst zeigen. Lokale M3U-Dateien lassen sich nicht übertragen (dort fehlt das QR-Symbol).'));
 c.push(h2('Wiedergabe an ein anderes Gerät senden'));
-c.push(step('Im Player oben auf das Fernseher-Symbol „An Gerät senden“ tippen (Samsung-TV: Knopf „📲 Senden“ in der Leiste).', 'n12'));
-c.push(step('Portiva sucht alle Portiva-Geräte im Heimnetz (TV-Stick, Tablet, Handy, Windows-PC) → Gerät wählen.', 'n12'));
+c.push(step('Im Player oben auf das Übertragen-Symbol (wie bei Chromecast) oder das Fernseher-Symbol „An Gerät senden“ tippen (Samsung-TV: Knopf „📲 Senden“). Das Fenster bleibt offen, bis du es schließt – auch wenn die Suche etwas dauert.', 'n12'));
+c.push(step('Unter „Portiva-Geräte“ erscheinen alle Geräte mit geöffnetem Portiva im Heimnetz (TV-Stick, Tablet, Handy, Windows-PC) → Gerät wählen. Darüber stehen wie bisher Chromecast-Geräte.', 'n12'));
 c.push(step('Der Film läuft dort an derselben Stelle weiter (Live TV: derselbe Sender), hier wird gestoppt.', 'n12'));
 c.push(tip('Portiva muss auf dem Zielgerät geöffnet sein (Android ab Version 10 erlaubt Apps im Hintergrund nicht, sich selbst zu öffnen). Samsung-Fernseher können senden, aber nichts empfangen. Windows fragt beim ersten Mal nach der Firewall – „Zulassen“ wählen.'));
 
