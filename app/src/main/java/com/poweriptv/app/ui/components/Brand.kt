@@ -40,6 +40,7 @@ import com.poweriptv.app.R
 import com.poweriptv.app.ui.theme.Background
 import com.poweriptv.app.ui.theme.BrandCyan
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun PortivaLogo(modifier: Modifier = Modifier) {
@@ -101,16 +102,19 @@ fun SplashScreen(onFinished: () -> Unit, playSound: Boolean = true) {
     val alpha = remember { Animatable(0f) }
     val context = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(Unit) {
-        // Eigener Start-Klang (zwei tiefe Schlaege + aufsteigender Akkord); laeuft nach dem Splash weiter aus
+        // Kino-Start-Klang: Anlauf (0-0,75 s), Schlag bei 0,75 s, Blechblaeser-Akkord; laeuft nach dem Splash aus
         if (playSound) runCatching {
             android.media.MediaPlayer.create(context.applicationContext, com.poweriptv.app.R.raw.intro_sound)?.apply {
                 setOnCompletionListener { it.release() }
                 start()
             }
         }
-        alpha.animateTo(1f, tween(500))
-        scale.animateTo(1f, tween(600))
-        delay(1100)
+        // Logo blendet waehrend des Anlaufs leise ein und "springt" genau auf den Schlag
+        alpha.animateTo(0.45f, tween(720))
+        launch { alpha.animateTo(1f, tween(120)) }
+        scale.animateTo(1.08f, tween(140))
+        scale.animateTo(1f, tween(260))
+        delay(1350)
         onFinished()
     }
     Box(
