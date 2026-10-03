@@ -1,0 +1,45 @@
+// Build fuer Samsung Tizen (Chromium M56): JS/CSS buendeln und auf chrome56 uebersetzen,
+// statische Dateien nach build/ kopieren, Version in config.xml setzen.
+// Aufruf: node build.js            -> build/ (unsigniert, fertig zum Signieren mit Tizen Studio)
+const fs = require('fs');
+const path = require('path');
+const esbuild = require('esbuild');
+
+const out = path.join(__dirname, 'build');
+const build = process.env.BUILD_NUMBER || '0';
+const version = `1.1.${build}`;
+
+fs.rmSync(out, { recursive: true, force: true });
+fs.mkdirSync(path.join(out, 'assets'), { recursive: true });
+
+// JavaScript: modernes JS -> ES2016 fuer Chromium 56 (kein ?., ??, Objekt-Spread, Module ...)
+esbuild.buildSync({
+  entryPoints: [path.join(__dirname, 'src', 'main.js')],
+  bundle: true,
+  format: 'iife',
+  target: ['chrome56'],
+  minify: true,
+  sourcemap: false,
+  legalComments: 'none',
+  define: { __APP_VERSION__: JSON.stringify(version) },
+  outfile: path.join(out, 'app.js'),
+});
+
+// CSS: ebenfalls fuer Chromium 56 (kein Grid verwendet, Flexbox only)
+esbuild.buildSync({
+  entryPoints: [path.join(__dirname, 'src', 'app.css')],
+  bundle: true,
+  target: ['chrome56'],
+  minify: true,
+  outfile: path.join(out, 'app.css'),
+});
+
+for (const f of ['index.html', 'icon.png']) fs.copyFileSync(path.join(__dirname, f), path.join(out, f));
+for (const f of fs.readdirSync(path.join(__dirname, 'assets'))) {
+  fs.copyFileSync(path.join(__dirname, 'assets', f), path.join(out, 'assets', f));
+}
+const config = fs.readFileSync(path.join(__dirname, 'config.xml'), 'utf8')
+  .replace(/(<widget[^>]*\sversion=")[^"]*(")/, `$1${version}$2`);
+fs.writeFileSync(path.join(out, 'config.xml'), config);
+
+console.log(`Tizen-Build ${version} -> ${out}`);

@@ -1,0 +1,12 @@
+{
+  "name": "portiva-tizen",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Portiva – PowerIPTV für Samsung Smart TV (Tizen 4.0+, Chromium M56)",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "devDependencies": {
+    "esbuild": "0.23.1"
+  }
+}

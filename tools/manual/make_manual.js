@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.80 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.81 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -49,7 +49,7 @@ c.push(new Paragraph({ children: [new PageBreak()] }));
 
 // 1
 c.push(h1('1. Was die App kann'));
-c.push(p('PowerIPTV ist ein IPTV-Player für Live-TV, Filme und Serien deines Anbieters (Xtream Codes oder M3U). Eine einzige App-Datei läuft auf Handy, Tablet, Fire TV und Android TV und passt die Oberfläche automatisch an. Zusätzlich gibt es eine eigene Version für Windows-PCs (Kapitel 14).'));
+c.push(p('PowerIPTV ist ein IPTV-Player für Live-TV, Filme und Serien deines Anbieters (Xtream Codes oder M3U). Eine einzige App-Datei läuft auf Handy, Tablet, Fire TV und Android TV und passt die Oberfläche automatisch an. Zusätzlich gibt es eine eigene Version für Windows-PCs (Kapitel 14) und für Samsung Smart TVs ab 2018 (Kapitel 15).'));
 table; c.push(table(['Bereich', 'Funktionen'], [
   ['Anmeldung', 'Xtream Codes, M3U-Link oder M3U-Datei; mehrere Profile'],
   ['Live-TV', 'Senderliste im Bild, letzter Sender, Timeshift (Pause), Aufnahmen, Catch-up, Multi-View'],
@@ -80,6 +80,8 @@ c.push(p('Unter „Update“ lässt sich die automatische Prüfung abschalten un
 c.push(p('Playlist und TV-Guide werden ebenfalls automatisch alle 24 Stunden aktualisiert – auch wenn die App länger geöffnet bleibt. Sofort geht es über die zwei Pfeile oben.'));
 c.push(h2('Windows-PC'));
 c.push(p('Siehe Kapitel 14 – dort steht die Installation der Windows-Version.'));
+c.push(h2('Samsung Smart TV'));
+c.push(p('Siehe Kapitel 15 – Installation über den Entwicklermodus des Fernsehers (einmalig mit dem PC).'));
 
 // 3
 c.push(h1('3. Erste Einrichtung'));
@@ -258,6 +260,47 @@ c.push(bullet([b('FSK: '), t('mit TMDB-Schlüssel (Einstellungen → Altersfreig
 c.push(bullet([b('Zugänge: '), t('bearbeiten (Stift) und löschen wie am Handy; Passwörter mit dem Windows-Datenschutz verschlüsselt.')]));
 c.push(bullet([b('Update: '), t('Kachel „Update“ neben „Einstellungen“ – ein Klick: sucht bei GitHub, lädt das neue Setup und installiert es (Portiva schließt sich dafür kurz). Zusätzlich automatische Prüfung alle 24 Stunden.')]));
 
+// 15 Samsung Smart TV (Tizen)
+c.push(new Paragraph({ children: [new PageBreak()] }));
+c.push(h1('15. PowerIPTV für Samsung Smart TV (Tizen)'));
+c.push(p('Für Samsung-Fernseher ab Baujahr 2018 (Tizen 4.0, z. B. UE49NU8009) gibt es eine eigene App mit dem Samsung-Videoplayer des Fernsehers. Sie wird einmalig vom PC aus installiert. Samsung erlaubt Apps außerhalb des Samsung-Stores nur mit einem eigenen, kostenlosen Samsung-Zertifikat, das an deinen Fernseher gebunden ist.'));
+c.push(h2('Was die TV-Version kann'));
+c.push(p('Zugänge (Xtream/M3U, mehrere Benutzer), Live TV, Filme und Serien mit Kategorien und Sprachauswahl, Favoriten, Verlauf, Weiterschauen, TV-Guide mit Catch-up und Erinnerungen, Suche, Kindersicherung, KI-Empfehlungen, Tonspur, Untertitel, Bildformat, Sleep-Timer, nächste Folge und „Intro überspringen“. Nicht möglich auf dem Fernseher: Aufnahmen, Downloads, VPN und Multi-Screen.'));
+c.push(tip('Ton: Samsung-Fernseher ab 2018 können kein DTS mehr abspielen. Hat ein Film mehrere Tonspuren, mit der grünen Taste eine andere wählen (z. B. AC3).'));
+c.push(h2('1. Software am PC installieren'));
+c.push(step([b('Tizen Studio herunterladen: '), t('https://developer.tizen.org/development/tizen-studio/download (Variante „with IDE installer“ für Windows, Mac oder Linux) und installieren.')], 'n6'));
+c.push(step([b('Samsung-Anleitung (falls nötig): '), t('https://developer.samsung.com/smarttv/develop/getting-started/setting-up-sdk/installing-tv-sdk.html')], 'n6'));
+c.push(step('Im Package Manager unter „Extension SDK“ installieren: „TV Extensions-4.0“ (oder neuer) und „Samsung Certificate Extension“.', 'n6'));
+c.push(h2('2. Entwicklermodus am Fernseher'));
+c.push(step('PC und Fernseher ins selbe Heimnetz. IP-Adresse des PCs notieren (Windows: Eingabeaufforderung → ipconfig → IPv4-Adresse).', 'n7'));
+c.push(step('Am Fernseher Home drücken → „Apps“ öffnen → auf der Fernbedienung 1 2 3 4 5 eingeben.', 'n7'));
+c.push(step('„Developer mode“ auf „On“ stellen, die IP-Adresse des PCs eintragen, OK.', 'n7'));
+c.push(step('Fernseher neu starten (Ein/Aus-Taste gedrückt halten oder kurz vom Strom trennen).', 'n7'));
+c.push(step('IP-Adresse des Fernsehers notieren: Einstellungen → Allgemein → Netzwerk → Netzwerkstatus → IP-Einstellungen.', 'n7'));
+c.push(h2('3. Verbinden und Zertifikat erstellen (einmalig)'));
+c.push(step('Tizen Studio → Tools → Device Manager → Remote Device Manager → „+“ → IP des Fernsehers eintragen → Verbindung einschalten.', 'n8'));
+c.push(step('Tools → Certificate Manager → „+“ → Samsung → TV → Profilname „PortivaTV“.', 'n8'));
+c.push(step('Neues Author-Zertifikat anlegen (Name, Passwort) und mit dem kostenlosen Samsung-Konto anmelden.', 'n8'));
+c.push(step('Neues Distributor-Zertifikat, Stufe „Public“ – die DUID des verbundenen Fernsehers wird automatisch eingetragen → Fertig.', 'n8'));
+c.push(h2('4. App signieren und installieren'));
+c.push(step('Auf GitHub unter „Releases“ die neueste Version öffnen und „PowerIPTV-Tizen-v1.1.X.zip“ herunterladen und entpacken.', 'n9'));
+c.push(step('Eingabeaufforderung im entpackten Ordner „PowerIPTV-Tizen“ öffnen (das Programm „tizen“ liegt in tizen-studio\\tools\\ide\\bin).', 'n9'));
+c.push(step([b('Signieren: '), t('tizen package -t wgt -s PortivaTV')], 'n9'));
+c.push(step([b('Installieren: '), t('tizen install -n Portiva.wgt -s <IP-des-Fernsehers>:26101')], 'n9'));
+c.push(step('Fertig – „Portiva“ erscheint am Fernseher unter „Apps“. Beim ersten Start den Zugang einrichten (OK auf einem Feld öffnet die Fernseher-Tastatur).', 'n9'));
+c.push(h2('Fernbedienung'));
+c.push(table(['Taste', 'Funktion'], [
+  ['Pfeile / OK / Zurück', 'Bedienen; auf der Startseite fragt Zurück, ob Portiva beendet werden soll'],
+  ['▶❚❚, ■, ⏪ ⏩', 'Pause/Weiter, Stopp, 30 Sekunden zurück/vor'],
+  ['← / → (Leiste aus)', 'Film/Serie 10 Sekunden zurück/vor'],
+  ['CH+ / CH− oder ↑ / ↓', 'Sender umschalten; 0–9 = Sendernummer direkt'],
+  ['Rot / Grün / Gelb / Blau', 'Favorit / Tonspur (TV-Guide, Sortieren) / Untertitel (Kategorie-Menü) / Bildformat'],
+  ['CH LIST, INFO, GUIDE', 'Senderliste, Infoleiste, Programm des Senders'],
+], [3000, 6000]));
+c.push(h2('Updates'));
+c.push(p('Die Kachel „Update“ prüft alle 24 Stunden bei GitHub und leuchtet bei einer neuen Version. Installiert wird wie oben (Schritt 4) mit derselben Zertifikat-Datei – Zugänge, Favoriten und Verlauf bleiben erhalten.'));
+c.push(tip('Die Zertifikat-Dateien (author.p12, distributor.p12) gut aufheben und nie weitergeben. Mit einem neuen Zertifikat muss die App vorher deinstalliert werden.'));
+
 const doc = new Document({
   creator: 'Portiva', title: 'PowerIPTV – Bedienungsanleitung',
   styles: {
@@ -269,7 +312,7 @@ const doc = new Document({
   },
   numbering: { config: [
     { reference: 'bul', levels: [{ level: 0, format: LevelFormat.BULLET, text: '•', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] },
-    ...['n1', 'n2', 'n3', 'n4', 'n5', 'num'].map(r => ({ reference: r, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] })),
+    ...['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'num'].map(r => ({ reference: r, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] })),
   ] },
   features: { updateFields: true },
   sections: [{

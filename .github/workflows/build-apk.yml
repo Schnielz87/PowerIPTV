@@ -1,4 +1,4 @@
-name: APK + Windows bauen & veroeffentlichen
+name: APK + Windows + Samsung TV bauen & veroeffentlichen
 
 on:
   push:
@@ -107,8 +107,67 @@ jobs:
           name: Portiva-Windows
           path: out/*
 
+  # Samsung Smart TV (Ordner "Tizen Samsung/"): Web-App fuer Tizen 4.0+ (Chromium M56)
+  tizen:
+    runs-on: ubuntu-latest
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+    defaults:
+      run:
+        working-directory: Tizen Samsung
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Tizen-App bauen (JS/CSS fuer Chromium 56)
+        run: |
+          npm ci
+          node build.js
+
+      - name: Unsigniertes Paket (zum Signieren mit dem eigenen Samsung-Zertifikat)
+        run: |
+          mkdir -p ../out
+          rm -rf PowerIPTV-Tizen && cp -r build PowerIPTV-Tizen
+          zip -qr "../out/PowerIPTV-Tizen-v1.1.${BUILD_NUMBER}.zip" PowerIPTV-Tizen
+
+      # Optional: fertig signierte PowerIPTV.wgt, wenn die Samsung-Zertifikate als Secrets hinterlegt sind
+      # (TIZEN_AUTHOR_P12_BASE64, TIZEN_AUTHOR_PASSWORD, TIZEN_DISTRIBUTOR_P12_BASE64, TIZEN_DISTRIBUTOR_PASSWORD).
+      # Das Zertifikat ist an die DUID des eigenen Fernsehers gebunden – es wird nie ins Repository eingecheckt.
+      - name: PowerIPTV.wgt signieren (optional)
+        continue-on-error: true
+        env:
+          AUTHOR_P12: ${{ secrets.TIZEN_AUTHOR_P12_BASE64 }}
+          AUTHOR_PW: ${{ secrets.TIZEN_AUTHOR_PASSWORD }}
+          DIST_P12: ${{ secrets.TIZEN_DISTRIBUTOR_P12_BASE64 }}
+          DIST_PW: ${{ secrets.TIZEN_DISTRIBUTOR_PASSWORD }}
+        run: |
+          if [ -z "$AUTHOR_P12" ] || [ -z "$DIST_P12" ]; then
+            echo "Keine Tizen-Zertifikate als Secrets – nur das unsignierte ZIP wird veroeffentlicht."
+            exit 0
+          fi
+          echo "$AUTHOR_P12" | base64 -d > "$RUNNER_TEMP/author.p12"
+          echo "$DIST_P12" | base64 -d > "$RUNNER_TEMP/distributor.p12"
+          wget -q https://download.tizen.org/sdk/Installer/tizen-studio_6.0/web-cli_Tizen_Studio_6.0_ubuntu-64.bin -O "$RUNNER_TEMP/tizen.bin"
+          chmod +x "$RUNNER_TEMP/tizen.bin"
+          "$RUNNER_TEMP/tizen.bin" --accept-license "$HOME/tizen-studio"
+          T="$HOME/tizen-studio/tools/ide/bin/tizen"
+          "$T" security-profiles add -n PortivaTV -a "$RUNNER_TEMP/author.p12" -p "$AUTHOR_PW" -d "$RUNNER_TEMP/distributor.p12" -dp "$DIST_PW"
+          "$T" package -t wgt -s PortivaTV -- "$PWD/build"
+          W=$(ls build/*.wgt | head -1)
+          cp "$W" "../out/PowerIPTV-Tizen-v1.1.${BUILD_NUMBER}.wgt"
+          cp "$W" "../out/PowerIPTV.wgt"
+          rm -f "$RUNNER_TEMP/author.p12" "$RUNNER_TEMP/distributor.p12"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Portiva-Tizen
+          path: out/*
+
   release:
-    needs: [build, windows]
+    needs: [build, windows, tizen]
     # Die APK erscheint auch dann, wenn der Windows-Build einmal fehlschlaegt
     if: ${{ always() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
@@ -122,6 +181,12 @@ jobs:
         if: ${{ needs.windows.result == 'success' }}
         with:
           name: Portiva-Windows
+          path: out
+
+      - uses: actions/download-artifact@v4
+        if: ${{ needs.tizen.result == 'success' }}
+        with:
+          name: Portiva-Tizen
           path: out
 
       # Jede erfolgreiche Version erscheint unter "Releases" – dort einfach die passende Datei antippen.
@@ -145,5 +210,10 @@ jobs:
             💻 **Windows-PC:** `Portiva-Windows-Setup-v1.1.${{ github.run_number }}.exe` herunterladen und ausfuehren
             (bei der Windows-Warnung „Weitere Informationen“ → „Trotzdem ausfuehren“). VLC ist bereits enthalten.
             Ohne Installation: `Portiva-Windows-Portable-…zip` entpacken und `Portiva.exe` starten.
+
+            📺 **Samsung Smart TV (Tizen, z.B. UE49NU8009):** `PowerIPTV-Tizen-v1.1.${{ github.run_number }}.zip` am PC entpacken,
+            mit dem eigenen Samsung-Zertifikat signieren und per Entwicklermodus installieren
+            (`tizen package -t wgt -s PortivaTV -- PowerIPTV-Tizen` → `tizen install -n Portiva.wgt -t <TV>`).
+            Genaue Schritte: Bedienungsanleitung, Kapitel „Samsung Smart TV“.
 
             Commit: ${{ github.sha }}

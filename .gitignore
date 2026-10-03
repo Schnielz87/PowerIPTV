@@ -12,3 +12,7 @@
 *.jks
 /Windows/build/
 /Windows/.kotlin/
+/Tizen Samsung/node_modules/
+/Tizen Samsung/build/
+/Tizen Samsung/PowerIPTV-Tizen/
+*.p12

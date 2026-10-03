@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Portiva – PowerIPTV für Samsung Smart TV (Tizen 4.0 / 2018er Modelle, z.B. UE49NU8009).
+  Version wird beim Build aus der GitHub-Build-Nummer gesetzt (1.1.<Build>).
+-->
+<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets"
+        id="http://portiva.app/tizen/PowerIPTV" version="1.1.0" viewmodes="maximized">
+    <!-- Paket-ID: genau 10 Zeichen. Nicht aendern, sonst ist ein Update keine Aktualisierung mehr. -->
+    <tizen:application id="PortivaTV1.PowerIPTV" package="PortivaTV1" required_version="2.3"/>
+    <tizen:profile name="tv"/>
+    <content src="index.html"/>
+    <icon src="icon.png"/>
+    <name>Portiva</name>
+    <description>Portiva – PowerIPTV: Live TV, Filme und Serien (Xtream Codes / M3U)</description>
+    <author>Portiva</author>
+    <feature name="http://tizen.org/feature/screen.size.all"/>
+
+    <!-- Internet (IPTV-Anbieter, Bilder, EPG, Update-Pruefung) -->
+    <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <!-- Media-, Farb-, Zahlen- und Programmtasten der Fernbedienung -->
+    <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+    <!-- App beenden / Hintergrund -->
+    <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
+
+    <!-- Alle externen Server erlauben (IPTV-Anbieter nutzen oft eigene Domains, http und wechselnde Bild-Server) -->
+    <access origin="*" subdomains="true"/>
+    <tizen:allow-navigation>*</tizen:allow-navigation>
+    <tizen:content-security-policy>default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; img-src * data: blob:; media-src * blob:; connect-src *</tizen:content-security-policy>
+
+    <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="disable"
+                   encryption="disable" install-location="auto" hwkey-event="enable"/>
+</widget>

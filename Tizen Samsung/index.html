@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080, user-scalable=no">
+    <title>Portiva – PowerIPTV</title>
+    <link rel="stylesheet" href="app.css">
+    <!-- Samsung-Schnittstellen (AVPlay, Geraeteinfos). $WEBAPIS wird auf dem Fernseher ersetzt. -->
+    <script src="$WEBAPIS/webapis/webapis.js"></script>
+</head>
+<body>
+    <!-- Video-Ebene von AVPlay: liegt unter der Oberflaeche (Hintergrund wird beim Abspielen transparent) -->
+    <object id="av-player" type="application/avplayer"></object>
+    <video id="html-player" playsinline></video>
+    <div id="app"></div>
+    <div id="toast"></div>
+    <script src="app.js"></script>
+</body>
+</html>
