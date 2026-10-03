@@ -1,4 +1,4 @@
-name: APK bauen & veroeffentlichen
+name: APK + Windows bauen & veroeffentlichen
 
 on:
   push:
@@ -56,7 +56,75 @@ jobs:
           name: PowerIPTV-APK
           path: out/*.apk
 
-      # Jede erfolgreiche Version erscheint unter "Releases" – dort einfach die APK antippen.
+  # Windows-App (Ordner Windows/): Installer (.exe/.msi) + portable ZIP, VLC wird mitgeliefert
+  windows:
+    runs-on: windows-latest
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: VLC (libVLC) fuer den Player laden
+        shell: pwsh
+        run: |
+          $v = "3.0.21"
+          Invoke-WebRequest "https://download.videolan.org/pub/videolan/vlc/$v/win64/vlc-$v-win64.zip" -OutFile vlc.zip
+          Expand-Archive vlc.zip -DestinationPath vlctmp
+          $src = "vlctmp/vlc-$v"
+          $dst = "Windows/build/vlc-resources/windows/vlc"
+          New-Item -ItemType Directory -Force $dst | Out-Null
+          Copy-Item "$src/libvlc.dll", "$src/libvlccore.dll" $dst
+          Copy-Item "$src/plugins" $dst -Recurse
+          # Nicht benoetigt: VLC-eigene Oberflaechen, Skripte, Visualisierungen
+          foreach ($d in "gui", "lua", "visualization", "control") { Remove-Item "$dst/plugins/$d" -Recurse -Force -ErrorAction SilentlyContinue }
+          Get-ChildItem $dst | Format-Table Name
+
+      - name: Windows-App bauen
+        shell: pwsh
+        run: ./gradlew.bat -p Windows --no-daemon createDistributable packageExe packageMsi
+
+      - name: Dateien zusammenstellen
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          $b = "Windows/build/compose/binaries/main"
+          Copy-Item (Get-ChildItem "$b/exe/*.exe")[0].FullName "out/Portiva-Windows-Setup-v1.1.$env:BUILD_NUMBER.exe"
+          Copy-Item (Get-ChildItem "$b/msi/*.msi")[0].FullName "out/Portiva-Windows-v1.1.$env:BUILD_NUMBER.msi"
+          # Fester Name -> gleichbleibender Link .../releases/latest/download/Portiva-Windows-Setup.exe
+          Copy-Item "out/Portiva-Windows-Setup-v1.1.$env:BUILD_NUMBER.exe" "out/Portiva-Windows-Setup.exe"
+          Compress-Archive -Path "$b/app/Portiva" -DestinationPath "out/Portiva-Windows-Portable-v1.1.$env:BUILD_NUMBER.zip"
+          Get-ChildItem out | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Portiva-Windows
+          path: out/*
+
+  release:
+    needs: [build, windows]
+    # Die APK erscheint auch dann, wenn der Windows-Build einmal fehlschlaegt
+    if: ${{ always() && needs.build.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: PowerIPTV-APK
+          path: out
+
+      - uses: actions/download-artifact@v4
+        if: ${{ needs.windows.result == 'success' }}
+        with:
+          name: Portiva-Windows
+          path: out
+
+      # Jede erfolgreiche Version erscheint unter "Releases" – dort einfach die passende Datei antippen.
       - name: Release veroeffentlichen
         uses: softprops/action-gh-release@v2
         with:
@@ -64,7 +132,7 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: PowerIPTV v1.1.${{ github.run_number }} (neueste Version)
           make_latest: "true"
-          files: out/*.apk
+          files: out/*
           body: |
             **Portiva – PowerIPTV** · Build ${{ github.run_number }}
 
@@ -73,5 +141,9 @@ jobs:
 
             📺 **Fire TV / Android TV:** Dieselbe APK – die App erkennt den Fernseher automatisch.
             (`PowerIPTV.apk` ist identisch, nur mit festem Dateinamen fuer einen gleichbleibenden Download-Link.)
+
+            💻 **Windows-PC:** `Portiva-Windows-Setup-v1.1.${{ github.run_number }}.exe` herunterladen und ausfuehren
+            (bei der Windows-Warnung „Weitere Informationen“ → „Trotzdem ausfuehren“). VLC ist bereits enthalten.
+            Ohne Installation: `Portiva-Windows-Portable-…zip` entpacken und `Portiva.exe` starten.
 
             Commit: ${{ github.sha }}

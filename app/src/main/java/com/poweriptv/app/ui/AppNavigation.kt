@@ -57,8 +57,11 @@ fun AppNavigation(container: AppContainer, onConnectVpn: () -> Unit) {
             ProfilesScreen(
                 container = container,
                 onSelected = {
-                    nav.navigate(Routes.HOME) { popUpTo(Routes.PROFILES) { inclusive = true } }
+                    // Startseite mit dem neuen Zugang frisch aufbauen (alter Verlauf wird verworfen)
+                    nav.navigate(Routes.HOME) { popUpTo(nav.graph.id) { inclusive = true } }
                 },
+                onBack = { nav.popBackStack() },
+                canGoBack = container.source != null,
                 onAdd = { nav.navigate(Routes.addProfile()) },
                 onEdit = { nav.navigate(Routes.addProfile(it)) },
                 onVpn = { nav.navigate(Routes.VPN) },
@@ -93,8 +96,10 @@ fun AppNavigation(container: AppContainer, onConnectVpn: () -> Unit) {
                     container.selectedItem = item
                     nav.navigate(if (item.type == ContentType.SERIES) Routes.SERIES else Routes.MOVIE)
                 },
-                onSwitchProfile = {
-                    nav.navigate(Routes.PROFILES) { popUpTo(Routes.HOME) { inclusive = true } }
+                // Startseite bleibt im Verlauf -> mit "Zurueck" kommt man wieder hierher
+                onSwitchProfile = { nav.navigate(Routes.PROFILES) },
+                onProfileSwitched = {
+                    nav.navigate(Routes.HOME) { popUpTo(nav.graph.id) { inclusive = true } }
                 },
             )
         }

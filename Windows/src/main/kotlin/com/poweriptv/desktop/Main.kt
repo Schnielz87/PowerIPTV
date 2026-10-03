@@ -1,0 +1,149 @@
+package com.poweriptv.desktop
+
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowPosition
+import androidx.compose.ui.window.application
+import androidx.compose.ui.window.rememberWindowState
+import com.poweriptv.desktop.player.PlayerScreen
+import com.poweriptv.desktop.player.Vlc
+import com.poweriptv.desktop.ui.Background
+import com.poweriptv.desktop.ui.BrandWordmark
+import com.poweriptv.desktop.ui.NavRail
+import com.poweriptv.desktop.ui.PortivaLogo
+import com.poweriptv.desktop.ui.PowerTheme
+import com.poweriptv.desktop.ui.screens.BrowseScreen
+import com.poweriptv.desktop.ui.screens.DetailScreen
+import com.poweriptv.desktop.ui.screens.FavoritesScreen
+import com.poweriptv.desktop.ui.screens.HomeScreen
+import com.poweriptv.desktop.ui.screens.ProfilesScreen
+import com.poweriptv.desktop.ui.screens.SearchScreen
+import com.poweriptv.desktop.ui.screens.SettingsScreen
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.awt.Dimension
+import java.io.BufferedInputStream
+import javax.sound.sampled.AudioSystem
+
+val AppVersion: String = System.getProperty("jpackage.app-version") ?: "dev"
+
+@Suppress("DEPRECATION")
+fun main() = application {
+    val windowState = rememberWindowState(size = DpSize(1360.dp, 860.dp), position = WindowPosition(Alignment.Center))
+    val app = remember { AppState(windowState) }
+    Window(
+        onCloseRequest = {
+            app.shutdown()
+            exitApplication()
+        },
+        state = windowState,
+        title = "Portiva – PowerIPTV",
+        icon = painterResource("app_logo.xml"),
+    ) {
+        LaunchedEffect(Unit) {
+            window.minimumSize = Dimension(980, 620)
+            if (app.settings.value.startFullscreen) app.setFullscreen(true)
+        }
+        PowerTheme {
+            Surface(color = Background, contentColor = Color.White) { Root(app) }
+        }
+    }
+}
+
+@Composable
+private fun Root(app: AppState) {
+    var splash by remember { mutableStateOf(System.getProperty("portiva.nosplash") == null) }
+    if (splash) {
+        SplashScreen(playSound = app.settings.value.introSound) { splash = false }
+        return
+    }
+    Box(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxSize()) {
+            if (app.profile != null) NavRail(app)
+            Box(Modifier.weight(1f).fillMaxHeight()) {
+                when (val s = app.screen) {
+                    Screen.Home -> HomeScreen(app)
+                    is Screen.Browse -> BrowseScreen(app, s.type)
+                    Screen.Favorites -> FavoritesScreen(app)
+                    Screen.Search -> SearchScreen(app)
+                    Screen.Settings -> SettingsScreen(app)
+                    Screen.Profiles -> ProfilesScreen(app)
+                    is Screen.Detail -> DetailScreen(app, s.item)
+                }
+            }
+        }
+        app.playing?.let { req -> PlayerScreen(app, req) }
+    }
+}
+
+/** Startbildschirm mit Kino-Klang: Logo blendet waehrend des Anlaufs ein und springt auf den Schlag. */
+@Composable
+private fun SplashScreen(playSound: Boolean, onFinished: () -> Unit) {
+    val scale = remember { Animatable(0.7f) }
+    val alpha = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        if (playSound) playIntroSound()
+        alpha.animateTo(0.45f, tween(720))
+        launch { alpha.animateTo(1f, tween(120)) }
+        scale.animateTo(1.08f, tween(140))
+        scale.animateTo(1f, tween(260))
+        delay(1350)
+        onFinished()
+    }
+    Box(
+        Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF0F2A4D), Background), radius = 1600f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.alpha(alpha.value).scale(scale.value)) {
+            PortivaLogo(Modifier.size(150.dp))
+            Spacer(Modifier.height(18.dp))
+            BrandWordmark(large = true, centered = true)
+        }
+    }
+}
+
+private fun playIntroSound() {
+    Thread {
+        runCatching {
+            val res = AppState::class.java.getResourceAsStream("/intro_sound.wav") ?: return@runCatching
+            AudioSystem.getAudioInputStream(BufferedInputStream(res)).use { stream ->
+                val clip = AudioSystem.getClip()
+                clip.open(stream)
+                clip.start()
+                Thread.sleep(clip.microsecondLength / 1000 + 200)
+                clip.close()
+            }
+        }
+    }.apply { isDaemon = true }.start()
+}
+
+fun AppState.shutdown() {
+    playing = null
+    Vlc.release()
+}

@@ -83,6 +83,7 @@ import com.poweriptv.app.data.ContentItem
 import com.poweriptv.app.data.ContentType
 import com.poweriptv.app.player.MultiViewActivity
 import com.poweriptv.app.ui.components.BrandTopBar
+import com.poweriptv.app.ui.components.ProfileSwitcher
 import com.poweriptv.app.ui.components.CastButton
 import com.poweriptv.app.ui.components.CastingBar
 import com.poweriptv.app.ui.components.VpnBadge
@@ -100,6 +101,7 @@ fun HomeScreen(
     onVpn: () -> Unit,
     onDownloads: () -> Unit,
     onSwitchProfile: () -> Unit,
+    onProfileSwitched: () -> Unit = {},
     onEpg: () -> Unit,
     onRecordings: () -> Unit,
     onRecommendations: () -> Unit,
@@ -127,7 +129,7 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            BrandTopBar(subtitle = source?.profile?.name, actions = {
+            BrandTopBar(titleContent = { ProfileSwitcher(container) { onProfileSwitched() } }, actions = {
                 CastButton(container)
                 IconButton(onClick = onSearch, modifier = Modifier.tvFocus()) { Icon(Icons.Filled.Search, "Suche") }
                 IconButton(onClick = { container.refreshPlaylist(force = true) }, enabled = !refreshing, modifier = Modifier.tvFocus()) {

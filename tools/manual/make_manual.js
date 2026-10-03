@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.71 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.72 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -49,7 +49,7 @@ c.push(new Paragraph({ children: [new PageBreak()] }));
 
 // 1
 c.push(h1('1. Was die App kann'));
-c.push(p('PowerIPTV ist ein IPTV-Player für Live-TV, Filme und Serien deines Anbieters (Xtream Codes oder M3U). Eine einzige App-Datei läuft auf Handy, Tablet, Fire TV und Android TV und passt die Oberfläche automatisch an.'));
+c.push(p('PowerIPTV ist ein IPTV-Player für Live-TV, Filme und Serien deines Anbieters (Xtream Codes oder M3U). Eine einzige App-Datei läuft auf Handy, Tablet, Fire TV und Android TV und passt die Oberfläche automatisch an. Zusätzlich gibt es eine eigene Version für Windows-PCs (Kapitel 14).'));
 table; c.push(table(['Bereich', 'Funktionen'], [
   ['Anmeldung', 'Xtream Codes, M3U-Link oder M3U-Datei; mehrere Profile'],
   ['Live-TV', 'Senderliste im Bild, letzter Sender, Timeshift (Pause), Aufnahmen, Catch-up, Multi-View'],
@@ -71,6 +71,8 @@ c.push(step('App „Downloader“ aus dem Amazon App Store installieren.', 'n2')
 c.push(step('Einstellungen → Mein Fire TV → Entwickleroptionen → „Apps unbekannter Herkunft“ für Downloader aktivieren.', 'n2'));
 c.push(step('In Downloader den Link zur APK aus den Releases eingeben, laden und installieren.', 'n2'));
 c.push(tip('Updates werden einfach über die vorhandene App installiert – Profile und Einstellungen bleiben erhalten.'));
+c.push(h2('Windows-PC'));
+c.push(p('Siehe Kapitel 14 – dort steht die Installation der Windows-Version.'));
 
 // 3
 c.push(h1('3. Erste Einrichtung'));
@@ -81,10 +83,12 @@ c.push(p('Die Listen werden automatisch alle 24 Stunden aktualisiert; über das 
 
 // 4
 c.push(h1('4. Startseite'));
+c.push(bullet([b('Benutzer-Männchen (oben neben dem Logo): '), t('antippen → Liste aller Zugänge; der aktive ist blau mit Haken markiert. Ein Tipp auf einen anderen Zugang wechselt sofort. Bearbeiten und Löschen gibt es nur unter „Benutzer wechseln“.')]));
 c.push(bullet([b('Große Kacheln: '), t('Live TV, Filme, Serien.')]));
 c.push(bullet([b('Kleine Kacheln: '), t('Suche, Programmführer, Favoriten, Aufnahmen, Downloads, Empfehlungen, Multi-View, VPN, Einstellungen.')]));
 c.push(bullet([b('Weiterschauen: '), t('angefangene Filme mit Fortschritt und Restzeit sowie die zuletzt gesehene Folge jeder Serie.')]));
 c.push(bullet([b('Zuletzt gesehen: '), t('getrennt nach Live TV, Filme und Serien. Ein Tipp auf „Alle anzeigen ›“ öffnet die große Übersicht mit Reitern; lange drücken entfernt einen Eintrag.')]));
+c.push(bullet([b('Benutzer wechseln (Kachel): '), t('zeigt alle Zugänge zum Bearbeiten, Löschen und Neu-Anlegen. Der aktive Zugang ist blau umrandet und mit „AKTIV“ markiert. Mit der Zurück-Taste (oder dem Pfeil oben) geht es ohne Wechsel zurück zur Startseite.')]));
 
 // 5
 c.push(h1('5. Live TV, Filme & Serien durchsuchen'));
@@ -193,6 +197,34 @@ c.push(table(['Problem', 'Lösung'], [
   ['Senderliste veraltet', 'Aktualisieren-Symbol in der Kategorie-Ansicht antippen.'],
 ], [3000, 6026]));
 
+// 14
+c.push(h1('14. PowerIPTV für Windows'));
+c.push(p('Für den Windows-PC gibt es eine eigene Version mit gleicher Optik – angepasst an Maus und Tastatur. Der Player (VLC) ist bereits enthalten, es muss nichts zusätzlich installiert werden.'));
+c.push(h2('Installieren'));
+c.push(step('Auf GitHub unter „Releases“ die neueste Version öffnen (fester Link: …/releases/latest/download/Portiva-Windows-Setup.exe).', 'n4'));
+c.push(step('„Portiva-Windows-Setup-v1.1.X.exe“ herunterladen und doppelklicken.', 'n4'));
+c.push(step('Warnt Windows („Der Computer wurde durch Windows geschützt“): „Weitere Informationen“ → „Trotzdem ausführen“.', 'n4'));
+c.push(step('Danach startet Portiva über das Startmenü oder die Desktop-Verknüpfung.', 'n4'));
+c.push(p('Ohne Installation: „Portiva-Windows-Portable-…zip“ entpacken und „Portiva.exe“ starten. Updates: einfach die neue Setup-Datei ausführen – Zugänge, Favoriten und Verlauf bleiben erhalten.'));
+c.push(h2('Bedienung'));
+c.push(bullet([b('Linke Leiste: '), t('Start, Live TV, Filme, Serien, Favoriten, Suche, Einstellungen und der aktive Zugang.')]));
+c.push(bullet([b('Rechtsklick '), t('auf Sender, Film, Serie oder Folge: Favorit, gesehen markieren, aus „Weiterschauen“ entfernen.')]));
+c.push(bullet([b('Startseite: '), t('Kacheln, Weiterschauen, zuletzt gesehene Sender, Favoriten; oben Ablaufdatum und Streams des Zugangs.')]));
+c.push(bullet([b('Player: '), t('Klick = Pause, Doppelklick = Vollbild, Mausrad = Lautstärke. Zahnrad: Bildformat, Tonspur, Untertitel, Geschwindigkeit. Bei Serien „Nächste Folge“ 40 Sekunden vor Schluss.')]));
+c.push(table(['Taste', 'Funktion'], [
+  ['Leertaste / K', 'Pause / Weiter'],
+  ['← / →', '10 Sekunden zurück / vor (mit Umschalt: 1 Minute)'],
+  ['↑ / ↓', 'Lautstärke; bei Live TV: Sender wechseln'],
+  ['Bild ↑ / Bild ↓', 'Sender wechseln'],
+  ['M', 'Ton aus / an'],
+  ['F, F11, Doppelklick', 'Vollbild an / aus'],
+  ['L', 'Senderliste (Live TV)'],
+  ['N', 'Nächste Folge'],
+  ['Esc', 'Vollbild verlassen bzw. Player schließen'],
+], [3000, 6026]));
+c.push(tip('Dein Passwort wird mit dem Windows-Datenschutz (DPAPI) verschlüsselt gespeichert – nur dein Windows-Konto auf diesem PC kann es lesen. Alle Daten liegen unter %APPDATA%\\Portiva.'));
+c.push(p('Noch nicht in der Windows-Version (folgt): Programmführer, Multi-View, Aufnahmen, Kindersicherung und Backup-Übernahme vom Handy.'));
+
 const doc = new Document({
   creator: 'Portiva', title: 'PowerIPTV – Bedienungsanleitung',
   styles: {
@@ -204,7 +236,7 @@ const doc = new Document({
   },
   numbering: { config: [
     { reference: 'bul', levels: [{ level: 0, format: LevelFormat.BULLET, text: '•', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] },
-    ...['n1', 'n2', 'n3', 'num'].map(r => ({ reference: r, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] })),
+    ...['n1', 'n2', 'n3', 'n4', 'num'].map(r => ({ reference: r, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] })),
   ] },
   features: { updateFields: true },
   sections: [{

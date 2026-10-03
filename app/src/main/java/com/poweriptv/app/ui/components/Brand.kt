@@ -74,13 +74,19 @@ fun BrandWordmark(large: Boolean = false, centered: Boolean = false) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BrandTopBar(subtitle: String? = null, actions: @Composable () -> Unit = {}) {
+fun BrandTopBar(
+    subtitle: String? = null,
+    /** Ersetzt den Schriftzug neben dem Logo (z.B. Benutzer-Schnellwechsel auf der Startseite). */
+    titleContent: (@Composable () -> Unit)? = null,
+    actions: @Composable () -> Unit = {},
+) {
     TopAppBar(
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 PortivaLogo(Modifier.size(38.dp))
                 Spacer(Modifier.width(10.dp))
-                Column {
+                if (titleContent != null) titleContent()
+                else Column {
                     BrandWordmark()
                     subtitle?.let {
                         Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)

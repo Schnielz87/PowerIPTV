@@ -1,6 +1,5 @@
 package com.poweriptv.app.data
 
-import android.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -277,7 +276,7 @@ class XtreamSource(
     }
 
     private fun decodeB64(s: String?): String? = s?.let {
-        runCatching { String(Base64.decode(it, Base64.DEFAULT), Charsets.UTF_8) }.getOrDefault(it)
+        runCatching { decodeBase64Text(it) }.getOrDefault(it)
     }
 
     private fun parseDate(s: String?): Long = s?.let {
