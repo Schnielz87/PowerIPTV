@@ -15,6 +15,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("uk.co.caprica:vlcj:4.8.3")
+    // XML-Pull-Parser fuer den geteilten EPG-Lader (XMLTV)
+    implementation("net.sf.kxml:kxml2:2.3.0")
 }
 
 // Datenlogik (Xtream/M3U) wird 1:1 aus der Android-App geteilt – nur reine Kotlin-Dateien ohne Android-Abhaengigkeit.
@@ -30,6 +32,7 @@ sourceSets {
                 "com/poweriptv/app/data/JsonExt.kt",
                 "com/poweriptv/app/data/M3uSource.kt",
                 "com/poweriptv/app/data/XtreamSource.kt",
+                "com/poweriptv/app/data/EpgRepository.kt",
                 "com/poweriptv/app/ui/components/CategoryRules.kt",
                 "com/poweriptv/app/ui/components/ContentFilter.kt",
             )

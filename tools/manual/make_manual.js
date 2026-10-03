@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.74 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.75 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -227,7 +227,8 @@ c.push(table(['Taste', 'Funktion'], [
   ['Esc', 'Vollbild verlassen bzw. Player schließen'],
 ], [3000, 6026]));
 c.push(tip('Dein Passwort wird mit dem Windows-Datenschutz (DPAPI) verschlüsselt gespeichert – nur dein Windows-Konto auf diesem PC kann es lesen. Alle Daten liegen unter %APPDATA%\\Portiva.'));
-c.push(p('Noch nicht in der Windows-Version (folgt): Programmführer, Multi-View, Aufnahmen, Kindersicherung und Backup-Übernahme vom Handy.'));
+c.push(bullet([b('TV-Guide (EPG): '), t('linke Leiste „TV-Guide“ oder Kachel – Zeitraster wie am Handy (Sprache, Favoriten, Gruppen). Sendung anklicken: Live ansehen, von Beginn an/Catch-up (bei Archiv-Sendern), 🔔 Erinnern. Die Erinnerung erscheint 5 Minuten vorher als Windows-Benachrichtigung und als Hinweis mit „Jetzt ansehen“ (Portiva muss dafür geöffnet sein). In der Senderliste und im Player steht, was gerade läuft und was danach kommt.')]));
+c.push(p('Noch nicht in der Windows-Version (folgt): Multi-View, Aufnahmen, Downloads, KI-Empfehlungen, VPN, Kindersicherung und Backup-Übernahme vom Handy.'));
 
 const doc = new Document({
   creator: 'Portiva', title: 'PowerIPTV – Bedienungsanleitung',

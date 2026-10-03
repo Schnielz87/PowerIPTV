@@ -27,6 +27,7 @@ sealed interface Screen {
     data object Search : Screen
     data object Settings : Screen
     data object Profiles : Screen
+    data object Epg : Screen
     data class Detail(val item: ContentItem) : Screen
 }
 
@@ -43,7 +44,11 @@ data class PlayRequest(
     val seriesCover: String? = null,
     /** Live: Sender der aktuellen Liste (fuer Senderwechsel). */
     val channels: List<ContentItem> = emptyList(),
-)
+    /** Catch-up/Timeshift einer vergangenen Sendung: spulbar wie ein Film. */
+    val catchup: Boolean = false,
+) {
+    val isLive: Boolean get() = item.type == ContentType.LIVE && !catchup
+}
 
 class AppState(val window: WindowState) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -64,12 +69,32 @@ class AppState(val window: WindowState) {
     /** Filter & Sortierung je Bereich (bleiben erhalten, wie Android). */
     val browseFilters = androidx.compose.runtime.mutableStateMapOf<ContentType, com.poweriptv.app.ui.components.ContentFilter>()
     val categoryPrefs = com.poweriptv.desktop.data.CategoryPrefsStore()
+    /** Programmfuehrer (XMLTV) – gleicher Lader wie in der Android-App. */
+    val epg = com.poweriptv.app.data.EpgRepository(
+        { java.io.File(com.poweriptv.desktop.data.AppDirs.cache, "epg") },
+        { com.poweriptv.desktop.data.Http },
+    ) { org.kxml2.io.KXmlParser() }
+    val reminders = com.poweriptv.desktop.data.ReminderStore()
     var refreshing by mutableStateOf(false); private set
     var refreshError by mutableStateOf<String?>(null); private set
     /** Wird bei jeder Aktualisierung erhoeht, damit Listen neu laden. */
     var dataVersion by mutableStateOf(0); private set
 
+    /** Faellige EPG-Erinnerung (Dialog "Sendung beginnt gleich"). */
+    var dueReminder by mutableStateOf<com.poweriptv.desktop.data.Reminder?>(null)
+
     init {
+        // Erinnerungen pruefen (alle 30 s): Windows-Benachrichtigung + Hinweis in der App
+        scope.launch {
+            while (true) {
+                reminders.takeDue().forEach { r ->
+                    val time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY).format(java.util.Date(r.start))
+                    com.poweriptv.desktop.data.DesktopNotifier.show("Gleich auf ${r.channelName}", "${r.title} – um $time")
+                    dueReminder = r
+                }
+                kotlinx.coroutines.delay(30_000)
+            }
+        }
         val last = settings.value.lastProfileId
         val p = profiles.profiles.value.firstOrNull { it.id == last } ?: profiles.profiles.value.firstOrNull()
         if (p != null) activate(p) else stack[0] = Screen.Profiles
@@ -83,7 +108,8 @@ class AppState(val window: WindowState) {
         stack.clear(); stack += Screen.Home
         selectedCategory.clear()
         dataVersion++
-        if (source?.isStale() == true) refresh()
+        epg.clear()
+        if (source?.isStale() == true) refresh() else loadEpg()
     }
 
     /** Kein Zugang mehr vorhanden -> Einrichtung. */
@@ -115,6 +141,28 @@ class AppState(val window: WindowState) {
                 .onFailure { refreshError = it.message ?: "Unbekannter Fehler" }
             refreshing = false
             dataVersion++
+            loadEpg(force = true)
+        }
+    }
+
+    fun loadEpg(force: Boolean = false) {
+        val src = source ?: return
+        scope.launch(Dispatchers.IO) { epg.ensureLoaded(src, force) }
+    }
+
+    /** Vergangene Sendung (Catch-up) oder laufende von Beginn an (Timeshift). */
+    fun playCatchup(channel: ContentItem, title: String, url: String) {
+        playing = PlayRequest(channel, url, channel.name, subtitle = "$title (Catch-up)", catchup = true)
+    }
+
+    /** Sender zur Erinnerung suchen und abspielen. */
+    fun playReminder(r: com.poweriptv.desktop.data.Reminder) {
+        val src = source ?: return
+        scope.launch {
+            val ch = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                runCatching { src.items(ContentType.LIVE, null) }.getOrDefault(emptyList()).firstOrNull { it.key == r.channelKey || it.name == r.channelName }
+            }
+            ch?.let { play(it) }
         }
     }
 

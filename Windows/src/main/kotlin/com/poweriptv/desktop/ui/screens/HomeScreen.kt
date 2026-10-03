@@ -245,7 +245,7 @@ private fun ToolTiles(app: AppState) {
     val tiles = listOf(
         Tile("Suche", Icons.Filled.Search) { app.navigate(Screen.Search) },
         Tile("Playlist aktualisieren", Icons.Filled.Sync) { app.refresh() },
-        Tile("TV-Guide (EPG)", Icons.Filled.CalendarViewWeek, true, soon("TV-Guide (EPG)")),
+        Tile("TV-Guide (EPG)", Icons.Filled.CalendarViewWeek) { app.navigate(Screen.Epg) },
         Tile("Aufnahmen", Icons.Filled.FiberSmartRecord, true, soon("Aufnahmen")),
         Tile("Multi-Screen", Icons.Filled.GridView, true, soon("Multi-Screen")),
         Tile("KI-Empfehlungen", Icons.Filled.AutoAwesome, true, soon("KI-Empfehlungen")),

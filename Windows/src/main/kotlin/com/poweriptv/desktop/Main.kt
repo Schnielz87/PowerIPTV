@@ -129,11 +129,23 @@ private fun Root(app: AppState) {
                     Screen.Search -> SearchScreen(app)
                     Screen.Settings -> SettingsScreen(app)
                     Screen.Profiles -> ProfilesScreen(app)
+                    Screen.Epg -> com.poweriptv.desktop.ui.screens.EpgScreen(app)
                     is Screen.Detail -> DetailScreen(app, s.item)
                 }
             }
         }
         app.playing?.let { req -> PlayerScreen(app, req) }
+        app.dueReminder?.let { r ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { app.dueReminder = null },
+                title = { androidx.compose.material3.Text("Gleich auf ${r.channelName}") },
+                text = { androidx.compose.material3.Text(r.title + " beginnt in wenigen Minuten.") },
+                confirmButton = {
+                    androidx.compose.material3.Button(onClick = { app.dueReminder = null; app.playReminder(r) }) { androidx.compose.material3.Text("Jetzt ansehen") }
+                },
+                dismissButton = { androidx.compose.material3.TextButton(onClick = { app.dueReminder = null }) { androidx.compose.material3.Text("Später") } },
+            )
+        }
     }
 }
 
@@ -180,5 +192,6 @@ private fun playIntroSound() {
 
 fun AppState.shutdown() {
     closePlayer()
+    com.poweriptv.desktop.data.DesktopNotifier.dispose()
     Vlc.release()
 }

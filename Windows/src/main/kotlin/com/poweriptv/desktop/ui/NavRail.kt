@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarViewWeek
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
@@ -59,6 +60,7 @@ fun NavRail(app: AppState) {
             Triple("Live TV", Icons.Filled.LiveTv, Screen.Browse(ContentType.LIVE)),
             Triple("Filme", Icons.Filled.Movie, Screen.Browse(ContentType.MOVIE)),
             Triple("Serien", Icons.Filled.VideoLibrary, Screen.Browse(ContentType.SERIES)),
+            Triple("TV-Guide", Icons.Filled.CalendarViewWeek, Screen.Epg),
             Triple("Favoriten", Icons.Filled.Favorite, Screen.Favorites),
             Triple("Suche", Icons.Filled.Search, Screen.Search),
         )

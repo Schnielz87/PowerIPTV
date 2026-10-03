@@ -291,6 +291,7 @@ private fun ContentGrid(app: AppState, type: ContentType, list: List<ContentItem
     val gridState = rememberLazyGridState()
     LaunchedEffect(resetKey) { gridState.scrollToItem(0) }
     if (type == ContentType.LIVE) {
+        val epgState by app.epg.state.collectAsState()
         LazyVerticalGrid(
             GridCells.Adaptive(300.dp), state = gridState,
             horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -299,6 +300,7 @@ private fun ContentGrid(app: AppState, type: ContentType, list: List<ContentItem
                 ChannelCard(
                     item, onClick = { app.play(item, channels = list) },
                     favorite = item.key in favKeys,
+                    subtitle = remember(item.key, epgState) { app.epg.current(item)?.let { "Jetzt: ${it.title}" } },
                     menu = listOf(MenuAction(if (item.key in favKeys) "Aus Favoriten entfernen" else "Zu Favoriten") { lib.toggleFavorite(item) }),
                 )
             }

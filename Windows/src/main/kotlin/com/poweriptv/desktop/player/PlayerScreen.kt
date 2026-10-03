@@ -127,7 +127,7 @@ private val BlankCursor: PointerIcon by lazy {
 fun PlayerScreen(app: AppState, req: PlayRequest) {
     val ctl = remember { app.playerController() }
     val current by rememberUpdatedState(req)
-    val isLive = req.item.type == ContentType.LIVE
+    val isLive = req.isLive
     val aspect = app.playerAspect
     var lastMove by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -143,7 +143,7 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
 
     fun savePosition() {
         val r = current
-        if (r.item.type == ContentType.LIVE || ctl.length <= 0) return
+        if (r.item.type == ContentType.LIVE || r.catchup || ctl.length <= 0) return
         val ep = r.episode
         app.library?.savePosition(
             episodeKey(r), ctl.time, ctl.length,
@@ -322,7 +322,12 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                             }
                             Text(req.title, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        req.subtitle?.let { Text(it, color = Color.White.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        val epgLine = if (isLive) {
+                            val cur = app.epg.current(req.item, now)
+                            val nxt = app.epg.next(req.item, now)
+                            listOfNotNull(cur?.let { "Jetzt: ${it.title}" }, nxt?.let { "Danach: ${it.title}" }).joinToString("   ·   ").ifBlank { null }
+                        } else null
+                        (req.subtitle ?: epgLine)?.let { Text(it, color = Color.White.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     }
                     formatBadge(ctl.videoHeight)?.let {
                         Text(it, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.18f)).padding(horizontal = 8.dp, vertical = 3.dp))

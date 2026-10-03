@@ -74,7 +74,7 @@ class AppContainer(private val app: Application) {
         .build()
 
     val downloads = DownloadRepository(app, json, { http }) { downloadConnections() }
-    val epg = EpgRepository(app) { http }
+    val epg = EpgRepository({ java.io.File(app.cacheDir, "epg") }, { http }) { android.util.Xml.newPullParser() }
     val parental = ParentalControl(app)
     val recordings = RecordingRepository(app, json)
     val reminders = com.poweriptv.app.reminder.ReminderRepository(app, json)

@@ -1,7 +1,5 @@
 package com.poweriptv.app.data
 
-import android.content.Context
-import android.util.Xml
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,8 +43,11 @@ sealed interface EpgState {
  * lokal zwischengespeichert (12 h) und im Speicher pro Kanal indiziert.
  */
 class EpgRepository(
-    private val context: Context,
+    /** Ordner fuer die zwischengespeicherte XMLTV-Datei. */
+    private val cacheDir: () -> File,
     private val http: () -> OkHttpClient,
+    /** XML-Parser der Plattform (Android: Xml.newPullParser(), Windows: KXmlParser). Geteilt mit Windows/. */
+    private val newParser: () -> XmlPullParser,
 ) {
     private val mutex = Mutex()
     private val _state = MutableStateFlow<EpgState>(EpgState.Idle)
@@ -81,7 +82,7 @@ class EpgRepository(
     }
 
     private fun download(profileId: String, url: String, force: Boolean): File {
-        val dir = File(context.cacheDir, "epg").apply { mkdirs() }
+        val dir = cacheDir().apply { mkdirs() }
         val file = File(dir, "$profileId.xml")
         val fresh = file.exists() && System.currentTimeMillis() - file.lastModified() < MAX_AGE
         if (fresh && !force) return file
@@ -111,7 +112,7 @@ class EpgRepository(
         val names = HashMap<String, String>()
 
         open(file).use { input ->
-            val parser = Xml.newPullParser()
+            val parser = newParser()
             parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
             parser.setInput(input, null)
 
