@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CastConnected
 import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material.icons.filled.ConnectedTv
 import androidx.compose.runtime.collectAsState
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.History
@@ -415,6 +416,7 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                         RoundIcon(Icons.Filled.History, "Zum vorherigen Sender (B)") { zapBack() }
                     }
                     CastMenu(ctl) { toast = it }
+                    LinkSendMenu(app, req, ctl) { toast = it }
                     SettingsMenu(ctl, aspect, isLive, onAspect = { app.playerAspect = it }, onOpenChange = { menuOpen = it; poke() },
                         sleepMinutes = app.sleepUntil.takeIf { it > 0 }?.let { ((it - now) / 60_000L + 1).toInt() }, onSleep = ::setSleep)
                     if (isLive && req.channels.isNotEmpty()) RoundIcon(Icons.Filled.FormatListBulleted, "Senderliste (L)") { showChannels = !showChannels }
@@ -682,6 +684,44 @@ private fun RecordDialog(app: AppState, req: PlayRequest, onDismiss: () -> Unit,
         },
         confirmButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Abbrechen") } },
     )
+}
+
+/** Portiva Link: auf einem anderen Portiva-Geraet (TV-Stick, Tablet, Handy) an derselben Stelle weiterschauen. */
+@Composable
+private fun LinkSendMenu(app: AppState, req: PlayRequest, ctl: PlayerController, onInfo: (String) -> Unit) {
+    if (!req.url.startsWith("http", ignoreCase = true)) return
+    var open by remember { mutableStateOf(false) }
+    var devices by remember { mutableStateOf<List<com.poweriptv.app.link.LinkDevice>?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    LaunchedEffect(open) {
+        if (!open) return@LaunchedEffect
+        devices = null
+        devices = withContext(Dispatchers.IO) { com.poweriptv.app.link.LinkClient.discover(app.link.port) }
+    }
+    Box {
+        RoundIcon(Icons.Filled.ConnectedTv, "An Gerät senden (Portiva)") { open = true }
+        DropdownMenu(open, onDismissRequest = { open = false }) {
+            MenuHeader(Icons.Filled.ConnectedTv, "An Portiva-Gerät senden")
+            val list = devices
+            when {
+                list == null -> DropdownMenuItem(text = { Text("Suche Portiva-Geräte im Heimnetz …") }, onClick = {}, enabled = false)
+                list.isEmpty() -> DropdownMenuItem(text = { Text("Kein Gerät gefunden – Portiva dort öffnen (gleiches WLAN)") }, onClick = {}, enabled = false)
+                else -> list.forEach { d ->
+                    DropdownMenuItem(text = { Text(d.name) }, onClick = {
+                        open = false
+                        scope.launch {
+                            val play = com.poweriptv.app.link.LinkPlay(
+                                req.title, req.url, req.isLive, if (req.isLive) 0L else ctl.time, ctl.length.coerceAtLeast(0L),
+                                req.item.logo, app.deviceName(),
+                            )
+                            val err = withContext(Dispatchers.IO) { com.poweriptv.app.link.LinkClient.sendPlay(d, play) }
+                            if (err == null) { onInfo("Läuft jetzt auf „${d.name}“"); app.closePlayer() } else onInfo(err)
+                        }
+                    })
+                }
+            }
+        }
+    }
 }
 
 /** Cast-Knopf: Geraete im Heimnetz suchen und den Stream dort abspielen. */

@@ -4,6 +4,7 @@ import { app, go, back, dialog, activateProfile, askPin } from '../app';
 import { profiles, parental } from '../store';
 import { createSource, normalizeServer } from '../sources';
 import { topbar, row, field, button } from './common';
+import { showAccountQr, receiveAccount } from './link';
 
 /** Liste der Zugaenge. Aktiver Zugang ist markiert; OK wechselt, Gelb/Rot bearbeitet. */
 export default function profilesScreen(params = {}) {
@@ -26,9 +27,15 @@ export default function profilesScreen(params = {}) {
       if (params.manage) {
         r._value.appendChild(h('span', null, 'OK = Bearbeiten'));
       }
-      inner.appendChild(r);
+      r.style.flex = '1 1 auto';
+      r.style.marginBottom = '0';
+      // QR-Code: diesen Zugang mit dem Handy/Tablet scannen
+      const qr = button('▦ QR', () => showAccountQr(p));
+      qr.style.margin = '0 0 0 14px';
+      inner.appendChild(h('div.row', { style: { marginBottom: '12px' } }, r, qr));
     });
-    inner.appendChild(row('＋ Zugang hinzufügen', 'Xtream Codes oder M3U-Link', '', () => go('profileEdit', {})));
+    inner.appendChild(row('＋ Zugang hinzufügen', 'Xtream Codes oder M3U-Link eingeben', '', () => go('profileEdit', {})));
+    inner.appendChild(row('📱 Vom Handy empfangen', 'Zugang per QR-Code vom Handy übertragen – ohne Tippen', '', () => receiveAccount()));
   }
 
   function select(p) {
@@ -70,7 +77,8 @@ export function profileEdit(params = {}) {
     params.first ? null : button('Abbrechen', () => back()));
   const list = h('div.list.scroll-y', null,
     h('div.form', { style: { padding: 0 } },
-      params.first ? h('p.dialog-text', null, 'Willkommen bei Portiva! Bitte richte deinen IPTV-Zugang ein.\nOK auf einem Feld öffnet die Tastatur des Fernsehers.') : null,
+      params.first ? h('p.dialog-text', null, 'Willkommen bei Portiva! Richte deinen IPTV-Zugang ein – am schnellsten vom Handy per QR-Code.\nOder manuell: OK auf einem Feld öffnet die Tastatur des Fernsehers.') : null,
+      params.profile ? null : h('div.buttons', null, button('📱 Vom Handy empfangen (QR-Code)', () => receiveAccount(), '.primary')),
       h('div.type-toggle', null, xtBtn, m3uBtn),
       name.el, xtFields, m3uFields, status, buttons));
   const el = h('div.page', null, topbar(params.profile ? 'Zugang bearbeiten' : 'Zugang hinzufügen', [], { noBack: params.first }), list);

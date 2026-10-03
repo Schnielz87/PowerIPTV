@@ -313,6 +313,43 @@ class AppState(val window: WindowState) {
         player ?: com.poweriptv.desktop.player.PlayerController(settings.value.networkCaching, settings.value.hardwareDecoding)
             .apply { setVolumeTo(settings.value.volume) }.also { player = it }
 
+    // ---------- Portiva Link (Zugang uebertragen, Wiedergabe weitergeben) – wie Android ----------
+    val linkPairCode = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    val linkReceived = kotlinx.coroutines.flow.MutableStateFlow<Profile?>(null)
+    val link = com.poweriptv.app.link.LinkService(
+        deviceName = { deviceName() }, platform = "windows",
+        onPlay = { receivePlay(it) }, onPair = { receivePair(it) },
+    ).also { it.start() }
+
+    fun deviceName(): String = System.getenv("COMPUTERNAME")?.takeIf { it.isNotBlank() }?.let { "PC $it" } ?: "Windows-PC"
+
+    /** Zugang von einem anderen Geraet speichern (gleicher Zugang wird aktualisiert). */
+    fun importAccount(a: com.poweriptv.app.link.LinkAccount): Profile {
+        val existing = profiles.profiles.value.firstOrNull {
+            it.type.name == a.type && it.serverUrl.trimEnd('/') == a.serverUrl.trimEnd('/') && it.username == a.username && it.m3uUrl == a.m3uUrl
+        }
+        val p = com.poweriptv.app.link.LinkCodes.toProfile(a, existing?.id ?: java.util.UUID.randomUUID().toString())
+        profiles.save(p)
+        return p
+    }
+
+    private fun receivePair(p: com.poweriptv.app.link.LinkPair): Boolean {
+        val code = linkPairCode.value ?: return false
+        if (p.code != code) return false
+        linkPairCode.value = null
+        linkReceived.value = importAccount(p.account)
+        return true
+    }
+
+    private fun receivePlay(p: com.poweriptv.app.link.LinkPlay): Boolean {
+        scope.launch {
+            val item = ContentItem(id = "link:" + p.url.hashCode(), name = p.title, type = if (p.live) ContentType.LIVE else ContentType.MOVIE, logo = p.logo)
+            closePlayer()
+            playing = PlayRequest(item, p.url, p.title, subtitle = if (p.from.isNotBlank()) "Von „${p.from}“" else null, startAt = if (p.live) 0L else p.positionMs)
+        }
+        return true
+    }
+
     /** Player schliessen: Einstellungen merken und VLC freigeben. */
     fun closePlayer() {
         player?.let { p -> settings.update { it.copy(volume = p.volume, aspect = playerAspect) }; p.release() }

@@ -85,6 +85,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.common.Tracks
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ConnectedTv
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -124,6 +125,7 @@ class PlayerActivity : ComponentActivity() {
     private var lastInteraction by mutableLongStateOf(System.currentTimeMillis())
     private var showRecordDialog by mutableStateOf(false)
     private var showFormatDialog by mutableStateOf(false)
+    private var showSendDialog by mutableStateOf(false)
     /** Live: Senderliste im Bild und zuletzt gesehener Sender (Zurueck-Zappen). */
     private var showChannels by mutableStateOf(false)
     private var lastChannel = -1
@@ -445,6 +447,19 @@ class PlayerActivity : ComponentActivity() {
                             checkSleep()
                         }
                     }
+                    if (showSendDialog) current()?.let { e ->
+                        SendToDeviceDialog(
+                            container, e,
+                            position = { player.currentPosition }, duration = { player.duration },
+                            onSent = { name ->
+                                showSendDialog = false
+                                stopPlayback()
+                                android.widget.Toast.makeText(this@PlayerActivity, "Läuft jetzt auf „$name“", android.widget.Toast.LENGTH_SHORT).show()
+                                finish()
+                            },
+                            onDismiss = { showSendDialog = false },
+                        )
+                    }
                     if (showFormatDialog) PlayerSettingsDialog(
                         audio = trackOptions(C.TRACK_TYPE_AUDIO),
                         subtitles = trackOptions(C.TRACK_TYPE_TEXT),
@@ -525,6 +540,12 @@ class PlayerActivity : ComponentActivity() {
                 CastButton(container, entry, entry?.item?.logo, tint = Color.White, onCasting = {
                     withSwitch { player.pause() } // lokal pausieren, laeuft jetzt auf dem TV
                 })
+                // Portiva Link: auf einem anderen Portiva-Geraet (TV-Stick, Tablet, PC) weiterschauen
+                if (canSendToDevice(entry) && !watchingRecording) {
+                    IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { showSendDialog = true }) {
+                        Icon(Icons.Filled.ConnectedTv, "An Gerät senden", tint = Color.White)
+                    }
+                }
                 IconButton(modifier = Modifier.focusRequester(gearFocus).tvFocus(CircleShape, 1.15f), onClick = { showFormatDialog = true }) {
                     Icon(Icons.Filled.Settings, "Einstellungen (Audio, Untertitel, Bildformat)", tint = Color.White)
                 }

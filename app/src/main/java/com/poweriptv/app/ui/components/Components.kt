@@ -268,7 +268,10 @@ fun startPlayback(context: Context, container: AppContainer, entries: List<PlayE
         // VLC nur fuer genau den Stream, den der Standard-Player nicht abspielen konnte
         PlayerEngine.AUTO -> container.settings.needsVlc(url)
     }
-    context.startActivity(Intent(context, if (useVlc) VlcPlayerActivity::class.java else PlayerActivity::class.java))
+    context.startActivity(Intent(context, if (useVlc) VlcPlayerActivity::class.java else PlayerActivity::class.java).apply {
+        // Start ohne Activity (z.B. Wiedergabe von einem anderen Geraet uebernommen)
+        if (context !is android.app.Activity) addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    })
 }
 
 /** Dialog "Weiterschauen ab ... / Von vorne beginnen" (einmal global in MainActivity eingebunden). */

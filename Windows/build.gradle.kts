@@ -17,6 +17,8 @@ dependencies {
     implementation("uk.co.caprica:vlcj:4.8.3")
     // XML-Pull-Parser fuer den geteilten EPG-Lader (XMLTV)
     implementation("net.sf.kxml:kxml2:2.3.0")
+    // QR-Codes (Portiva Link: Zugang uebertragen)
+    implementation("com.google.zxing:core:3.5.3")
 }
 
 // Datenlogik (Xtream/M3U) wird 1:1 aus der Android-App geteilt – nur reine Kotlin-Dateien ohne Android-Abhaengigkeit.
@@ -43,6 +45,8 @@ sourceSets {
                 "com/poweriptv/app/update/UpdateChecker.kt",
                 "com/poweriptv/app/ui/components/CategoryRules.kt",
                 "com/poweriptv/app/ui/components/ContentFilter.kt",
+                "com/poweriptv/app/ui/components/QrCode.kt",
+                "com/poweriptv/app/link/PortivaLink.kt",
             )
         }
     }

@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ConnectedTv
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -104,6 +105,7 @@ class VlcPlayerActivity : ComponentActivity() {
     private var dragging by mutableStateOf<Float?>(null)
     private var showRecordDialog by mutableStateOf(false)
     private var showFormatDialog by mutableStateOf(false)
+    private var showSendDialog by mutableStateOf(false)
     /** Live: Senderliste im Bild und zuletzt gesehener Sender (Zurueck-Zappen). */
     private var showChannels by mutableStateOf(false)
     private var lastChannel = -1
@@ -243,6 +245,21 @@ class VlcPlayerActivity : ComponentActivity() {
                             checkStall()
                         }
                     }
+                    if (showSendDialog) current()?.let { e ->
+                        SendToDeviceDialog(
+                            container, e,
+                            position = { runCatching { mediaPlayer.time }.getOrDefault(position).takeIf { it > 0 } ?: position },
+                            duration = { length },
+                            onSent = { name ->
+                                showSendDialog = false
+                                saveResume()
+                                runCatching { mediaPlayer.stop() }
+                                android.widget.Toast.makeText(this@VlcPlayerActivity, "Läuft jetzt auf „$name“", android.widget.Toast.LENGTH_SHORT).show()
+                                finish()
+                            },
+                            onDismiss = { showSendDialog = false },
+                        )
+                    }
                     if (showFormatDialog) PlayerSettingsDialog(
                         audio = vlcTracks(audio = true),
                         subtitles = vlcTracks(audio = false),
@@ -361,6 +378,12 @@ class VlcPlayerActivity : ComponentActivity() {
                     }
                 }
                 CastButton(container, current(), current()?.item?.logo, tint = Color.White, onCasting = { mediaPlayer.pause() })
+                // Portiva Link: auf einem anderen Portiva-Geraet (TV-Stick, Tablet, PC) weiterschauen
+                if (canSendToDevice(current()) && !watchingRecording) {
+                    IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { showSendDialog = true }) {
+                        Icon(Icons.Filled.ConnectedTv, "An Gerät senden", tint = Color.White)
+                    }
+                }
                 if (live) {
                     IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { showRecordDialog = true }) {
                         Icon(Icons.Filled.FiberManualRecord, "Aufnehmen", tint = com.poweriptv.app.ui.theme.Danger)

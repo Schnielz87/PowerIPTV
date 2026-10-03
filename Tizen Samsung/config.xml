@@ -21,6 +21,8 @@
     <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
     <!-- App beenden / Hintergrund -->
     <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
+    <!-- Eigene IP-Adresse (Portiva Link: Zugang vom Handy empfangen, Wiedergabe an Geraete senden) -->
+    <tizen:privilege name="http://developer.samsung.com/privilege/network.public"/>
 
     <!-- Alle externen Server erlauben (IPTV-Anbieter nutzen oft eigene Domains, http und wechselnde Bild-Server) -->
     <access origin="*" subdomains="true"/>

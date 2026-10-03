@@ -91,6 +91,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    // QR-Codes: Zugang auf ein anderes Geraet uebertragen (Portiva Link) – Erzeugen + Scannen mit der Kamera
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    implementation("com.google.zxing:core:3.5.3")
 
     // VPN (offizielle WireGuard Tunnel-Library)
     implementation("com.wireguard.android:tunnel:1.0.20230706")

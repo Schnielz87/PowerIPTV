@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -69,6 +70,15 @@ fun ProfilesScreen(
     val profiles by container.profiles.profiles.collectAsState()
     val activeId = container.source?.profile?.id
     var toDelete by remember { mutableStateOf<Profile?>(null) }
+    var qrFor by remember { mutableStateOf<Profile?>(null) }
+    var showAdd by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val onImported: (Profile) -> Unit = { p ->
+        showAdd = false
+        android.widget.Toast.makeText(context, "Zugang „${p.name}“ übernommen", android.widget.Toast.LENGTH_SHORT).show()
+        container.activate(p)
+        onSelected()
+    }
 
     Scaffold(
         topBar = {
@@ -79,7 +89,7 @@ fun ProfilesScreen(
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = onAdd,
+                onClick = { showAdd = true },
                 icon = { Icon(Icons.Filled.Add, null) },
                 text = { Text("Neuer Zugang") },
             )
@@ -166,6 +176,12 @@ fun ProfilesScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
+                        // QR-Code: diesen Zugang auf ein anderes Geraet uebertragen
+                        if (com.poweriptv.app.link.LinkCodes.canTransfer(p)) {
+                            IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { qrFor = p }) {
+                                Icon(androidx.compose.material.icons.Icons.Filled.QrCode2, "Auf anderes Gerät übertragen")
+                            }
+                        }
                         IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { onEdit(p.id) }) { Icon(Icons.Filled.Edit, "Bearbeiten") }
                         IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { toDelete = p }) { Icon(Icons.Filled.Delete, "Loeschen") }
                     }
@@ -173,6 +189,9 @@ fun ProfilesScreen(
             }
         }
     }
+
+    qrFor?.let { p -> AccountQrDialog(container, p, onDismiss = { qrFor = null }) }
+    if (showAdd) AddAccountChooser(container, onManual = onAdd, onImported = onImported, onDismiss = { showAdd = false })
 
     toDelete?.let { p ->
         AlertDialog(

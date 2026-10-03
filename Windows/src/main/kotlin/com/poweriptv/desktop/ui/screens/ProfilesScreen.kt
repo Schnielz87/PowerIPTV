@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -83,6 +84,8 @@ fun ProfilesScreen(app: AppState) {
     var adding by remember { mutableStateOf(profiles.isEmpty()) }
     var deleteAsk by remember { mutableStateOf<Profile?>(null) }
     var editing by remember { mutableStateOf<Profile?>(null) }
+    var qrFor by remember { mutableStateOf<Profile?>(null) }
+    var receiving by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(
@@ -125,6 +128,10 @@ fun ProfilesScreen(app: AppState) {
                             modifier = Modifier.clip(RoundedCornerShape(50)).background(BrandCyan).padding(horizontal = 8.dp, vertical = 2.dp),
                         )
                     }
+                    // QR-Code: diesen Zugang mit dem Handy/Tablet scannen (wie Android)
+                    if (com.poweriptv.app.link.LinkCodes.canTransfer(p)) {
+                        IconButton(onClick = { qrFor = p }, modifier = Modifier.handCursor()) { Icon(Icons.Filled.QrCode2, "Auf anderes Gerät übertragen") }
+                    }
                     IconButton(onClick = { editing = p; adding = false }, modifier = Modifier.handCursor()) { Icon(Icons.Filled.Edit, "Bearbeiten") }
                     IconButton(onClick = { deleteAsk = p }, modifier = Modifier.handCursor()) { Icon(Icons.Filled.Delete, "Löschen") }
                 }
@@ -132,13 +139,34 @@ fun ProfilesScreen(app: AppState) {
             if (editing != null) {
                 key(editing!!.id) { AddProfileForm(app, edit = editing, onCancel = { editing = null }) { editing = null } }
             } else if (adding) {
+                OutlinedButton(onClick = { receiving = true }, modifier = Modifier.handCursor()) {
+                    Icon(Icons.Filled.QrCode2, null); Spacer(Modifier.width(6.dp)); Text("Vom Handy empfangen (QR-Code)")
+                }
                 AddProfileForm(app, onCancel = if (profiles.isNotEmpty()) ({ adding = false }) else null) { adding = false }
             } else {
-                OutlinedButton(onClick = { adding = true }, modifier = Modifier.handCursor()) {
-                    Icon(Icons.Filled.Add, null); Spacer(Modifier.width(6.dp)); Text("Zugang hinzufügen")
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(onClick = { adding = true }, modifier = Modifier.handCursor()) {
+                        Icon(Icons.Filled.Add, null); Spacer(Modifier.width(6.dp)); Text("Zugang hinzufügen")
+                    }
+                    OutlinedButton(onClick = { receiving = true }, modifier = Modifier.handCursor()) {
+                        Icon(Icons.Filled.QrCode2, null); Spacer(Modifier.width(6.dp)); Text("Vom Handy empfangen")
+                    }
                 }
             }
         }
+    }
+    qrFor?.let { p ->
+        com.poweriptv.app.ui.components.QrDialog(
+            title = p.name,
+            text = com.poweriptv.app.link.LinkCodes.accountQr(com.poweriptv.app.link.LinkCodes.toAccount(p)),
+            hint = "Am Handy/Tablet in Portiva: Benutzer wechseln → Neuer Zugang → „QR-Code scannen“. Nur dir selbst zeigen – der Code enthält die Zugangsdaten.",
+            onDismiss = { qrFor = null },
+            closeModifier = Modifier.handCursor(),
+        )
+    }
+    if (receiving) ReceiveAccountDialog(app, onDismiss = { receiving = false }) { p ->
+        receiving = false; adding = false
+        app.activate(p)
     }
     deleteAsk?.let { p ->
         AlertDialog(
@@ -154,6 +182,42 @@ fun ProfilesScreen(app: AppState) {
             },
             dismissButton = { TextButton(onClick = { deleteAsk = null }) { Text("Abbrechen") } },
         )
+    }
+}
+
+/** Dieser PC zeigt einen Empfangs-Code; das Handy scannt ihn und schickt den gewaehlten Zugang (wie Android). */
+@Composable
+private fun ReceiveAccountDialog(app: AppState, onDismiss: () -> Unit, onReceived: (Profile) -> Unit) {
+    val code = remember { com.poweriptv.app.link.LinkCodes.newCode() }
+    val ip = remember { com.poweriptv.app.link.LinkCodes.localIpv4() }
+    val received by app.linkReceived.collectAsState()
+    androidx.compose.runtime.DisposableEffect(code) {
+        app.linkReceived.value = null
+        app.linkPairCode.value = code
+        onDispose { if (app.linkPairCode.value == code) app.linkPairCode.value = null }
+    }
+    androidx.compose.runtime.LaunchedEffect(received) { received?.let { app.linkReceived.value = null; onReceived(it) } }
+    if (ip == null || app.link.port == 0) {
+        AlertDialog(
+            onDismissRequest = onDismiss, title = { Text("Kein Heimnetz") },
+            text = { Text("Der PC ist nicht mit einem Netzwerk verbunden. Handy und PC müssen im selben Heimnetz sein.") },
+            confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },
+        )
+        return
+    }
+    com.poweriptv.app.ui.components.QrDialog(
+        title = "Zugang empfangen",
+        text = com.poweriptv.app.link.LinkCodes.pairQr(ip, app.link.port, code),
+        hint = "Am Handy in Portiva: Benutzer wechseln → beim gewünschten Zugang auf das QR-Symbol tippen → „An TV-Stick / Fernseher senden“ → diesen Code scannen. " +
+            "Fragt die Windows-Firewall, bitte „Zulassen“ wählen.",
+        onDismiss = onDismiss,
+        closeModifier = Modifier.handCursor(),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+            Spacer(Modifier.width(10.dp))
+            Text("Warte auf Zugang …  Code $code", fontWeight = FontWeight.SemiBold)
+        }
     }
 }
 

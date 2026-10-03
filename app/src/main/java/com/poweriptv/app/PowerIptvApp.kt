@@ -46,6 +46,18 @@ class PowerIptvApp : Application(), ImageLoaderFactory {
         super.onCreate()
         container = AppContainer(this)
         container.cast.init() // Google Cast (nur mit Google-Play-Diensten, nicht auf TV-Geraeten)
+        // Portiva Link: sichtbare Activities zaehlen (Wiedergabe von anderen Geraeten nur bei geoeffneter App)
+        registerActivityLifecycleCallbacks(object : android.app.Application.ActivityLifecycleCallbacks {
+            private var started = 0
+            override fun onActivityStarted(a: android.app.Activity) { started++; container.appVisible = true }
+            override fun onActivityStopped(a: android.app.Activity) { started = (started - 1).coerceAtLeast(0); container.appVisible = started > 0 }
+            override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) {}
+            override fun onActivityResumed(a: android.app.Activity) {}
+            override fun onActivityPaused(a: android.app.Activity) {}
+            override fun onActivitySaveInstanceState(a: android.app.Activity, b: android.os.Bundle) {}
+            override fun onActivityDestroyed(a: android.app.Activity) {}
+        })
+        container.startLink()
     }
 
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
@@ -234,6 +246,71 @@ class AppContainer(private val app: Application) {
 
     /** Erlaubte gleichzeitige Verbindungen des Accounts (Xtream max_connections; null = unbekannt). */
     @Volatile var maxConnections: Int? = null
+
+    // ---------- Portiva Link (Zugang uebertragen, Wiedergabe weitergeben) ----------
+    /** Gerade angezeigter Empfangs-Code ("Vom anderen Geraet empfangen"); null = nichts erwartet. */
+    val linkPairCode = MutableStateFlow<String?>(null)
+    /** Zuletzt empfangener Zugang (die Oberflaeche zeigt dann "uebernommen"). */
+    val linkReceived = MutableStateFlow<Profile?>(null)
+    @Volatile var appVisible = false
+    val isTvDevice by lazy { com.poweriptv.app.util.DeviceInfo.isTv(app) }
+    private var multicastLock: android.net.wifi.WifiManager.MulticastLock? = null
+
+    val link = com.poweriptv.app.link.LinkService(
+        deviceName = { deviceName() },
+        platform = if (com.poweriptv.app.util.DeviceInfo.isTv(app)) "android-tv" else "android",
+        onPlay = { receivePlay(it) },
+        onPair = { receivePair(it) },
+    )
+
+    fun deviceName(): String {
+        val n = runCatching { android.provider.Settings.Global.getString(app.contentResolver, "device_name") }.getOrNull()
+        return n?.takeIf { it.isNotBlank() } ?: "${android.os.Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${android.os.Build.MODEL}"
+    }
+
+    fun startLink() {
+        // Manche Geraete verwerfen UDP-Rundrufe ohne diese Sperre (nur fuer die Geraete-Suche)
+        runCatching {
+            val wifi = app.applicationContext.getSystemService(android.content.Context.WIFI_SERVICE) as android.net.wifi.WifiManager
+            multicastLock = wifi.createMulticastLock("portiva-link").apply { setReferenceCounted(false); acquire() }
+        }
+        link.start()
+    }
+
+    /** Zugang aus einem QR-Code / von einem anderen Geraet speichern (gleicher Zugang wird aktualisiert). */
+    fun importAccount(a: com.poweriptv.app.link.LinkAccount): Profile {
+        val existing = profiles.profiles.value.firstOrNull {
+            it.type.name == a.type && it.serverUrl.trimEnd('/') == a.serverUrl.trimEnd('/') && it.username == a.username && it.m3uUrl == a.m3uUrl
+        }
+        val p = com.poweriptv.app.link.LinkCodes.toProfile(a, existing?.id ?: java.util.UUID.randomUUID().toString())
+        profiles.save(p)
+        return p
+    }
+
+    private fun receivePair(p: com.poweriptv.app.link.LinkPair): Boolean {
+        val code = linkPairCode.value ?: return false
+        if (p.code != code) return false
+        linkPairCode.value = null
+        linkReceived.value = importAccount(p.account)
+        return true
+    }
+
+    private fun receivePlay(p: com.poweriptv.app.link.LinkPlay): Boolean {
+        // Ab Android 10 darf eine App im Hintergrund nichts oeffnen -> Portiva muss auf dem Geraet offen sein
+        if (!appVisible && android.os.Build.VERSION.SDK_INT >= 29) return false
+        val done = java.util.concurrent.CountDownLatch(1)
+        var ok = false
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            ok = runCatching {
+                if (!p.live && p.positionMs > 0 && p.durationMs > 0) resume.save(p.url, p.positionMs, p.durationMs)
+                com.poweriptv.app.ui.components.startPlayback(app, this, listOf(PlayEntry(p.title, p.url, null, p.live)), 0, askResume = false)
+                android.widget.Toast.makeText(app, if (p.from.isNotBlank()) "Von „${p.from}“ übernommen" else "Wiedergabe übernommen", android.widget.Toast.LENGTH_SHORT).show()
+            }.isSuccess
+            done.countDown()
+        }
+        done.await(5, java.util.concurrent.TimeUnit.SECONDS)
+        return ok
+    }
 
     /** Updates direkt von GitHub (alle 24 h pruefen). */
     val updates by lazy { com.poweriptv.app.update.UpdateManager(app, { http }, json, scope) }

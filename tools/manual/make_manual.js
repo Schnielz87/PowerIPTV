@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.81 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.82 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -301,6 +301,24 @@ c.push(h2('Updates'));
 c.push(p('Die Kachel „Update“ prüft alle 24 Stunden bei GitHub und leuchtet bei einer neuen Version. Installiert wird wie oben (Schritt 4) mit derselben Zertifikat-Datei – Zugänge, Favoriten und Verlauf bleiben erhalten.'));
 c.push(tip('Die Zertifikat-Dateien (author.p12, distributor.p12) gut aufheben und nie weitergeben. Mit einem neuen Zertifikat muss die App vorher deinstalliert werden.'));
 
+// 16 Portiva Link
+c.push(new Paragraph({ children: [new PageBreak()] }));
+c.push(h1('16. Portiva Link: Zugang übertragen & an Gerät senden'));
+c.push(p('Portiva-Geräte im selben WLAN arbeiten zusammen – ohne Konto, ohne Cloud, ohne Chromecast. Übertragen wird immer nur der eine Zugang, den du auswählst.'));
+c.push(h2('Zugang auf Handy/Tablet übertragen (mit Kamera)'));
+c.push(step('Am Gerät mit dem Zugang: Benutzer wechseln („Wer schaut?“) → beim gewünschten Zugang auf das QR-Symbol (links neben Stift und Mülleimer) tippen. Der Code erscheint groß; schließen mit dem Kreuz oder durch Tippen daneben.', 'n10'));
+c.push(step('Am neuen Handy/Tablet: Benutzer wechseln → „Neuer Zugang“ → „QR-Code scannen“ → Code scannen. Fertig – der Zugang ist eingerichtet und aktiv.', 'n10'));
+c.push(h2('Zugang auf TV-Stick, Fernseher oder PC übertragen (ohne Kamera)'));
+c.push(step('Am TV-Stick / Android TV: Benutzer wechseln → „Neuer Zugang“ → „Vom anderen Gerät empfangen“. Samsung-TV: Benutzer wechseln → „Vom Handy empfangen“. Windows: Zugänge → „Vom Handy empfangen“. Es erscheint ein QR-Code.', 'n11'));
+c.push(step('Am Handy: Benutzer wechseln → beim gewünschten Zugang auf das QR-Symbol tippen → „An TV-Stick / Fernseher senden“ → den Code am TV scannen.', 'n11'));
+c.push(step('Der Zugang erscheint sofort auf dem TV und wird aktiviert. Beim Samsung-TV dauert es einige Sekunden (der Fernseher holt den Zugang beim Handy ab – Portiva am Handy so lange geöffnet lassen).', 'n11'));
+c.push(tip('Der QR-Code eines Zugangs enthält die Zugangsdaten – nur dir selbst zeigen. Lokale M3U-Dateien lassen sich nicht übertragen (dort fehlt das QR-Symbol).'));
+c.push(h2('Wiedergabe an ein anderes Gerät senden'));
+c.push(step('Im Player oben auf das Fernseher-Symbol „An Gerät senden“ tippen (Samsung-TV: Knopf „📲 Senden“ in der Leiste).', 'n12'));
+c.push(step('Portiva sucht alle Portiva-Geräte im Heimnetz (TV-Stick, Tablet, Handy, Windows-PC) → Gerät wählen.', 'n12'));
+c.push(step('Der Film läuft dort an derselben Stelle weiter (Live TV: derselbe Sender), hier wird gestoppt.', 'n12'));
+c.push(tip('Portiva muss auf dem Zielgerät geöffnet sein (Android ab Version 10 erlaubt Apps im Hintergrund nicht, sich selbst zu öffnen). Samsung-Fernseher können senden, aber nichts empfangen. Windows fragt beim ersten Mal nach der Firewall – „Zulassen“ wählen.'));
+
 const doc = new Document({
   creator: 'Portiva', title: 'PowerIPTV – Bedienungsanleitung',
   styles: {
@@ -312,7 +330,7 @@ const doc = new Document({
   },
   numbering: { config: [
     { reference: 'bul', levels: [{ level: 0, format: LevelFormat.BULLET, text: '•', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] },
-    ...['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'num'].map(r => ({ reference: r, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] })),
+    ...['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'n10', 'n11', 'n12', 'num'].map(r => ({ reference: r, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] })),
   ] },
   features: { updateFields: true },
   sections: [{

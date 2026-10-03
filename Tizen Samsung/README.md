@@ -25,6 +25,11 @@ Die App kann dasselbe wie Android und Windows, soweit es auf dem Fernseher techn
 - Suche, Favoriten & Verlauf, Weiterschauen.
 - Kindersicherung mit PIN: Erwachsenen-Kategorien, gesperrte Kategorien, Einstellungen geschützt.
 - KI-Empfehlungen (ChatGPT-API-Schlüssel) und Update-Prüfung über GitHub.
+- Portiva Link:
+  - Zugang als QR-Code anzeigen (Benutzer wechseln → „QR“).
+  - Zugang vom Handy empfangen: Der Fernseher zeigt einen Code, holt den Zugang dann beim Handy ab.
+  - Wiedergabe an TV-Stick, Tablet oder PC senden (Player → „📲 Senden“).
+  - Empfangen kann der Fernseher keine Wiedergabe, weil Tizen-Apps keinen Netzwerkdienst anbieten dürfen.
 
 Nicht enthalten, weil der Fernseher das nicht kann:
 

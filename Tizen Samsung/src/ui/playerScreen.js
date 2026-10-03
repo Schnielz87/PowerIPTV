@@ -8,6 +8,7 @@ import { settings, saveSettings, Library } from '../store';
 import { T } from '../sources';
 import { EPISODE } from '../rules';
 import { button, imgDiv } from './common';
+import { sendToDevice } from './link';
 
 const HIDE_AFTER = 5000;
 
@@ -79,6 +80,11 @@ export default function playerScreen(params) {
     btnRow.appendChild(button('▭ Bild', pickAspect));
     btnRow.appendChild(button(lib.isFavorite(cur.item) ? '❤' : '♡', toggleFavorite));
     btnRow.appendChild(button('⏾', pickSleep));
+    // Portiva Link: auf TV-Stick, Tablet oder PC an derselben Stelle weiterschauen
+    btnRow.appendChild(button('📲 Senden', () => sendToDevice({
+      title: titleEl.textContent, url: urlFor(), live: isLive(),
+      positionMs: isLive() ? 0 : Math.floor(p.state.time || 0), durationMs: Math.floor(p.state.duration || 0), logo: cur.item.logo || null,
+    }, () => { saveNow(); back(); })));
   }
 
   // ---------------- Abspielen ----------------
