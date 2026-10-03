@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.GppBad
@@ -81,8 +82,12 @@ fun PowerTopBar(
     TopAppBar(
         title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold) },
         navigationIcon = {
-            if (onBack != null) IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurueck")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (onBack != null) IconButton(onClick = onBack, modifier = Modifier.tvFocus(CircleShape, 1.15f)) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurueck")
+                }
+                // Portiva-"P": von jeder Seite direkt zur Startseite
+                HomeLogoButton()
             }
         },
         actions = { actions() },

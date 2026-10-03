@@ -1,7 +1,7 @@
 // Gemeinsame Bausteine der Bildschirme: Kopfzeile, Karten, Raster mit Nachladen, Einstellungszeilen.
 import { h, clear, clock } from '../util';
 import { focusable, getFocus } from '../focus';
-import { app, back, choose } from '../app';
+import { app, back, choose, go } from '../app';
 import { T } from '../sources';
 
 export const ICON = {
@@ -14,6 +14,8 @@ export function topbar(title, actions = [], opts = {}) {
   const clk = h('div.clock', null, clock(Date.now()));
   const bar = h('div.topbar', null,
     opts.noBack ? h('img.logo', { src: 'assets/logo.png' }) : focusable(h('div.icon-btn', null, h('span.ico', null, ICON.back)), () => back()),
+    // Portiva-"P": von jeder Seite direkt zur Startseite (wie Android/Windows)
+    !opts.noBack && app.profile ? focusable(h('div.logo-btn', null, h('img', { src: 'assets/logo.png' })), () => go('home', {}, { replace: true })) : null,
     h('h1.ellipsis', null, title),
     h('div.spacer'),
     actions,

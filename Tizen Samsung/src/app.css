@@ -36,6 +36,9 @@ body:not(.video-mode) #html-player { visibility: hidden; }
 .topbar { height: 110px; flex: 0 0 110px; padding: 0 60px; display: flex; flex-direction: row; align-items: center; }
 .topbar h1 { font-size: 40px; font-weight: 700; margin-left: 20px; }
 .topbar .logo { height: 70px; }
+.logo-btn { width: 70px; height: 70px; border-radius: 14px; margin-left: 12px; display: flex; align-items: center; justify-content: center; }
+.logo-btn img { width: 56px; height: 56px; }
+.logo-btn.focused { background: #3A9BDC; transform: scale(1.08); }
 .topbar .spacer { flex: 1 1 auto; }
 .topbar .clock { font-size: 32px; color: #9FB1C9; margin-left: 24px; }
 .icon-btn {

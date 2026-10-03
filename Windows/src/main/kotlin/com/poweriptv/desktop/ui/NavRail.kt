@@ -50,7 +50,13 @@ fun NavRail(app: AppState) {
     Column(
         Modifier.width(220.dp).fillMaxHeight().background(Color(0xFF08101E)).padding(vertical = 18.dp, horizontal = 12.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 6.dp, bottom = 22.dp)) {
+        // Portiva-Logo oben links: ein Klick fuehrt von jeder Seite zur Startseite (wie Android/Samsung)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 22.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                .then(if (app.profile != null) Modifier.handCursor().clickable { app.navigate(Screen.Home) } else Modifier)
+                .padding(start = 6.dp, top = 4.dp, bottom = 4.dp, end = 6.dp),
+        ) {
             PortivaLogo(Modifier.size(40.dp))
             Spacer(Modifier.width(10.dp))
             BrandWordmark()

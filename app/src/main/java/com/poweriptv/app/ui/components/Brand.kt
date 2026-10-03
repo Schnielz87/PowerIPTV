@@ -8,6 +8,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -41,6 +45,20 @@ import com.poweriptv.app.ui.theme.Background
 import com.poweriptv.app.ui.theme.BrandCyan
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+/** "Zur Startseite" – wird in AppNavigation gesetzt (null = keine Startseite, z.B. noch kein Zugang). */
+val LocalGoHome = androidx.compose.runtime.staticCompositionLocalOf<(() -> Unit)?> { null }
+
+/** Portiva-"P" oben links: ein Klick fuehrt von jeder Seite zur Startseite. */
+@Composable
+fun HomeLogoButton(size: androidx.compose.ui.unit.Dp = 34.dp) {
+    val goHome = LocalGoHome.current ?: return
+    Box(
+        Modifier.padding(horizontal = 4.dp).size(size + 6.dp).clip(RoundedCornerShape(10.dp))
+            .tvFocus(RoundedCornerShape(10.dp), 1.12f).clickable(onClickLabel = "Startseite") { goHome() },
+        contentAlignment = Alignment.Center,
+    ) { PortivaLogo(Modifier.size(size)) }
+}
 
 @Composable
 fun PortivaLogo(modifier: Modifier = Modifier) {
@@ -83,7 +101,8 @@ fun BrandTopBar(
     TopAppBar(
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                PortivaLogo(Modifier.size(38.dp))
+                // Mit Zugang: Logo fuehrt zur Startseite
+                if (LocalGoHome.current != null) HomeLogoButton(38.dp) else PortivaLogo(Modifier.size(38.dp))
                 Spacer(Modifier.width(10.dp))
                 if (titleContent != null) titleContent()
                 else Column {

@@ -52,7 +52,15 @@ object Routes {
 fun AppNavigation(container: AppContainer, onConnectVpn: () -> Unit) {
     val nav = rememberNavController()
     val start = if (container.source != null) Routes.HOME else Routes.PROFILES
+    // Portiva-"P" oben links: von jeder Seite zur Startseite (Verlauf dahinter wird geleert)
+    val goHome: () -> Unit = {
+        if (container.source != null) nav.navigate(Routes.HOME) {
+            popUpTo(nav.graph.id) { inclusive = true }
+            launchSingleTop = true
+        }
+    }
 
+    androidx.compose.runtime.CompositionLocalProvider(com.poweriptv.app.ui.components.LocalGoHome provides goHome) {
     NavHost(navController = nav, startDestination = start) {
         composable(Routes.PROFILES) {
             ProfilesScreen(
@@ -178,5 +186,6 @@ fun AppNavigation(container: AppContainer, onConnectVpn: () -> Unit) {
         composable(Routes.VPN) {
             VpnScreen(container, onBack = { nav.popBackStack() }, onConnect = onConnectVpn)
         }
+    }
     }
 }

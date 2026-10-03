@@ -101,6 +101,8 @@ fun CategorySidebar(
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurueck")
                 }
             }
+            // Portiva-"P": direkt zur Startseite
+            HomeLogoButton(28.dp)
             Text(
                 title ?: "Kategorien",
                 style = MaterialTheme.typography.titleMedium,
