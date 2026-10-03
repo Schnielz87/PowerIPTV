@@ -20,6 +20,12 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -82,7 +88,78 @@ fun SettingsScreen(app: AppState) {
                         FilterChip(selected = s.aspect == k, onClick = { app.settings.update { it.copy(aspect = k) } }, label = { Text(l) }, modifier = Modifier.handCursor())
                     }
                 }
+                Text("Untertitel-Größe")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("KLEIN" to "Klein", "NORMAL" to "Normal", "GROSS" to "Groß", "SEHR_GROSS" to "Sehr groß").forEach { (k, l) ->
+                        FilterChip(selected = s.subtitleSize == k, onClick = { app.settings.update { it.copy(subtitleSize = k) } }, label = { Text(l) }, modifier = Modifier.handCursor())
+                    }
+                }
+                Toggle("Untertitel mit dunklem Hintergrund", s.subtitleBackground) { v -> app.settings.update { it.copy(subtitleBackground = v) } }
+                Text("Vorschaubilder beim Spulen")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("AUTO" to "Automatisch", "ALWAYS" to "Immer", "OFF" to "Aus").forEach { (k, l) ->
+                        FilterChip(selected = s.scrubPreview == k, onClick = { app.settings.update { it.copy(scrubPreview = k, scrubBlocked = false) } }, label = { Text(l) }, modifier = Modifier.handCursor())
+                    }
+                }
+                Text("Braucht eine zweite Verbindung zum Anbieter. „Automatisch“ schaltet sich ab, wenn dein Zugang nur 1 Stream erlaubt.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Live-TV-Format (Xtream)")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("ts" to "MPEG-TS (.ts)", "m3u8" to "HLS (.m3u8)").forEach { (k, l) ->
+                        FilterChip(selected = s.liveFormat == k, onClick = { app.settings.update { it.copy(liveFormat = k) } }, label = { Text(l) }, modifier = Modifier.handCursor())
+                    }
+                }
                 Vlc.error?.let { Text("VLC: $it", color = MaterialTheme.colorScheme.error) }
+            }
+
+            Card("Downloads & Aufnahmen") {
+                Text("Parallele Verbindungen pro Download")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(0 to "Automatisch", 1 to "1", 2 to "2", 3 to "3", 4 to "4").forEach { (n, l) ->
+                        FilterChip(selected = s.downloadConnections == n, onClick = { app.settings.update { it.copy(downloadConnections = n) } }, label = { Text(l) }, modifier = Modifier.handCursor())
+                    }
+                }
+                Text("Viele Anbieter drosseln pro Verbindung – mehrere Verbindungen laden schneller (zählen aber zum Stream-Limit).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FolderRow("Download-Ordner", app.downloadDir()) { f -> app.settings.update { it.copy(downloadDir = f) } }
+                FolderRow("Aufnahme-Ordner", app.recordingDir()) { f -> app.settings.update { it.copy(recordingDir = f) } }
+            }
+
+            Card("KI-Empfehlungen (ChatGPT)") {
+                SecretKeyEditor(
+                    label = "OpenAI-API-Schlüssel", has = app.ai.hasApiKey(),
+                    onSave = { app.ai.setApiKey(it) }, onTest = { app.ai.testConnection() },
+                )
+                var model by remember { mutableStateOf(s.aiModel) }
+                var url by remember { mutableStateOf(s.aiBaseUrl) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(model, { model = it }, label = { Text("Modell") }, singleLine = true, modifier = Modifier.weight(1f))
+                    OutlinedTextField(url, { url = it }, label = { Text("API-Adresse") }, singleLine = true, modifier = Modifier.weight(2f))
+                    OutlinedButton(onClick = { app.settings.update { it.copy(aiModel = model.trim().ifBlank { "gpt-4o-mini" }, aiBaseUrl = url.trim().trimEnd('/').ifBlank { "https://api.openai.com/v1" }) } }, modifier = Modifier.handCursor()) { Text("Übernehmen") }
+                }
+                Text("Den Schlüssel bekommst du unter platform.openai.com → API keys. Es werden nur Titel übertragen, nie Zugangsdaten.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            Card("Altersfreigabe (FSK)") {
+                SecretKeyEditor(
+                    label = "TMDB-API-Schlüssel (optional)", has = app.ageRatings.hasApiKey(),
+                    onSave = { app.ageRatings.setApiKey(it) }, onTest = { app.ageRatings.test() },
+                )
+                Text("Mit TMDB-Schlüssel zeigt die Detailseite die offizielle deutsche FSK; ohne Schlüssel die Angabe deines Anbieters.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            Card("Sicherheit") {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(onClick = { app.navigate(Screen.Parental) }, modifier = Modifier.handCursor()) { Text("Kindersicherung") }
+                    OutlinedButton(onClick = { app.navigate(Screen.Vpn) }, modifier = Modifier.handCursor()) { Text("VPN & Sicherheit") }
+                }
+                var ua by remember { mutableStateOf(s.userAgent) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(ua, { ua = it }, label = { Text("User-Agent (nur ändern, wenn dein Anbieter es verlangt)") }, singleLine = true, modifier = Modifier.weight(1f))
+                    OutlinedButton(onClick = { app.settings.update { it.copy(userAgent = ua.ifBlank { com.poweriptv.desktop.data.USER_AGENT }) } }, modifier = Modifier.handCursor()) { Text("Übernehmen") }
+                }
+            }
+
+            Card("Sichern & Wiederherstellen") {
+                BackupSection(app)
             }
 
             Card("Allgemein") {
@@ -118,6 +195,9 @@ val Shortcuts = listOf(
     "↑ / ↓ oder Mausrad" to "Lautstärke (Live TV: ↑/↓ = Sender wechseln)",
     "Bild ↑ / Bild ↓" to "Sender wechseln (Live TV)",
     "M" to "Ton aus / an",
+    "R" to "Aufnahme starten (Live TV)",
+    "B" to "Zurück zum vorherigen Sender",
+    "Enter" to "Intro überspringen (wenn eingeblendet)",
     "Z" to "Zoomen an / aus (schwarze Balken weg)",
     "F, F11 oder Doppelklick" to "Vollbild",
     "L" to "Senderliste (Live TV)",
@@ -142,5 +222,85 @@ private fun Toggle(label: String, value: Boolean, onChange: (Boolean) -> Unit) {
         Text(label, modifier = Modifier.weight(1f))
         Spacer(Modifier.width(12.dp))
         Switch(value, onChange, modifier = Modifier.handCursor())
+    }
+}
+
+@Composable
+private fun FolderRow(label: String, current: java.io.File, onPick: (String) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(label)
+            Text(current.absolutePath, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        OutlinedButton(onClick = {
+            val chooser = javax.swing.JFileChooser(current).apply { fileSelectionMode = javax.swing.JFileChooser.DIRECTORIES_ONLY; dialogTitle = label }
+            if (chooser.showOpenDialog(null) == javax.swing.JFileChooser.APPROVE_OPTION) onPick(chooser.selectedFile.absolutePath)
+        }, modifier = Modifier.handCursor()) { Text("Ändern") }
+        Spacer(Modifier.width(8.dp))
+        OutlinedButton(onClick = { com.poweriptv.desktop.ui.openFolder(current) }, modifier = Modifier.handCursor()) { Text("Öffnen") }
+    }
+}
+
+/** Geheimer Schluessel: eingeben, verschluesselt speichern, testen, entfernen. */
+@Composable
+private fun SecretKeyEditor(label: String, has: Boolean, onSave: (String?) -> Unit, onTest: suspend () -> String) {
+    val scope = rememberCoroutineScope()
+    var value by remember { mutableStateOf("") }
+    var saved by remember { mutableStateOf(has) }
+    var info by remember { mutableStateOf<String?>(null) }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(
+            value, { value = it }, singleLine = true, modifier = Modifier.weight(1f),
+            label = { Text(if (saved) "$label (gespeichert – neu eingeben zum Ersetzen)" else label) },
+            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+        )
+        OutlinedButton(enabled = value.isNotBlank(), onClick = { onSave(value.trim()); value = ""; saved = true; info = "Verschlüsselt gespeichert" }, modifier = Modifier.handCursor()) { Text("Speichern") }
+        OutlinedButton(enabled = saved, onClick = {
+            info = "Teste …"
+            scope.launch { info = runCatching { withContext(Dispatchers.IO) { onTest() } }.getOrElse { it.message ?: "Fehler" } }
+        }, modifier = Modifier.handCursor()) { Text("Testen") }
+        if (saved) TextButton(onClick = { onSave(null); saved = false; info = "Entfernt" }, modifier = Modifier.handCursor()) { Text("Entfernen") }
+    }
+    info?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) }
+}
+
+/** Sicherung im selben Format wie die Android-App – Handy-Sicherung am PC einspielen und umgekehrt. */
+@Composable
+private fun BackupSection(app: AppState) {
+    var includeSecrets by remember { mutableStateOf(true) }
+    var password by remember { mutableStateOf("") }
+    var info by remember { mutableStateOf<String?>(null) }
+    var restoreText by remember { mutableStateOf<String?>(null) }
+    Text("Sichert Zugänge, Favoriten & Listen, Verlauf, Weiterschauen, Kindersicherung, Kategorien, Einstellungen und Schlüssel – im selben Format wie die Handy-App.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Toggle("Zugangsdaten, API-Schlüssel und VPN mitsichern", includeSecrets) { includeSecrets = it }
+    OutlinedTextField(password, { password = it }, label = { Text("Passwort (empfohlen, verschlüsselt die Datei)") }, singleLine = true,
+        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        OutlinedButton(onClick = {
+            val f = com.poweriptv.desktop.ui.chooseSaveFile("Sicherung speichern", "PowerIPTV-Sicherung.json") ?: return@OutlinedButton
+            info = runCatching { app.backup.export(f, includeSecrets, password.ifBlank { null }); "Gespeichert: ${f.name}" }.getOrElse { "Fehler: ${it.message}" }
+        }, modifier = Modifier.handCursor()) { Text("Sicherung erstellen") }
+        OutlinedButton(onClick = {
+            val f = com.poweriptv.desktop.ui.chooseFile("Sicherung wählen (vom Handy oder PC)", ".json", ".txt") ?: return@OutlinedButton
+            val text = runCatching { f.readText() }.getOrNull() ?: run { info = "Datei konnte nicht gelesen werden"; return@OutlinedButton }
+            if (app.backup.isEncrypted(text) && password.isBlank()) restoreText = text
+            else info = runCatching { "Wiederhergestellt: " + app.backup.restore(text, password.ifBlank { null }).also { app.reloadAfterRestore() } }.getOrElse { "Fehler: ${it.message}" }
+        }, modifier = Modifier.handCursor()) { Text("Wiederherstellen") }
+    }
+    info?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+    restoreText?.let { text ->
+        var pw by remember { mutableStateOf("") }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { restoreText = null },
+            title = { Text("Passwort der Sicherung") },
+            text = { OutlinedTextField(pw, { pw = it }, singleLine = true, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation()) },
+            confirmButton = {
+                TextButton(onClick = {
+                    info = runCatching { "Wiederhergestellt: " + app.backup.restore(text, pw).also { app.reloadAfterRestore() } }.getOrElse { "Fehler: ${it.message}" }
+                    restoreText = null
+                }) { Text("Wiederherstellen") }
+            },
+            dismissButton = { TextButton(onClick = { restoreText = null }) { Text("Abbrechen") } },
+        )
     }
 }

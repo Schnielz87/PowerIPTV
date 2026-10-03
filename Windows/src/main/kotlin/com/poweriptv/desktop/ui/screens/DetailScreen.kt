@@ -26,6 +26,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -105,6 +108,14 @@ fun DetailScreen(app: AppState, item: ContentItem) {
     val rating = (movie?.rating ?: series?.rating ?: item.rating)?.replace(',', '.')?.toDoubleOrNull()?.takeIf { it > 0 }
     val year = item.year ?: (movie?.releaseDate ?: series?.releaseDate)?.take(4)?.toIntOrNull()
     val age = movie?.age ?: series?.age
+    // FSK wie Android: mit TMDB-Schluessel offizielle deutsche Freigabe, sonst Angabe des Anbieters
+    var ageRating by remember(item.key) { mutableStateOf<com.poweriptv.app.data.AgeRating?>(null) }
+    LaunchedEffect(item.key, movie, series) {
+        if (movie != null || series != null) ageRating = runCatching {
+            app.ageRatings.resolve(item.type == ContentType.SERIES, item.name, movie?.releaseDate ?: series?.releaseDate, movie?.tmdbId ?: series?.tmdbId, age)
+        }.getOrNull()
+    }
+    val downloads by app.downloads.entries.collectAsState()
 
     Box(Modifier.fillMaxSize()) {
         // Hintergrundbild
@@ -135,7 +146,8 @@ fun DetailScreen(app: AppState, item: ContentItem) {
                                 Text(" %.1f".format(it), fontWeight = FontWeight.SemiBold)
                             }
                         }
-                        fskOf(age)?.let { Pill("FSK $it", fskColor(it), Color.White) }
+                        (ageRating?.let { r -> r.fsk?.let { "FSK $it" to fskColor(it) } ?: (r.label to Color(0xFF555E70)) }
+                            ?: fskOf(age)?.let { "FSK $it" to fskColor(it) })?.let { (label, color) -> Pill(label, color, Color.White) }
                         movie?.duration?.let { Pill(it) }
                         if (item.key in watched) WatchedBadge()
                     }
@@ -174,6 +186,31 @@ fun DetailScreen(app: AppState, item: ContentItem) {
                                     Icon(Icons.Filled.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text("Erste Folge abspielen")
                                 }
                             }
+                        }
+                        if (item.type == ContentType.MOVIE) {
+                            val url = item.url ?: runCatching { app.source?.streamUrl(item.copy(containerExtension = movie?.containerExtension ?: item.containerExtension)) }.getOrNull()
+                            val dl = downloads.firstOrNull { it.url == url }
+                            OutlinedButton(
+                                enabled = url != null && dl?.status != com.poweriptv.app.download.DownloadStatus.COMPLETED,
+                                onClick = { url?.let { app.downloads.enqueue(item.name, it, movie?.containerExtension ?: item.containerExtension, cover) } },
+                                modifier = Modifier.handCursor(),
+                            ) {
+                                Icon(Icons.Filled.Download, null); Spacer(Modifier.width(6.dp))
+                                Text(
+                                    when (dl?.status) {
+                                        null -> "Herunterladen"
+                                        com.poweriptv.app.download.DownloadStatus.COMPLETED -> "Offline verfügbar"
+                                        com.poweriptv.app.download.DownloadStatus.FAILED, com.poweriptv.app.download.DownloadStatus.PAUSED -> "Download fortsetzen"
+                                        else -> "Lädt … ${(dl.progress * 100).toInt()} %"
+                                    },
+                                )
+                            }
+                        }
+                        OutlinedButton(onClick = { app.listPickerFor = item }, modifier = Modifier.handCursor()) {
+                            Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null); Spacer(Modifier.width(6.dp)); Text("Liste")
+                        }
+                        OutlinedButton(onClick = { com.poweriptv.desktop.ui.shareWhatsApp(item) }, modifier = Modifier.handCursor()) {
+                            Icon(Icons.Filled.Share, null); Spacer(Modifier.width(6.dp)); Text("Teilen")
                         }
                         OutlinedButton(onClick = { lib.toggleFavorite(item) }, modifier = Modifier.handCursor()) {
                             Icon(if (isFav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, null, tint = if (isFav) Danger else Color.White)
@@ -222,19 +259,24 @@ private fun EpisodeSection(app: AppState, item: ContentItem, s: SeriesInfo, cove
                 onClick = { app.playEpisode(item, ep, all, cover) },
                 onToggleWatched = { lib.markWatched(key, key !in watched) },
                 onFromStart = { app.playEpisode(item, ep, all, cover, 0L) },
+                onDownload = {
+                    val src = app.source
+                    if (src != null) app.downloads.enqueue("${item.name} – S${ep.season}E${ep.episodeNum} ${ep.title}", ep.directUrl ?: src.episodeUrl(ep), ep.containerExtension, cover)
+                },
             )
         }
     }
 }
 
 @Composable
-private fun EpisodeRow(ep: Episode, watched: Boolean, progress: Float, onClick: () -> Unit, onToggleWatched: () -> Unit, onFromStart: () -> Unit) {
+private fun EpisodeRow(ep: Episode, watched: Boolean, progress: Float, onClick: () -> Unit, onToggleWatched: () -> Unit, onFromStart: () -> Unit, onDownload: () -> Unit) {
     val hover = remember { MutableInteractionSource() }
     val hovered by hover.collectIsHoveredAsState()
     ContextMenuArea(items = {
         listOf(
             ContextMenuItem("Abspielen", onClick),
             ContextMenuItem("Von vorne abspielen", onFromStart),
+            ContextMenuItem("Herunterladen (offline)", onDownload),
             ContextMenuItem(if (watched) "Als nicht gesehen markieren" else "Als gesehen markieren", onToggleWatched),
         )
     }) {
@@ -268,6 +310,7 @@ private fun EpisodeRow(ep: Episode, watched: Boolean, progress: Float, onClick: 
                 ep.duration?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 ep.plot?.let { Text(it, maxLines = 3, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f)) }
             }
+            IconButton(onClick = onDownload, modifier = Modifier.handCursor()) { Icon(Icons.Filled.Download, "Herunterladen") }
         }
     }
 }

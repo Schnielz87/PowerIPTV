@@ -15,7 +15,7 @@ import javax.crypto.spec.GCMParameterSpec
  * Verschluesselter Dateispeicher (AES-256-GCM, Schluessel liegt im Android Keystore).
  * Zugangsdaten und VPN-Konfiguration werden nie im Klartext gespeichert.
  */
-class SecureStore(context: Context) {
+class SecureStore(context: Context) : SecretStore {
     private val dir = File(context.filesDir, "secure").apply { mkdirs() }
 
     private fun key(): SecretKey {
@@ -33,7 +33,7 @@ class SecureStore(context: Context) {
     }
 
     @Synchronized
-    fun write(name: String, value: String?) {
+    override fun write(name: String, value: String?) {
         val file = File(dir, "$name.enc")
         if (value == null) {
             file.delete(); return
@@ -49,7 +49,7 @@ class SecureStore(context: Context) {
     }
 
     @Synchronized
-    fun read(name: String): String? {
+    override fun read(name: String): String? {
         val file = File(dir, "$name.enc")
         if (!file.exists()) return null
         return try {

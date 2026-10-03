@@ -28,6 +28,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Notifications
@@ -122,7 +123,8 @@ fun EpgScreen(app: AppState) {
     LaunchedEffect(reload) { withContext(Dispatchers.IO) { app.epg.ensureLoaded(src, force = reload > 0) } }
     LaunchedEffect(src) {
         runCatching { withContext(Dispatchers.IO) { src.categories(ContentType.LIVE) } }
-            .onSuccess { cats ->
+            .onSuccess { all ->
+                val cats = all.filterNot { app.parental.requiresPin(src.profile.id, ContentType.LIVE, it) }
                 categories = cats
                 if (group == null) {
                     val lang = settings.categoryLanguage
@@ -134,7 +136,7 @@ fun EpgScreen(app: AppState) {
     LaunchedEffect(group, if (group == FAV_GROUP) favorites else Unit) {
         val g = group ?: return@LaunchedEffect
         channels = null
-        channels = if (g == FAV_GROUP) favorites.filter { it.type == ContentType.LIVE }
+        channels = if (g == FAV_GROUP) app.parental.visible(src.profile.id, favorites.filter { it.type == ContentType.LIVE })
         else runCatching { withContext(Dispatchers.IO) { src.items(ContentType.LIVE, g) } }.getOrElse { error = it.message; emptyList() }
     }
 
@@ -246,6 +248,7 @@ private fun EpgRow(
 ) {
     val lib = app.library ?: return
     val timeline = remember(channel.key, epgState) { app.epg.timeline(channel, windowStart, windowEnd) }
+    val recordings by app.recordings.entries.collectAsState()
     Row(Modifier.fillMaxWidth().height(ROW_HEIGHT).padding(vertical = 2.dp)) {
         ContextMenuArea(items = {
             listOf(ContextMenuItem(if (isFavorite) "Aus Favoriten entfernen" else "Zu Favoriten") { lib.toggleFavorite(channel) })
@@ -284,6 +287,9 @@ private fun EpgRow(
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (reminded) Icon(Icons.Filled.Notifications, "Erinnerung", tint = BrandCyan, modifier = Modifier.size(12.dp))
+                            if (recordings.any { r -> r.channelName == channel.name && r.start < p.end && r.end > p.start && r.status != com.poweriptv.app.record.RecStatus.CANCELLED }) {
+                                Icon(Icons.Filled.FiberManualRecord, "Aufnahme", tint = Danger, modifier = Modifier.size(10.dp))
+                            }
                             if (!p.isGap && past && app.source?.catchupUrl(channel, p.start, p.end) != null) {
                                 Icon(Icons.Filled.History, "Catch-up", tint = BrandCyan, modifier = Modifier.size(12.dp))
                             }
@@ -328,6 +334,14 @@ private fun ProgrammeDialog(app: AppState, channel: ContentItem, p: Programme, l
                 if (catchup != null && !p.isGap) {
                     OutlinedButton(onClick = { onDismiss(); app.playCatchup(channel, p.title, catchup) }, modifier = Modifier.handCursor()) {
                         Text(if (p.isLive(now)) "Von Beginn an (Timeshift)" else "Nachträglich ansehen (Catch-up)")
+                    }
+                }
+                if (p.end > now && !p.isGap) {
+                    OutlinedButton(onClick = {
+                        info = app.recordings.schedule(p.title, channel.name, channel.url ?: src.streamUrl(channel), maxOf(p.start, now), p.end, channel.logo)
+                    }, modifier = Modifier.handCursor()) {
+                        Icon(Icons.Filled.FiberManualRecord, null, tint = Danger, modifier = Modifier.size(14.dp)); Spacer(Modifier.width(6.dp))
+                        Text(if (p.isLive(now)) "Jetzt aufnehmen (bis Sendungsende)" else "Aufnahme planen")
                     }
                 }
                 if (p.start > now && !p.isGap) {

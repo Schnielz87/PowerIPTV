@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.75 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.76 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -83,6 +83,7 @@ c.push(p('Die Listen werden automatisch alle 24 Stunden aktualisiert; über das 
 
 // 4
 c.push(h1('4. Startseite'));
+c.push(bullet([b('Kopfzeile: '), t('Logo, Benutzer-Männchen, Cast, Suche, Aktualisieren und VPN-Status – gleich groß und gleichmäßig verteilt.')]));
 c.push(bullet([b('Benutzer-Männchen (oben neben dem Logo): '), t('antippen → Liste aller Zugänge; der aktive ist blau mit Haken markiert. Ein Tipp auf einen anderen Zugang wechselt sofort. Bearbeiten und Löschen gibt es nur unter „Benutzer wechseln“.')]));
 c.push(bullet([b('Große Kacheln: '), t('Live TV, Filme, Serien.')]));
 c.push(bullet([b('Kleine Kacheln: '), t('Suche, Programmführer, Favoriten, Aufnahmen, Downloads, Empfehlungen, Multi-View, VPN, Einstellungen.')]));
@@ -221,6 +222,9 @@ c.push(table(['Taste', 'Funktion'], [
   ['Bild ↑ / Bild ↓', 'Sender wechseln'],
   ['M', 'Ton aus / an'],
   ['Z', 'Zoomen an / aus (schwarze Balken weg)'],
+  ['R', 'Aufnahme starten (Live TV)'],
+  ['B', 'Zurück zum vorherigen Sender'],
+  ['Enter', 'Intro überspringen (wenn eingeblendet)'],
   ['F, F11, Doppelklick', 'Vollbild an / aus'],
   ['L', 'Senderliste (Live TV)'],
   ['N', 'Nächste Folge'],
@@ -228,7 +232,19 @@ c.push(table(['Taste', 'Funktion'], [
 ], [3000, 6026]));
 c.push(tip('Dein Passwort wird mit dem Windows-Datenschutz (DPAPI) verschlüsselt gespeichert – nur dein Windows-Konto auf diesem PC kann es lesen. Alle Daten liegen unter %APPDATA%\\Portiva.'));
 c.push(bullet([b('TV-Guide (EPG): '), t('linke Leiste „TV-Guide“ oder Kachel – Zeitraster wie am Handy (Sprache, Favoriten, Gruppen). Sendung anklicken: Live ansehen, von Beginn an/Catch-up (bei Archiv-Sendern), 🔔 Erinnern. Die Erinnerung erscheint 5 Minuten vorher als Windows-Benachrichtigung und als Hinweis mit „Jetzt ansehen“ (Portiva muss dafür geöffnet sein). In der Senderliste und im Player steht, was gerade läuft und was danach kommt.')]));
-c.push(p('Noch nicht in der Windows-Version (folgt): Multi-View, Aufnahmen, Downloads, KI-Empfehlungen, VPN, Kindersicherung und Backup-Übernahme vom Handy.'));
+c.push(h2('Alle Funktionen wie am Handy'));
+c.push(p('Die Windows-Version kann dasselbe wie die Android-App – vieles läuft sogar mit demselben Programmcode (Kindersicherung, FSK, KI-Empfehlungen, Aufnahme-Mitschnitt, Downloads, TV-Guide, Kategorien, Filter).'));
+c.push(bullet([b('Aufnahmen: '), t('im TV-Guide „Aufnahme planen“ bzw. „Jetzt aufnehmen“ oder im Live-Player mit dem roten Punkt (Taste R) – Dauer wählen oder bis Sendungsende. Kachel „Aufnahmen“: abspielen, stoppen, löschen, Ordner öffnen. Portiva muss zur Aufnahmezeit geöffnet sein.')]));
+c.push(bullet([b('Downloads: '), t('Detailseite „Herunterladen“ (Filme) bzw. Download-Symbol bei jeder Folge. Kachel „Downloads“: Fortschritt, Geschwindigkeit, pausieren/fortsetzen, offline abspielen. Ordner unter Einstellungen → Downloads & Aufnahmen.')]));
+c.push(bullet([b('Multi-Screen: '), t('2 oder 4 Sender gleichzeitig. Fenster anklicken = dessen Ton; „Wechseln“ = anderer Sender. Das Stream-Limit des Zugangs wird beachtet wie am Handy („Pausiert (Limit des Zugangs)“, „Streams: x / y“).')]));
+c.push(bullet([b('KI-Empfehlungen: '), t('OpenAI-Schlüssel unter Einstellungen → KI-Empfehlungen eintragen, dann Kachel „KI-Empfehlungen“.')]));
+c.push(bullet([b('Kindersicherung: '), t('PIN festlegen, Erwachseneninhalte automatisch sperren, einzelne Kategorien sperren, Einstellungen schützen – gesperrte Inhalte sind überall ausgeblendet (Listen, Suche, Verlauf, Favoriten, TV-Guide) und nur mit PIN erreichbar.')]));
+c.push(bullet([b('VPN & Sicherheit: '), t('WireGuard-Konfiguration (.conf) importieren und verbinden (einmalig „WireGuard für Windows“ installieren; Windows fragt beim Verbinden nach Administrator-Rechten). Kill-Switch blockiert ohne VPN Login, Listen, Bilder und Streams. Externe VPNs (NordVPN, Surfshark …) werden erkannt. Startseite oben: „VPN aktiv“ / „Kein VPN“.')]));
+c.push(bullet([b('Favoriten & Listen: '), t('eigene Listen anlegen, umbenennen, löschen. Rechtsklick auf jeden Titel: Favorit, „Zu Liste hinzufügen …“, gesehen markieren, per WhatsApp teilen (nur der Titel, nie der Stream-Link).')]));
+c.push(bullet([b('Player-Extras: '), t('Favorit-Herz, Aufnahme (R), zurück zum vorherigen Sender (B), Sleep-Timer und Untertitel im Zahnrad-Menü, „Intro überspringen“ (lernt wie am Handy aus deinem Vorspulen), Vorschaubilder beim Spulen, Auf Fernseher übertragen (Chromecast / Android TV im Heimnetz).')]));
+c.push(bullet([b('Sichern & Wiederherstellen: '), t('Einstellungen → Sichern & Wiederherstellen. Gleiches Dateiformat wie die Handy-App: eine Handy-Sicherung kann am PC eingespielt werden (Zugänge, Favoriten & Listen, Verlauf, Weiterschauen, Kindersicherung, Kategorien, Schlüssel) – und umgekehrt.')]));
+c.push(bullet([b('FSK: '), t('mit TMDB-Schlüssel (Einstellungen → Altersfreigabe) die offizielle deutsche Freigabe, sonst die Angabe des Anbieters.')]));
+c.push(bullet([b('Zugänge: '), t('bearbeiten (Stift) und löschen wie am Handy; Passwörter mit dem Windows-Datenschutz verschlüsselt.')]));
 
 const doc = new Document({
   creator: 'Portiva', title: 'PowerIPTV – Bedienungsanleitung',

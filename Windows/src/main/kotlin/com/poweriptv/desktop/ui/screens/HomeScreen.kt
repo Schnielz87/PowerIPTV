@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.VideoLibrary
@@ -78,6 +79,7 @@ import com.poweriptv.desktop.ui.SectionTitle
 import com.poweriptv.desktop.ui.Success
 import com.poweriptv.desktop.ui.Warning
 import com.poweriptv.desktop.ui.handCursor
+import com.poweriptv.desktop.ui.itemMenu
 import com.poweriptv.app.data.Episode
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -86,8 +88,13 @@ import java.util.Locale
 @Composable
 fun HomeScreen(app: AppState) {
     val lib = app.library ?: return
-    val history by lib.history.collectAsState()
-    val favorites by lib.favorites.collectAsState()
+    val historyAll by lib.history.collectAsState()
+    val favoritesAll by lib.favorites.collectAsState()
+    val parentalOn by app.parental.enabled.collectAsState()
+    val parentalUnlocked by app.parental.sessionUnlocked.collectAsState()
+    val pid = app.profile?.id
+    val history = remember(historyAll, parentalOn, parentalUnlocked) { historyAll.filterNot { pid != null && app.parental.isItemBlocked(pid, it.item) } }
+    val favorites = remember(favoritesAll, parentalOn, parentalUnlocked) { app.parental.visible(pid, favoritesAll) }
     var account by remember { mutableStateOf<AccountInfo?>(null) }
     LaunchedEffect(app.source) { account = runCatching { app.source?.accountInfo() }.getOrNull() }
 
@@ -104,14 +111,14 @@ fun HomeScreen(app: AppState) {
                     }
                 }
             }
-            ProfileSwitcher(app)
-            Spacer(Modifier.width(6.dp))
-            if (app.refreshing) {
-                CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
-                Spacer(Modifier.width(10.dp))
-                Text("Playlist wird aktualisiert…", style = MaterialTheme.typography.bodySmall)
-            } else {
-                IconButton(onClick = { app.refresh() }, modifier = Modifier.handCursor()) { Icon(Icons.Filled.Sync, "Playlist aktualisieren") }
+            // Gleiche Reihenfolge und gleichmaessige Abstaende wie in der Android-App
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                ProfileSwitcher(app)
+                IconButton(onClick = { app.navigate(Screen.Search) }, modifier = Modifier.handCursor()) { Icon(Icons.Filled.Search, "Suche") }
+                IconButton(onClick = { app.refresh() }, enabled = !app.refreshing, modifier = Modifier.handCursor()) {
+                    if (app.refreshing) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) else Icon(Icons.Filled.Sync, "Playlist aktualisieren")
+                }
+                VpnBadge(app)
             }
         }
         app.refreshError?.let { Text("Aktualisierung fehlgeschlagen: $it", color = MaterialTheme.colorScheme.error) }
@@ -131,7 +138,7 @@ fun HomeScreen(app: AppState) {
         // Kleine Kacheln wie in der Android-App
         ToolTiles(app)
 
-        val cont = remember(history) { lib.continueWatching() }
+        val cont = remember(history) { lib.continueWatching().filter { e -> history.any { it.item.key == e.item.key } } }
         if (cont.isNotEmpty()) {
             SectionTitle("Weiterschauen")
             LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -140,10 +147,10 @@ fun HomeScreen(app: AppState) {
                         item = e.item, onClick = { resume(app, e) }, modifier = Modifier.width(150.dp),
                         progress = e.progress,
                         subtitle = e.episodeTitle?.let { "S${e.season} E${e.episodeNum}" } ?: "noch ${com.poweriptv.desktop.ui.formatTime(e.duration - e.position)}",
-                        menu = listOf(
+                        menu = app.itemMenu(e.item, listOf(
                             MenuAction("Details öffnen") { app.navigate(Screen.Detail(e.item)) },
                             MenuAction("Aus Liste entfernen") { lib.removeHistory(e.item) },
-                        ),
+                        )),
                     )
                 }
             }
@@ -156,10 +163,7 @@ fun HomeScreen(app: AppState) {
                 items(live, key = { it.item.key }) { e ->
                     ChannelCard(
                         e.item, onClick = { app.play(e.item) }, modifier = Modifier.width(280.dp),
-                        menu = listOf(
-                            MenuAction(if (lib.isFavorite(e.item)) "Aus Favoriten entfernen" else "Zu Favoriten") { lib.toggleFavorite(e.item) },
-                            MenuAction("Aus Liste entfernen") { lib.removeHistory(e.item) },
-                        ),
+                        menu = app.itemMenu(e.item, listOf(MenuAction("Aus Liste entfernen") { lib.removeHistory(e.item) })),
                     )
                 }
             }
@@ -178,7 +182,7 @@ fun HomeScreen(app: AppState) {
                 items(recent, key = { "r_" + it.item.key }) { e ->
                     PosterCard(
                         e.item, onClick = { app.navigate(Screen.Detail(e.item)) }, modifier = Modifier.width(140.dp),
-                        menu = listOf(MenuAction("Aus Liste entfernen") { lib.removeHistory(e.item) }),
+                        menu = app.itemMenu(e.item, listOf(MenuAction("Aus Liste entfernen") { lib.removeHistory(e.item) })),
                     )
                 }
             }
@@ -234,25 +238,24 @@ fun EmptyHint(text: String, modifier: Modifier = Modifier) {
     }
 }
 
-private data class Tile(val label: String, val icon: ImageVector, val soon: Boolean = false, val onClick: () -> Unit)
+private data class Tile(val label: String, val icon: ImageVector, val onClick: () -> Unit)
 
-/** Kachel-Raster der Android-Startseite; noch nicht portierte Funktionen sind als „bald“ markiert. */
+/** Kachel-Raster wie auf der Android-Startseite. */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun ToolTiles(app: AppState) {
-    var soonInfo by remember { mutableStateOf<String?>(null) }
-    val soon = { name: String -> { soonInfo = name } }
     val tiles = listOf(
         Tile("Suche", Icons.Filled.Search) { app.navigate(Screen.Search) },
         Tile("Playlist aktualisieren", Icons.Filled.Sync) { app.refresh() },
         Tile("TV-Guide (EPG)", Icons.Filled.CalendarViewWeek) { app.navigate(Screen.Epg) },
-        Tile("Aufnahmen", Icons.Filled.FiberSmartRecord, true, soon("Aufnahmen")),
-        Tile("Multi-Screen", Icons.Filled.GridView, true, soon("Multi-Screen")),
-        Tile("KI-Empfehlungen", Icons.Filled.AutoAwesome, true, soon("KI-Empfehlungen")),
+        Tile("Aufnahmen", Icons.Filled.FiberSmartRecord) { app.navigate(Screen.Recordings) },
+        Tile("Multi-Screen", Icons.Filled.GridView) { app.navigate(Screen.MultiView) },
+        Tile("KI-Empfehlungen", Icons.Filled.AutoAwesome) { app.navigate(Screen.Recommendations) },
         Tile("Favoriten & Listen", Icons.Filled.Favorite) { app.navigate(Screen.Favorites) },
-        Tile("Downloads", Icons.Filled.DownloadForOffline, true, soon("Downloads")),
-        Tile("VPN & Sicherheit", Icons.Filled.Shield, true, soon("VPN & Sicherheit")),
+        Tile("Downloads", Icons.Filled.DownloadForOffline) { app.navigate(Screen.Downloads) },
+        Tile("VPN & Sicherheit", Icons.Filled.Shield) { app.navigate(Screen.Vpn) },
         Tile("Benutzer wechseln", Icons.Filled.People) { app.navigate(Screen.Profiles) },
+        Tile("Kindersicherung", Icons.Filled.Lock) { app.navigate(Screen.Parental) },
         Tile("Einstellungen", Icons.Filled.Settings) { app.navigate(Screen.Settings) },
     )
     androidx.compose.foundation.layout.FlowRow(
@@ -260,14 +263,6 @@ private fun ToolTiles(app: AppState) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         tiles.forEach { t -> SmallTile(t) }
-    }
-    soonInfo?.let { name ->
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { soonInfo = null },
-            title = { Text(name) },
-            text = { Text("Diese Funktion gibt es bereits in der Android-App und kommt mit dem nächsten Windows-Update.") },
-            confirmButton = { androidx.compose.material3.TextButton(onClick = { soonInfo = null }) { Text("OK") } },
-        )
     }
 }
 
@@ -283,14 +278,13 @@ private fun SmallTile(t: Tile) {
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(t.icon, null, tint = if (t.soon) Color.White.copy(alpha = 0.35f) else com.poweriptv.desktop.ui.Accent, modifier = Modifier.size(26.dp))
+        Icon(t.icon, null, tint = com.poweriptv.desktop.ui.Accent, modifier = Modifier.size(26.dp))
         Spacer(Modifier.width(14.dp))
         Text(
             t.label, fontWeight = FontWeight.SemiBold, maxLines = 1,
-            color = if (t.soon) Color.White.copy(alpha = 0.45f) else Color.White,
+            color = Color.White,
             modifier = Modifier.weight(1f),
         )
-        if (t.soon) Text("bald", fontSize = 11.sp, color = Color.White.copy(alpha = 0.45f))
     }
 }
 
@@ -301,10 +295,7 @@ private fun ProfileSwitcher(app: AppState) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }, modifier = Modifier.handCursor()) {
-            Box(
-                Modifier.size(36.dp).clip(androidx.compose.foundation.shape.CircleShape).background(com.poweriptv.desktop.ui.Accent.copy(alpha = 0.25f)),
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Filled.Person, "Benutzer wechseln", tint = com.poweriptv.desktop.ui.BrandCyan) }
+            Icon(Icons.Filled.Person, "Benutzer wechseln", tint = com.poweriptv.desktop.ui.BrandCyan)
         }
         androidx.compose.material3.DropdownMenu(open, onDismissRequest = { open = false }) {
             Text("Benutzer wechseln", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))

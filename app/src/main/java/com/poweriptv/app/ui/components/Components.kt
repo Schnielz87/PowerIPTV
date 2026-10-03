@@ -112,7 +112,6 @@ fun VpnBadge(container: AppContainer, onClick: () -> Unit) {
     }
     Row(
         modifier = Modifier
-            .padding(end = 8.dp)
             .clip(RoundedCornerShape(50))
             .background(color.copy(alpha = 0.15f))
             .clickable(onClick = onClick)

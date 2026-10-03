@@ -39,11 +39,9 @@ fun ProfileSwitcher(container: AppContainer, onSwitched: (Profile) -> Unit) {
     val activeId = container.source?.profile?.id
     var open by remember { mutableStateOf(false) }
     Box {
+        // Gleiches Format wie die anderen Symbole der Kopfzeile (kein Extra-Kreis)
         IconButton(onClick = { open = true }, modifier = Modifier.tvFocus(CircleShape, 1.15f)) {
-            Box(
-                Modifier.size(34.dp).clip(CircleShape).background(Accent.copy(alpha = 0.25f)),
-                contentAlignment = androidx.compose.ui.Alignment.Center,
-            ) { Icon(Icons.Filled.Person, "Benutzer wechseln", tint = BrandCyan) }
+            Icon(Icons.Filled.Person, "Benutzer wechseln", tint = BrandCyan)
         }
         DropdownMenu(open, onDismissRequest = { open = false }) {
             Text(

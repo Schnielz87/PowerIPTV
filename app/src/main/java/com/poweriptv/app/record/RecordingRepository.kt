@@ -18,24 +18,6 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
-@Serializable
-enum class RecStatus { SCHEDULED, RECORDING, COMPLETED, FAILED, CANCELLED }
-
-@Serializable
-data class Recording(
-    val id: String,
-    val title: String,
-    val channelName: String,
-    val url: String,
-    val start: Long,
-    val end: Long,
-    val filePath: String,
-    val logo: String? = null,
-    val status: RecStatus = RecStatus.SCHEDULED,
-    val bytes: Long = 0,
-    val error: String? = null,
-)
-
 /** Geplante und laufende Aufnahmen (PVR). */
 class RecordingRepository(private val context: Context, private val json: Json) {
     private val metaFile = File(context.filesDir, "recordings.json")

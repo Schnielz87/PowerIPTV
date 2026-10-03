@@ -26,7 +26,7 @@ data class AgeRating(val fsk: Int?, val label: String, val official: Boolean)
  */
 class AgeRatingRepository(
     private val http: () -> OkHttpClient,
-    private val secure: SecureStore,
+    private val secure: SecretStore,
     private val json: Json,
 ) {
     private val cache = ConcurrentHashMap<String, Result<AgeRating?>>()

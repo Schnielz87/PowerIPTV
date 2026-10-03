@@ -20,17 +20,31 @@ import java.util.concurrent.TimeUnit
 
 const val USER_AGENT = "PowerIPTV/1.0 (Windows; Desktop)"
 
+/** Laufzeit-Einstellungen fuers Netzwerk (User-Agent, VPN-Kill-Switch) – wie Android. */
+object NetConfig {
+    @Volatile var userAgent: String = USER_AGENT
+    /** false = Kill-Switch aktiv und kein VPN -> jede Anfrage wird blockiert. */
+    @Volatile var allowed: () -> Boolean = { true }
+}
+
+class VpnRequiredException : java.io.IOException(
+    "Kill-Switch aktiv: Verbindung blockiert, weil kein VPN verbunden ist. Bitte unter VPN & Sicherheit das VPN verbinden.",
+)
+
 val Http: OkHttpClient by lazy {
     OkHttpClient.Builder()
-        .addInterceptor { chain -> chain.proceed(chain.request().newBuilder().header("User-Agent", USER_AGENT).build()) }
+        .addInterceptor { chain ->
+            if (!NetConfig.allowed()) throw VpnRequiredException()
+            chain.proceed(chain.request().newBuilder().header("User-Agent", NetConfig.userAgent).build())
+        }
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .followRedirects(true)
         .build()
 }
 
-fun createSource(profile: Profile): ContentSource = when (profile.type) {
-    ProfileType.XTREAM -> XtreamSource(profile, Http, AppJson) { "ts" }
+fun createSource(profile: Profile, liveExt: () -> String = { "ts" }): ContentSource = when (profile.type) {
+    ProfileType.XTREAM -> XtreamSource(profile, Http, AppJson, liveExt)
     ProfileType.M3U_URL, ProfileType.M3U_FILE -> M3uSource(profile, Http)
 }
 

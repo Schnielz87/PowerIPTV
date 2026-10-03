@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -87,6 +88,7 @@ import com.poweriptv.desktop.ui.ChannelCard
 import com.poweriptv.desktop.ui.MenuAction
 import com.poweriptv.desktop.ui.PosterCard
 import com.poweriptv.desktop.ui.handCursor
+import com.poweriptv.desktop.ui.itemMenu
 import com.poweriptv.desktop.ui.typeLabel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -124,6 +126,16 @@ fun BrowseScreen(app: AppState, type: ContentType) {
     var showFilter by remember { mutableStateOf(false) }
     var reload by remember { mutableIntStateOf(0) }
     val filter = app.browseFilters[type] ?: ContentFilter()
+    // Kindersicherung wie Android: gesperrte Kategorien nur mit PIN, Titel daraus ueberall ausgeblendet
+    val parentalOn by app.parental.enabled.collectAsState()
+    val parentalUnlocked by app.parental.sessionUnlocked.collectAsState()
+    val pid = src.profile.id
+    val lockedIds = remember(categories, parentalOn, parentalUnlocked) { app.parental.lockedIds(pid, type, categories.orEmpty()) }
+    var pinFor by remember { mutableStateOf<Category?>(null) }
+    fun selectCategory(c: Category) {
+        if (c.id !in listOf(CAT_ALL, CAT_FAV, CAT_RECENT) && app.parental.requiresPin(pid, type, c)) pinFor = c
+        else app.selectedCategory[type] = c.id
+    }
 
     // Kategorien laden; Startkategorie = erste in der bevorzugten Sprache (wie Android)
     LaunchedEffect(type, app.dataVersion, reload) {
@@ -132,8 +144,9 @@ fun BrowseScreen(app: AppState, type: ContentType) {
             .onSuccess { cats ->
                 categories = cats
                 if (app.selectedCategory[type] == null) {
-                    app.selectedCategory[type] = (cats.firstOrNull { language.isNotEmpty() && categoryLanguage(it.name) == language }
-                        ?: cats.firstOrNull())?.id ?: CAT_ALL
+                    val allowed = cats.filterNot { app.parental.requiresPin(src.profile.id, type, it) }
+                    app.selectedCategory[type] = (allowed.firstOrNull { language.isNotEmpty() && categoryLanguage(it.name) == language }
+                        ?: allowed.firstOrNull())?.id ?: CAT_ALL
                 }
             }
             .onFailure { error = it.message ?: "Fehler beim Laden" }
@@ -142,8 +155,8 @@ fun BrowseScreen(app: AppState, type: ContentType) {
     LaunchedEffect(type, selected, app.dataVersion, reload, if (selected == CAT_FAV) favorites else Unit, if (selected == CAT_RECENT) history else Unit) {
         val cat = selected ?: return@LaunchedEffect
         when (cat) {
-            CAT_FAV -> { items = favorites.filter { it.type == type }; return@LaunchedEffect }
-            CAT_RECENT -> { items = history.filter { it.item.type == type }.map { it.item }; return@LaunchedEffect }
+            CAT_FAV -> { items = app.parental.visible(src.profile.id, favorites.filter { it.type == type }); return@LaunchedEffect }
+            CAT_RECENT -> { items = app.parental.visible(src.profile.id, history.filter { it.item.type == type }.map { it.item }); return@LaunchedEffect }
         }
         items = null; error = null
         runCatching { withContext(Dispatchers.IO) { src.items(type, if (cat == CAT_ALL) null else cat) } }
@@ -177,8 +190,8 @@ fun BrowseScreen(app: AppState, type: ContentType) {
         selected == CAT_ALL -> items?.let { list -> langCategoryIds?.let { ids -> list.filter { it.categoryId in ids } } ?: list }
         else -> items
     }
-    val shown = remember(baseList, appliedQuery, filter) {
-        baseList?.let { list -> filter.apply(list.filter { matchesQuery(it.name, appliedQuery) }) }
+    val shown = remember(baseList, appliedQuery, filter, lockedIds) {
+        baseList?.let { list -> filter.apply(list.filter { it.categoryId !in lockedIds && matchesQuery(it.name, appliedQuery) }) }
     }
     val genres = remember(baseList) { ContentFilter.genres(baseList.orEmpty()) }
     val title = typeLabel(type)
@@ -196,7 +209,8 @@ fun BrowseScreen(app: AppState, type: ContentType) {
             selected = if (searchAll) null else selected,
             language = language,
             onLanguage = { l -> app.settings.update { it.copy(categoryLanguage = l) } },
-            onSelect = { app.selectedCategory[type] = it.id },
+            onSelect = ::selectCategory,
+            lockedIds = lockedIds,
             modifier = Modifier.width(300.dp).fillMaxHeight(),
         )
         Column(Modifier.weight(1f).fillMaxHeight().padding(horizontal = 18.dp, vertical = 12.dp)) {
@@ -276,6 +290,9 @@ fun BrowseScreen(app: AppState, type: ContentType) {
             }
         }
     }
+    pinFor?.let { c ->
+        com.poweriptv.desktop.ui.PinDialog(app.parental, onDismiss = { pinFor = null }) { app.selectedCategory[type] = c.id; pinFor = null }
+    }
     if (showFilter) {
         FilterDialog(
             filter = filter, genres = genres, showRatingAndYear = type != ContentType.LIVE,
@@ -301,7 +318,7 @@ private fun ContentGrid(app: AppState, type: ContentType, list: List<ContentItem
                     item, onClick = { app.play(item, channels = list) },
                     favorite = item.key in favKeys,
                     subtitle = remember(item.key, epgState) { app.epg.current(item)?.let { "Jetzt: ${it.title}" } },
-                    menu = listOf(MenuAction(if (item.key in favKeys) "Aus Favoriten entfernen" else "Zu Favoriten") { lib.toggleFavorite(item) }),
+                    menu = app.itemMenu(item),
                 )
             }
         }
@@ -318,13 +335,7 @@ private fun ContentGrid(app: AppState, type: ContentType, list: List<ContentItem
                     favorite = item.key in favKeys,
                     watched = item.key in watched,
                     progress = if (pos > 0 && dur > 0) (pos.toFloat() / dur).coerceAtLeast(0.03f) else 0f,
-                    menu = listOf(
-                        MenuAction("Abspielen") { if (type == ContentType.MOVIE) app.play(item) else app.navigate(Screen.Detail(item)) },
-                        MenuAction(if (item.key in favKeys) "Aus Favoriten entfernen" else "Zu Favoriten") { lib.toggleFavorite(item) },
-                        MenuAction(if (item.key in watched) "Als nicht gesehen markieren" else "Als gesehen markieren") {
-                            lib.markWatched(item.key, item.key !in watched)
-                        },
-                    ),
+                    menu = app.itemMenu(item, listOf(MenuAction("Abspielen") { if (type == ContentType.MOVIE) app.play(item) else app.navigate(Screen.Detail(item)) })),
                 )
             }
         }
@@ -343,6 +354,7 @@ private fun CategorySidebar(
     onLanguage: (String) -> Unit,
     onSelect: (Category) -> Unit,
     modifier: Modifier,
+    lockedIds: Set<String> = emptySet(),
 ) {
     val prefs = app.categoryPrefs
     val scope = "${app.profile?.id}|${type.name}"
@@ -428,7 +440,7 @@ private fun CategorySidebar(
                     )
                 }) {
                     SidebarRow(
-                        if (pinned) Icons.Filled.PushPin else if (hidden) Icons.Filled.VisibilityOff else Icons.Filled.Folder,
+                        if (c.id in lockedIds) Icons.Filled.Lock else if (pinned) Icons.Filled.PushPin else if (hidden) Icons.Filled.VisibilityOff else Icons.Filled.Folder,
                         label, selected == c.id, dimmed = hidden,
                     ) { onSelect(c) }
                 }

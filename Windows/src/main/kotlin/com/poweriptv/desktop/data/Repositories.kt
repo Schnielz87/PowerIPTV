@@ -32,6 +32,9 @@ class ProfileStore {
 }
 
 @Serializable
+data class FavoriteList(val id: String, val name: String, val items: List<ContentItem> = emptyList())
+
+@Serializable
 data class DesktopSettings(
     val lastProfileId: String? = null,
     val introSound: Boolean = true,
@@ -45,6 +48,30 @@ data class DesktopSettings(
     val startFullscreen: Boolean = false,
     /** Bevorzugte Kategorie-Sprache (z.B. "DE"), leer = alle – wie in der Android-App. */
     val categoryLanguage: String = "",
+    // --- wie Android: Netzwerk ---
+    /** Live-Format bei Xtream: "ts" oder "m3u8". */
+    val liveFormat: String = "ts",
+    val userAgent: String = USER_AGENT,
+    // --- Player ---
+    /** Untertitel: KLEIN / NORMAL / GROSS / SEHR_GROSS und dunkler Hintergrund. */
+    val subtitleSize: String = "NORMAL",
+    val subtitleBackground: Boolean = false,
+    /** Vorschaubilder beim Spulen: AUTO / ALWAYS / OFF. */
+    val scrubPreview: String = "AUTO",
+    /** Anbieter hat bei der Vorschau abgebrochen -> Automatik schaltet sie ab. */
+    val scrubBlocked: Boolean = false,
+    // --- Downloads & Aufnahmen ---
+    /** Parallele Verbindungen pro Download (0 = automatisch nach Account-Limit). */
+    val downloadConnections: Int = 0,
+    val downloadDir: String = "",
+    val recordingDir: String = "",
+    // --- KI ---
+    val aiModel: String = "gpt-4o-mini",
+    val aiBaseUrl: String = "https://api.openai.com/v1",
+    // --- VPN ---
+    val vpnRequired: Boolean = false,
+    val vpnAutoConnect: Boolean = false,
+    val acceptExternalVpn: Boolean = true,
 )
 
 class SettingsStore {
@@ -142,6 +169,59 @@ class LibraryStore(profileId: String) {
         e.item.type != ContentType.LIVE && e.duration > 0 && e.position > 10_000 && e.progress < 0.95f
     }
 
+    // --- Eigene Listen (wie Android: Standard-Liste "Favoriten" + beliebig viele weitere) ---
+    private val listsFile = JsonFile(AppDirs.file("lists_$profileId.json"), ListSerializer(FavoriteList.serializer())) { emptyList() }
+    private val _lists = MutableStateFlow(listsFile.read())
+    /** Eigene Listen (ohne die Standard-Favoriten). */
+    val lists: StateFlow<List<FavoriteList>> = _lists.asStateFlow()
+
+    fun createList(name: String): String {
+        val id = java.util.UUID.randomUUID().toString()
+        _lists.update { it + FavoriteList(id, name.trim().ifBlank { "Neue Liste" }) }
+        listsFile.write(_lists.value)
+        return id
+    }
+
+    fun renameList(id: String, name: String) {
+        _lists.update { l -> l.map { if (it.id == id && name.isNotBlank()) it.copy(name = name.trim()) else it } }
+        listsFile.write(_lists.value)
+    }
+
+    fun deleteList(id: String) {
+        _lists.update { l -> l.filterNot { it.id == id } }
+        listsFile.write(_lists.value)
+    }
+
+    fun isInList(id: String, item: ContentItem) = _lists.value.firstOrNull { it.id == id }?.items?.any { it.key == item.key } == true
+
+    fun toggleInList(id: String, item: ContentItem) {
+        _lists.update { l ->
+            l.map {
+                if (it.id != id) it
+                else if (it.items.any { i -> i.key == item.key }) it.copy(items = it.items.filterNot { i -> i.key == item.key })
+                else it.copy(items = listOf(item) + it.items)
+            }
+        }
+        listsFile.write(_lists.value)
+    }
+
+    // --- Gelerntes Intro je Serie (Start, Ende in ms) ---
+    private val introFile = JsonFile(AppDirs.file("intros_$profileId.json"), MapSerializer(String.serializer(), String.serializer())) { emptyMap() }
+    private val intros = introFile.read().toMutableMap()
+
+    fun setIntro(seriesKey: String, start: Long, end: Long) {
+        intros[seriesKey] = "$start:$end"; introFile.write(intros)
+    }
+
+    fun intro(seriesKey: String): Pair<Long, Long>? {
+        val (a, b) = intros[seriesKey]?.split(":")?.mapNotNull { it.toLongOrNull() }?.takeIf { it.size == 2 } ?: return null
+        return a to b
+    }
+
+    /** Fuer Backup/Wiederherstellung. */
+    fun rawPositions(): Map<String, Long> = positions.toMap()
+    fun importPositions(map: Map<String, Long>) { positions.putAll(map); posFile.write(positions) }
+
     companion object {
         fun episodeKey(episodeId: String) = "EPISODE:$episodeId"
     }
@@ -185,5 +265,34 @@ class CategoryPrefsStore {
     private fun save() {
         file.write(data)
         _version.value++
+    }
+
+    /** Android-Format der Sicherung: "h|scope" = Menge, "p|scope" = Zeilen. */
+    fun exportAndroid(): Map<String, kotlinx.serialization.json.JsonElement> {
+        val out = mutableMapOf<String, kotlinx.serialization.json.JsonElement>()
+        data.hidden.forEach { (sc, ids) ->
+            out["h|$sc"] = kotlinx.serialization.json.buildJsonObject {
+                put("t", kotlinx.serialization.json.JsonPrimitive("set")); put("v", kotlinx.serialization.json.JsonArray(ids.map { kotlinx.serialization.json.JsonPrimitive(it) }))
+            }
+        }
+        data.pinned.forEach { (sc, ids) ->
+            out["p|$sc"] = kotlinx.serialization.json.buildJsonObject {
+                put("t", kotlinx.serialization.json.JsonPrimitive("s")); put("v", kotlinx.serialization.json.JsonPrimitive(ids.joinToString("\n")))
+            }
+        }
+        return out
+    }
+
+    fun importAndroid(values: Map<String, kotlinx.serialization.json.JsonObject>) {
+        var d = data
+        values.forEach { (k, o) ->
+            val v = o["v"] ?: return@forEach
+            when {
+                k.startsWith("h|") -> d = d.copy(hidden = d.hidden + (k.removePrefix("h|") to (v as? kotlinx.serialization.json.JsonArray)?.map { (it as kotlinx.serialization.json.JsonPrimitive).content }.orEmpty()))
+                k.startsWith("p|") -> d = d.copy(pinned = d.pinned + (k.removePrefix("p|") to (v as kotlinx.serialization.json.JsonPrimitive).content.split('\n').filter { it.isNotBlank() }))
+            }
+        }
+        data = d
+        save()
     }
 }

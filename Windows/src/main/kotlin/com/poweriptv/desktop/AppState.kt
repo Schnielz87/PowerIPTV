@@ -28,6 +28,12 @@ sealed interface Screen {
     data object Settings : Screen
     data object Profiles : Screen
     data object Epg : Screen
+    data object Recordings : Screen
+    data object Downloads : Screen
+    data object Recommendations : Screen
+    data object Parental : Screen
+    data object Vpn : Screen
+    data object MultiView : Screen
     data class Detail(val item: ContentItem) : Screen
 }
 
@@ -75,6 +81,53 @@ class AppState(val window: WindowState) {
         { com.poweriptv.desktop.data.Http },
     ) { org.kxml2.io.KXmlParser() }
     val reminders = com.poweriptv.desktop.data.ReminderStore()
+
+    // --- Dienste wie in der Android-App (zum grossen Teil derselbe Code) ---
+    val parentalStore = com.poweriptv.desktop.data.JsonKeyValueStore("parental")
+    val parental = com.poweriptv.app.parental.ParentalControl(parentalStore)
+    val ai = com.poweriptv.app.ai.AiRecommender(
+        { com.poweriptv.desktop.data.Http }, com.poweriptv.desktop.data.DesktopSecretStore,
+        { settings.value.aiModel }, { settings.value.aiBaseUrl },
+        { p, t, c -> parental.lockedIds(p, t, c) }, com.poweriptv.desktop.data.AppJson,
+    )
+    val ageRatings = com.poweriptv.app.data.AgeRatingRepository({ com.poweriptv.desktop.data.Http }, com.poweriptv.desktop.data.DesktopSecretStore, com.poweriptv.desktop.data.AppJson)
+    val vpn = com.poweriptv.desktop.data.DesktopVpn(settings)
+    val recordings = com.poweriptv.desktop.data.DesktopRecordings { recordingDir() }
+    val downloads: com.poweriptv.app.download.DownloadRepository = com.poweriptv.app.download.DownloadRepository(
+        com.poweriptv.desktop.data.AppDirs.file("downloads.json"), downloadDir(), com.poweriptv.desktop.data.AppJson,
+        { com.poweriptv.desktop.data.Http }, { downloadConnections() },
+    ) { startDownloadWorker() }
+    val backup = com.poweriptv.desktop.data.BackupManager(profiles, settings, categoryPrefs, parentalStore)
+
+    fun videosDir(): java.io.File = java.io.File(System.getProperty("user.home"), "Videos/Portiva")
+    fun downloadDir(): java.io.File = settings.value.downloadDir.takeIf { it.isNotBlank() }?.let { java.io.File(it) } ?: java.io.File(videosDir(), "Downloads")
+    fun recordingDir(): java.io.File = settings.value.recordingDir.takeIf { it.isNotBlank() }?.let { java.io.File(it) } ?: java.io.File(videosDir(), "Aufnahmen")
+
+    /** Erlaubte gleichzeitige Verbindungen des Zugangs (Xtream max_connections; null = unbekannt). */
+    @Volatile var maxConnections: Int? = null
+
+    /** Wie Android: automatisch nach Account-Limit (max. 4), sonst Einstellung. */
+    private fun downloadConnections(): Int {
+        val set = settings.value.downloadConnections
+        if (set > 0) return set
+        val free = (maxConnections ?: 1) - recordings.running().size - (if (playing != null) 1 else 0)
+        return free.coerceIn(1, 4)
+    }
+
+    private var downloadJob: kotlinx.coroutines.Job? = null
+    private fun startDownloadWorker() {
+        if (downloadJob?.isActive == true) return
+        downloadJob = scope.launch(Dispatchers.IO) {
+            while (true) {
+                val next = downloads.nextQueued() ?: break
+                downloads.run(next) {}
+            }
+        }
+    }
+
+    /** Sleep-Timer (Ende der Wiedergabe, 0 = aus) und zuletzt gesehener Sender (Zap zurueck). */
+    var sleepUntil by mutableStateOf(0L)
+    var lastChannel: ContentItem? = null
     var refreshing by mutableStateOf(false); private set
     var refreshError by mutableStateOf<String?>(null); private set
     /** Wird bei jeder Aktualisierung erhoeht, damit Listen neu laden. */
@@ -95,6 +148,12 @@ class AppState(val window: WindowState) {
                 kotlinx.coroutines.delay(30_000)
             }
         }
+        com.poweriptv.desktop.data.NetConfig.userAgent = settings.value.userAgent
+        com.poweriptv.desktop.data.NetConfig.allowed = { !settings.value.vpnRequired || vpn.isProtected() }
+        scope.launch { settings.state.collect { com.poweriptv.desktop.data.NetConfig.userAgent = it.userAgent } }
+        if (settings.value.vpnAutoConnect && vpn.hasConfig.value && !vpn.isProtected()) scope.launch { vpn.connect() }
+        // Unterbrochene Downloads weiterlaufen lassen
+        if (downloads.nextQueued() != null) startDownloadWorker()
         val last = settings.value.lastProfileId
         val p = profiles.profiles.value.firstOrNull { it.id == last } ?: profiles.profiles.value.firstOrNull()
         if (p != null) activate(p) else stack[0] = Screen.Profiles
@@ -102,7 +161,15 @@ class AppState(val window: WindowState) {
 
     fun activate(p: Profile) {
         profile = p
-        source = DiskCachedSource(createSource(p))
+        source = DiskCachedSource(createSource(p) { settings.value.liveFormat })
+        maxConnections = null
+        source?.let { src ->
+            scope.launch(Dispatchers.IO) {
+                maxConnections = runCatching { src.accountInfo()?.maxConnections?.toIntOrNull() }.getOrNull()
+                // Kategorien fuer die Kindersicherung kennen (Erwachsenen-Kategorien auch bei Einzeltiteln erkennen)
+                ContentType.entries.forEach { t -> runCatching { parental.register(src.profile.id, t, src.categories(t)) } }
+            }
+        }
         library = LibraryStore(p.id)
         settings.update { it.copy(lastProfileId = p.id) }
         stack.clear(); stack += Screen.Home
@@ -145,9 +212,21 @@ class AppState(val window: WindowState) {
         }
     }
 
+    /** Nach dem Wiederherstellen: Zugang und Daten neu laden. */
+    fun reloadAfterRestore() {
+        val p = profiles.profiles.value.firstOrNull { it.id == settings.value.lastProfileId } ?: profile ?: profiles.profiles.value.firstOrNull()
+        p?.let { activate(it) }
+    }
+
     fun loadEpg(force: Boolean = false) {
         val src = source ?: return
         scope.launch(Dispatchers.IO) { epg.ensureLoaded(src, force) }
+    }
+
+    /** Aufnahme oder Download vom PC abspielen. */
+    fun playFile(title: String, file: java.io.File, subtitle: String? = null) {
+        val item = ContentItem("file:" + file.absolutePath.hashCode(), title, ContentType.MOVIE)
+        playing = PlayRequest(item, file.toURI().toString(), title, subtitle = subtitle, catchup = true)
     }
 
     /** Vergangene Sendung (Catch-up) oder laufende von Beginn an (Timeshift). */
@@ -168,9 +247,22 @@ class AppState(val window: WindowState) {
 
     // --- Wiedergabe ---
 
+    /** Kindersicherung: gesperrter Titel -> PIN abfragen, danach abspielen. */
+    var pinRequest by mutableStateOf<(() -> Unit)?>(null)
+    /** Dialog „Zu Liste hinzufuegen“. */
+    var listPickerFor by mutableStateOf<ContentItem?>(null)
+
+    fun withPin(item: ContentItem?, action: () -> Unit) {
+        val pid = profile?.id
+        if (item != null && pid != null && parental.isItemBlocked(pid, item)) pinRequest = action else action()
+    }
+
     fun play(item: ContentItem, channels: List<ContentItem> = emptyList(), startAt: Long? = null) {
+        val pid = profile?.id
+        if (pid != null && parental.isItemBlocked(pid, item)) { pinRequest = { play(item, channels, startAt) }; return }
         val src = source ?: return
         val lib = library ?: return
+        if (item.type == ContentType.LIVE) playing?.item?.takeIf { it.type == ContentType.LIVE && it.key != item.key }?.let { lastChannel = it }
         val url = item.url ?: runCatching { src.streamUrl(item) }.getOrNull() ?: return
         val start = startAt ?: if (item.type == ContentType.MOVIE) lib.position(item.key) else 0L
         if (item.type == ContentType.LIVE) lib.addHistory(WatchEntry(item))
@@ -178,6 +270,8 @@ class AppState(val window: WindowState) {
     }
 
     fun playEpisode(series: ContentItem, episode: Episode, episodes: List<Episode>, cover: String?, startAt: Long? = null) {
+        val pid = profile?.id
+        if (pid != null && parental.isItemBlocked(pid, series)) { pinRequest = { playEpisode(series, episode, episodes, cover, startAt) }; return }
         val src = source ?: return
         val lib = library ?: return
         val url = episode.directUrl ?: src.episodeUrl(episode)

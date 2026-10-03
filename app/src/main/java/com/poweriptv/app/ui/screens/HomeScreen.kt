@@ -84,6 +84,8 @@ import com.poweriptv.app.data.ContentType
 import com.poweriptv.app.player.MultiViewActivity
 import com.poweriptv.app.ui.components.BrandTopBar
 import com.poweriptv.app.ui.components.ProfileSwitcher
+import androidx.compose.foundation.layout.statusBarsPadding
+import com.poweriptv.app.ui.components.PortivaLogo
 import com.poweriptv.app.ui.components.CastButton
 import com.poweriptv.app.ui.components.CastingBar
 import com.poweriptv.app.ui.components.VpnBadge
@@ -129,15 +131,26 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            BrandTopBar(titleContent = { ProfileSwitcher(container) { onProfileSwitched() } }, actions = {
-                CastButton(container)
-                IconButton(onClick = onSearch, modifier = Modifier.tvFocus()) { Icon(Icons.Filled.Search, "Suche") }
-                IconButton(onClick = { container.refreshPlaylist(force = true) }, enabled = !refreshing, modifier = Modifier.tvFocus()) {
-                    if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    else Icon(Icons.Filled.Sync, "Playlist aktualisieren")
+            // Kopfzeile: Logo + gleich grosse Symbole in gleichmaessigen Abstaenden
+            BoxWithConstraints(Modifier.fillMaxWidth().statusBarsPadding().height(64.dp).padding(horizontal = 12.dp)) {
+                val narrow = maxWidth < 600.dp
+                Row(
+                    Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = if (narrow) Arrangement.SpaceBetween else Arrangement.spacedBy(8.dp),
+                ) {
+                    PortivaLogo(Modifier.size(40.dp))
+                    if (!narrow) Spacer(Modifier.weight(1f))
+                    ProfileSwitcher(container) { onProfileSwitched() }
+                    CastButton(container)
+                    IconButton(onClick = onSearch, modifier = Modifier.tvFocus()) { Icon(Icons.Filled.Search, "Suche") }
+                    IconButton(onClick = { container.refreshPlaylist(force = true) }, enabled = !refreshing, modifier = Modifier.tvFocus()) {
+                        if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        else Icon(Icons.Filled.Sync, "Playlist aktualisieren")
+                    }
+                    VpnBadge(container, onVpn)
                 }
-                VpnBadge(container, onVpn)
-            })
+            }
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->

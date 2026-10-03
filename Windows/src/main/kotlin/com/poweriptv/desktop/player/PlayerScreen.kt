@@ -26,6 +26,14 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CastConnected
+import androidx.compose.material.icons.filled.Cast
+import androidx.compose.runtime.collectAsState
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
@@ -57,6 +65,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -126,6 +135,14 @@ private val BlankCursor: PointerIcon by lazy {
 @Composable
 fun PlayerScreen(app: AppState, req: PlayRequest) {
     val ctl = remember { app.playerController() }
+    remember(app.settings.value.subtitleSize, app.settings.value.subtitleBackground) {
+        ctl.subtitleScale = when (app.settings.value.subtitleSize) { "KLEIN" -> 0.8f; "GROSS" -> 1.3f; "SEHR_GROSS" -> 1.6f; else -> 1f }
+        ctl.subtitleBackground = app.settings.value.subtitleBackground
+    }
+    var toast by remember { mutableStateOf<String?>(null) }
+    var showRecord by remember { mutableStateOf(false) }
+    var introSkipped by remember(req.url) { mutableStateOf(false) }
+    val favorites by (app.library?.favorites ?: kotlinx.coroutines.flow.MutableStateFlow(emptyList())).collectAsState()
     val current by rememberUpdatedState(req)
     val isLive = req.isLive
     val aspect = app.playerAspect
@@ -164,6 +181,44 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
         val next = nextEpisode() ?: return
         savePosition()
         app.playEpisode(current.item, next, episodes, current.seriesCover, 0L)
+    }
+
+    fun zapBack() {
+        val last = app.lastChannel
+        if (last != null) app.play(last, channels = current.channels) else toast = "Noch kein vorheriger Sender"
+    }
+
+    fun setSleep(minutes: Int) {
+        app.sleepUntil = if (minutes <= 0) 0L else System.currentTimeMillis() + minutes * 60_000L
+        toast = if (minutes <= 0) "Sleep-Timer aus" else "Sleep-Timer: Wiedergabe endet in $minutes Minuten"
+    }
+
+    // --- Intro ueberspringen + lernen (wie Android: Vorspulen in den ersten 10 Min. um 20 s – 5 Min.) ---
+    val isEpisode = req.episode != null
+    var lastFlowPos by remember(req.url) { mutableStateOf(0L) }
+    var streakStart by remember(req.url) { mutableStateOf(-1L) }
+    var streakEnd by remember(req.url) { mutableStateOf(-1L) }
+    var lastJumpAt by remember(req.url) { mutableStateOf(0L) }
+    fun learnIntro(pos: Long) {
+        val t = System.currentTimeMillis()
+        val delta = pos - lastFlowPos
+        if (isEpisode && delta > 3_000L && lastFlowPos > 0) {
+            if (streakStart >= 0 && t - lastJumpAt < 4_000L) streakEnd = pos else { streakStart = lastFlowPos; streakEnd = pos }
+            lastJumpAt = t
+        } else if (delta < -3_000L && streakStart >= 0 && t - lastJumpAt < 4_000L) {
+            streakEnd = pos; lastJumpAt = t
+        }
+        if (streakStart >= 0 && t - lastJumpAt >= 4_000L) {
+            val len = streakEnd - streakStart
+            if (isEpisode && streakStart < 600_000L && len in 20_000L..300_000L) app.library?.setIntro(current.item.key, streakStart, streakEnd)
+            streakStart = -1L
+        }
+        lastFlowPos = pos
+    }
+    fun skipIntro() {
+        introSkipped = true
+        val learned = app.library?.intro(current.item.key)
+        if (learned != null) ctl.seekTo(learned.second) else ctl.seekBy(85_000L)
     }
 
     fun zap(delta: Int) {
@@ -209,6 +264,14 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
             delay(500)
             now = System.currentTimeMillis()
             if (++tick % 20 == 0 && ctl.playing) savePosition()
+            if (ctl.playing && ctl.length > 0) learnIntro(ctl.time)
+            // Sleep-Timer: 1 Minute vorher warnen, dann Player schliessen
+            val until = app.sleepUntil
+            if (until > 0) {
+                val rem = until - now
+                if (rem <= 0) { app.sleepUntil = 0L; close() }
+                else if (rem in 59_500L..60_000L) toast = "Sleep-Timer: Wiedergabe endet in 1 Minute"
+            }
         }
     }
     // Neues Videobild pro Bildschirm-Frame abholen
@@ -247,6 +310,9 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                     Key.F, Key.F11 -> { app.toggleFullscreen(); true }
                     Key.L -> { if (isLive) showChannels = !showChannels; true }
                     Key.N -> { playNext(); true }
+                    Key.B -> { if (isLive) zapBack(); true }
+                    Key.R -> { if (isLive) showRecord = true; true }
+                    Key.Enter -> { if (showSkipIntroNow(app, req, ctl, introSkipped)) { skipIntro(); true } else false }
                     Key.Escape -> {
                         when {
                             showChannels -> showChannels = false
@@ -333,7 +399,21 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                         Text(it, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.18f)).padding(horizontal = 8.dp, vertical = 3.dp))
                         Spacer(Modifier.width(8.dp))
                     }
-                    SettingsMenu(ctl, aspect, isLive, onAspect = { app.playerAspect = it }, onOpenChange = { menuOpen = it; poke() })
+                    // Favorit, Aufnahme, Zap zurueck (wie Android)
+                    val fav = favorites.any { it.key == req.item.key }
+                    if (!req.catchup) RoundIcon(if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, if (fav) "Aus Favoriten" else "Zu Favoriten") {
+                        app.library?.toggleFavorite(req.item); toast = if (fav) "Aus Favoriten entfernt" else "Zu Favoriten hinzugefügt"
+                    }
+                    if (isLive) {
+                        val rec = app.recordings.activeFor(req.url)
+                        RoundIcon(Icons.Filled.FiberManualRecord, if (rec != null) "Aufnahme läuft – stoppen" else "Aufnehmen (R)", tint = if (rec != null) Color(0xFFFF4D5E) else Color.White) {
+                            if (rec != null) { app.recordings.stop(rec.id); toast = "Aufnahme gestoppt" } else showRecord = true
+                        }
+                        RoundIcon(Icons.Filled.History, "Zum vorherigen Sender (B)") { zapBack() }
+                    }
+                    CastMenu(ctl) { toast = it }
+                    SettingsMenu(ctl, aspect, isLive, onAspect = { app.playerAspect = it }, onOpenChange = { menuOpen = it; poke() },
+                        sleepMinutes = app.sleepUntil.takeIf { it > 0 }?.let { ((it - now) / 60_000L + 1).toInt() }, onSleep = ::setSleep)
                     if (isLive && req.channels.isNotEmpty()) RoundIcon(Icons.Filled.FormatListBulleted, "Senderliste (L)") { showChannels = !showChannels }
                     RoundIcon(if (app.isFullscreen) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen, "Vollbild (F)") { app.toggleFullscreen() }
                 }
@@ -363,6 +443,7 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                 ) {
                     if (!isLive && ctl.length > 0) {
                         val shown = dragging ?: (ctl.time.toFloat() / ctl.length).coerceIn(0f, 1f)
+                        ScrubPreviewBubble(app, req, ctl, dragging)
                         Slider(
                             value = shown,
                             onValueChange = { dragging = it; poke() },
@@ -395,6 +476,25 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                     }
                 }
             }
+        }
+
+        // Intro ueberspringen (7 s sichtbar; gelerntes Intro: genau zum Intro-Beginn)
+        if (showSkipIntroNow(app, req, ctl, introSkipped)) {
+            androidx.compose.material3.Button(
+                onClick = { skipIntro() },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 28.dp, bottom = 120.dp).handCursor(),
+            ) { Text("Intro überspringen  ⏭") }
+        }
+        // Hinweise (Toast)
+        toast?.let { msg ->
+            LaunchedEffect(msg) { delay(2500); toast = null }
+            Text(
+                msg, color = Color.White,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 90.dp).clip(RoundedCornerShape(10.dp)).background(Color.Black.copy(alpha = 0.75f)).padding(horizontal = 16.dp, vertical = 10.dp),
+            )
+        }
+        if (showRecord) {
+            RecordDialog(app, req, onDismiss = { showRecord = false }) { toast = it; showRecord = false }
         }
 
         // Naechste Folge (letzte 40 Sekunden)
@@ -435,19 +535,22 @@ private fun formatBadge(h: Int): String? = when {
 }
 
 @Composable
-private fun RoundIcon(icon: ImageVector, desc: String, big: Boolean? = null, onClick: () -> Unit) {
+private fun RoundIcon(icon: ImageVector, desc: String, big: Boolean? = null, tint: Color = Color.White, onClick: () -> Unit) {
     val size = when (big) { true -> 84.dp; false -> 60.dp; null -> 44.dp }
     Box(
         Modifier.size(size).clip(CircleShape).background(Color.Black.copy(alpha = if (big == null) 0.35f else 0.5f))
             .handCursor().clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, desc, tint = Color.White, modifier = Modifier.size(size * 0.55f))
+        Icon(icon, desc, tint = tint, modifier = Modifier.size(size * 0.55f))
     }
 }
 
 @Composable
-private fun SettingsMenu(ctl: PlayerController, aspect: String, isLive: Boolean, onAspect: (String) -> Unit, onOpenChange: (Boolean) -> Unit) {
+private fun SettingsMenu(
+    ctl: PlayerController, aspect: String, isLive: Boolean, onAspect: (String) -> Unit, onOpenChange: (Boolean) -> Unit,
+    sleepMinutes: Int? = null, onSleep: (Int) -> Unit = {},
+) {
     var open by remember { mutableStateOf(false) }
     Box {
         RoundIcon(Icons.Filled.Settings, "Einstellungen") { open = true; onOpenChange(true) }
@@ -467,6 +570,10 @@ private fun SettingsMenu(ctl: PlayerController, aspect: String, isLive: Boolean,
                 MenuHeader(Icons.Filled.Speed, "Geschwindigkeit")
                 listOf(0.75f, 1f, 1.25f, 1.5f, 2f).forEach { r -> CheckItem(if (r == 1f) "Normal" else "${r}x", ctl.rate == r) { ctl.changeRate(r) } }
             }
+            HorizontalDivider()
+            MenuHeader(Icons.Filled.Bedtime, "Sleep-Timer" + (sleepMinutes?.let { " (noch $it Min.)" } ?: ""))
+            CheckItem("Aus", sleepMinutes == null) { onSleep(0) }
+            listOf(15, 30, 45, 60, 90, 120).forEach { m -> CheckItem("$m Minuten", false) { onSleep(m) } }
         }
     }
 }
@@ -524,6 +631,100 @@ private fun CenterMessage(text: String, onRetry: (() -> Unit)? = null, onClose: 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 onRetry?.let { Button(onClick = it, modifier = Modifier.handCursor()) { Text("Erneut versuchen") } }
                 OutlinedButton(onClick = onClose, modifier = Modifier.handCursor()) { Text("Schließen") }
+            }
+        }
+    }
+}
+
+/** "Intro ueberspringen" anzeigen? Serien: 7 s ab gelerntem Intro-Beginn, sonst ab 5 s nach dem Start. */
+private fun showSkipIntroNow(app: AppState, req: PlayRequest, ctl: PlayerController, skipped: Boolean): Boolean {
+    if (req.episode == null || skipped || !ctl.playing) return false
+    val from = app.library?.intro(req.item.key)?.first ?: 5_000L
+    return ctl.time in from..(from + 7_000L)
+}
+
+/** Aufnahme starten (Live): Dauer waehlen oder bis Sendungsende (EPG) – wie Android. */
+@Composable
+private fun RecordDialog(app: AppState, req: PlayRequest, onDismiss: () -> Unit, onDone: (String) -> Unit) {
+    val cur = app.epg.current(req.item)
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Aufnahme starten") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(req.item.name)
+                cur?.let { p ->
+                    androidx.compose.material3.Button(onClick = {
+                        onDone(app.recordings.schedule(p.title, req.item.name, req.url, System.currentTimeMillis(), p.end, req.item.logo))
+                    }) { Text("Bis Sendungsende: ${p.title}") }
+                }
+                listOf(30, 60, 90, 120, 180).forEach { m ->
+                    OutlinedButton(onClick = { onDone(app.recordings.recordNow(cur?.title ?: req.item.name, req.item.name, req.url, m, req.item.logo)) }) { Text("$m Minuten") }
+                }
+                Text("Aufnahmen laufen weiter, auch wenn du den Player schließt (Portiva muss geöffnet bleiben). Jede Aufnahme belegt eine Verbindung deines Zugangs.", style = MaterialTheme.typography.bodySmall)
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Abbrechen") } },
+    )
+}
+
+/** Cast-Knopf: Geraete im Heimnetz suchen und den Stream dort abspielen. */
+@Composable
+private fun CastMenu(ctl: PlayerController, onInfo: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val devices by CastDiscovery.devices.collectAsState()
+    Box {
+        RoundIcon(if (ctl.castingTo != null) Icons.Filled.CastConnected else Icons.Filled.Cast, "Auf Fernseher übertragen",
+            tint = if (ctl.castingTo != null) BrandCyan else Color.White) { CastDiscovery.start(); open = true }
+        DropdownMenu(open, onDismissRequest = { open = false }) {
+            MenuHeader(Icons.Filled.Cast, "Auf Fernseher übertragen")
+            if (devices.isEmpty()) DropdownMenuItem(text = { Text("Suche Geräte im Heimnetz … (Chromecast / Android TV)") }, onClick = {}, enabled = false)
+            devices.forEach { d ->
+                CheckItem(d.name(), ctl.castingTo == d.name()) { ctl.castTo(d); open = false; onInfo("Wird auf „${d.name()}“ abgespielt") }
+            }
+            if (ctl.castingTo != null) {
+                HorizontalDivider()
+                CheckItem("Auf diesem PC abspielen", false) { ctl.castTo(null); open = false; onInfo("Wiedergabe wieder am PC") }
+            }
+        }
+    }
+}
+
+/**
+ * Vorschaubild beim Spulen (wie Android): zweiter, stummer Player springt an die Zielstelle.
+ * Braucht eine zweite Verbindung – Einstellung AUTO/IMMER/AUS, AUTO nur bei mindestens 2 erlaubten Streams.
+ */
+@Composable
+private fun ScrubPreviewBubble(app: AppState, req: PlayRequest, ctl: PlayerController, dragging: Float?) {
+    val s = app.settings.value
+    val local = req.url.startsWith("file:")
+    val enabled = local || when (s.scrubPreview) {
+        "ALWAYS" -> true
+        "OFF" -> false
+        else -> !s.scrubBlocked && (app.maxConnections ?: 1) - app.recordings.running().size >= 2
+    }
+    val preview = remember { mutableStateOf<PlayerController?>(null) }
+    DisposableEffect(Unit) { onDispose { preview.value?.release(); preview.value = null } }
+    if (!enabled || ctl.length <= 0) return
+    LaunchedEffect(dragging?.let { (it * 200).toInt() }) {
+        val d = dragging
+        if (d == null) { preview.value?.stopKeepFrame(); return@LaunchedEffect }
+        delay(300)
+        val p = preview.value ?: PlayerController(800, s.hardwareDecoding).apply { noAudio = true }.also { preview.value = it }
+        p.play(req.url, (d * ctl.length).toLong())
+        // nach dem ersten Bild anhalten (spart Bandbreite)
+        repeat(40) { if (p.frameCounter > 0 && p.playing) { p.pause(); return@LaunchedEffect }; delay(100) }
+    }
+    val p = preview.value
+    if (dragging != null && p != null) {
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().height(150.dp)) {
+            val x = (maxWidth - 240.dp) * dragging
+            Column(Modifier.padding(start = x).width(240.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.width(240.dp).height(135.dp).clip(RoundedCornerShape(8.dp)).background(Color.Black)) {
+                    VideoView(p, "fit", Modifier.fillMaxSize())
+                    if (p.frameCounter == 0L) CircularProgressIndicator(Modifier.align(Alignment.Center).size(24.dp), color = BrandCyan, strokeWidth = 2.dp)
+                }
+                Text(formatTime((dragging * ctl.length).toLong()), color = Color.White)
             }
         }
     }

@@ -32,6 +32,7 @@ import com.poweriptv.desktop.Screen
 import com.poweriptv.desktop.ui.ChannelCard
 import com.poweriptv.desktop.ui.MenuAction
 import com.poweriptv.desktop.ui.PosterCard
+import com.poweriptv.desktop.ui.itemMenu
 import com.poweriptv.desktop.ui.typeLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -49,7 +50,10 @@ fun SearchScreen(app: AppState) {
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     LaunchedEffect(app.dataVersion) {
         all = withContext(Dispatchers.IO) {
-            ContentType.entries.associateWith { t -> runCatching { src.items(t, null) }.getOrDefault(emptyList()) }
+            ContentType.entries.associateWith { t ->
+                val locked = runCatching { app.parental.lockedIds(src.profile.id, t, src.categories(t)) }.getOrDefault(emptySet())
+                runCatching { src.items(t, null) }.getOrDefault(emptyList()).filter { it.categoryId !in locked && !app.parental.isItemBlocked(src.profile.id, it) }
+            }
         }
     }
     LaunchedEffect(query, all) {
@@ -88,14 +92,14 @@ fun SearchScreen(app: AppState) {
                     items(list, key = { it.key }, span = { GridItemSpan(2) }) { item ->
                         ChannelCard(
                             item, onClick = { app.play(item, channels = list) }, favorite = item.key in favKeys,
-                            menu = listOf(MenuAction(if (item.key in favKeys) "Aus Favoriten entfernen" else "Zu Favoriten") { lib.toggleFavorite(item) }),
+                            menu = app.itemMenu(item),
                         )
                     }
                 } else {
                     items(list, key = { it.key }) { item ->
                         PosterCard(
                             item, onClick = { app.navigate(Screen.Detail(item)) }, favorite = item.key in favKeys,
-                            menu = listOf(MenuAction(if (item.key in favKeys) "Aus Favoriten entfernen" else "Zu Favoriten") { lib.toggleFavorite(item) }),
+                            menu = app.itemMenu(item),
                         )
                     }
                 }

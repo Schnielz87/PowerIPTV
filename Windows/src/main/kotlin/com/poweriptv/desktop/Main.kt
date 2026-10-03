@@ -16,6 +16,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -122,7 +124,11 @@ private fun Root(app: AppState) {
         Row(Modifier.fillMaxSize()) {
             if (app.profile != null) NavRail(app)
             Box(Modifier.weight(1f).fillMaxHeight()) {
-                when (val s = app.screen) {
+                val protectedScreen = app.screen in listOf(Screen.Settings, Screen.Profiles, Screen.Vpn) && app.profile != null
+                var settingsUnlocked by androidx.compose.runtime.remember(app.screen) { androidx.compose.runtime.mutableStateOf(false) }
+                if (protectedScreen && !settingsUnlocked && app.parental.settingsNeedPin()) {
+                    com.poweriptv.desktop.ui.PinDialog(app.parental, onDismiss = { app.back() }) { settingsUnlocked = true }
+                } else when (val s = app.screen) {
                     Screen.Home -> HomeScreen(app)
                     is Screen.Browse -> BrowseScreen(app, s.type)
                     Screen.Favorites -> FavoritesScreen(app)
@@ -130,11 +136,21 @@ private fun Root(app: AppState) {
                     Screen.Settings -> SettingsScreen(app)
                     Screen.Profiles -> ProfilesScreen(app)
                     Screen.Epg -> com.poweriptv.desktop.ui.screens.EpgScreen(app)
+                    Screen.Recordings -> com.poweriptv.desktop.ui.screens.RecordingsScreen(app)
+                    Screen.Downloads -> com.poweriptv.desktop.ui.screens.DownloadsScreen(app)
+                    Screen.Recommendations -> com.poweriptv.desktop.ui.screens.RecommendationsScreen(app)
+                    Screen.Parental -> com.poweriptv.desktop.ui.screens.ParentalScreen(app)
+                    Screen.Vpn -> com.poweriptv.desktop.ui.screens.VpnScreen(app)
+                    Screen.MultiView -> com.poweriptv.desktop.ui.screens.MultiViewScreen(app)
                     is Screen.Detail -> DetailScreen(app, s.item)
                 }
             }
         }
         app.playing?.let { req -> PlayerScreen(app, req) }
+        app.listPickerFor?.let { item -> com.poweriptv.desktop.ui.ListPickerDialog(app, item) { app.listPickerFor = null } }
+        app.pinRequest?.let { action ->
+            com.poweriptv.desktop.ui.PinDialog(app.parental, onDismiss = { app.pinRequest = null }) { app.pinRequest = null; action() }
+        }
         app.dueReminder?.let { r ->
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { app.dueReminder = null },

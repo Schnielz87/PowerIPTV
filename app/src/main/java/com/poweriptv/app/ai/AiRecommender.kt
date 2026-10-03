@@ -3,9 +3,8 @@ package com.poweriptv.app.ai
 import com.poweriptv.app.data.ContentItem
 import com.poweriptv.app.data.ContentSource
 import com.poweriptv.app.data.ContentType
-import com.poweriptv.app.data.SecureStore
-import com.poweriptv.app.data.SettingsRepository
-import com.poweriptv.app.parental.ParentalControl
+import com.poweriptv.app.data.Category
+import com.poweriptv.app.data.SecretStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -42,9 +41,12 @@ data class Recommendation(
  */
 class AiRecommender(
     private val http: () -> OkHttpClient,
-    private val secure: SecureStore,
-    private val settings: SettingsRepository,
-    private val parental: ParentalControl,
+    private val secure: SecretStore,
+    /** Modellname (z.B. gpt-4o-mini) und API-Adresse aus den Einstellungen der Plattform. */
+    private val model: () -> String,
+    private val baseUrl: () -> String,
+    /** Kindergesicherte Kategorien (werden nicht empfohlen). Geteilt mit Windows/. */
+    private val lockedIds: (profileId: String, type: ContentType, categories: List<Category>) -> Set<String>,
     private val json: Json,
 ) {
     fun apiKey(): String? = secure.read(KEY_FILE)
@@ -57,7 +59,7 @@ class AiRecommender(
             system = "Antworte nur mit einem JSON-Objekt.",
             user = "Gib {\"ok\": true} zurueck.",
         )
-        if (content.contains("ok")) "Verbindung erfolgreich (${settings.aiModel.value})" else "Unerwartete Antwort"
+        if (content.contains("ok")) "Verbindung erfolgreich (${model()})" else "Unerwartete Antwort"
     }
 
     suspend fun recommend(
@@ -72,7 +74,7 @@ class AiRecommender(
         val catalog = mutableListOf<ContentItem>()
         for (type in listOf(ContentType.MOVIE, ContentType.SERIES)) {
             val cats = runCatching { source.categories(type) }.getOrDefault(emptyList())
-            val locked = parental.lockedIds(source.profile.id, type, cats)
+            val locked = lockedIds(source.profile.id, type, cats)
             catalog += runCatching { source.items(type, null) }.getOrDefault(emptyList()).filterNot { it.categoryId in locked }
         }
         if (catalog.isEmpty()) throw IOException("Keine Filme oder Serien im Katalog gefunden.")
@@ -114,7 +116,7 @@ class AiRecommender(
 
     private fun chat(system: String, user: String): String {
         val body = buildJsonObject {
-            put("model", settings.aiModel.value)
+            put("model", model())
             put("temperature", 0.7)
             putJsonObject("response_format") { put("type", "json_object") }
             putJsonArray("messages") {
@@ -123,7 +125,7 @@ class AiRecommender(
             }
         }.toString()
         val req = Request.Builder()
-            .url("${settings.aiBaseUrl.value}/chat/completions")
+            .url("${baseUrl()}/chat/completions")
             .header("Authorization", "Bearer ${apiKey()}")
             .post(body.toRequestBody("application/json".toMediaType()))
             .build()

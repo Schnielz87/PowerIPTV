@@ -5,7 +5,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.poweriptv.desktop.data.USER_AGENT
+import com.poweriptv.desktop.data.NetConfig
 import org.jetbrains.skia.ColorAlphaType
 import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.Image
@@ -27,15 +27,26 @@ data class Track(val id: Int, val name: String)
  * (dadurch liegen Bedienelemente sauber ueber dem Video).
  */
 class PlayerController(
-    networkCaching: Int,
-    hardwareDecoding: Boolean,
+    private val networkCaching: Int,
+    private val hardwareDecoding: Boolean,
 ) {
     private val player: EmbeddedMediaPlayer? = Vlc.factory?.mediaPlayers()?.newEmbeddedMediaPlayer()
-    private val mediaOptions = arrayOf(
-        ":network-caching=$networkCaching",
-        ":http-user-agent=$USER_AGENT",
-        if (hardwareDecoding) ":avcodec-hw=any" else ":avcodec-hw=none",
-    )
+    /** Untertitel-Groesse (1.0 = normal) und dunkler Hintergrund – wie Android. */
+    var subtitleScale: Float = 1f
+    var subtitleBackground: Boolean = false
+    /** Ohne Ton (Multi-View: nur das aktive Fenster ist hoerbar). */
+    var noAudio: Boolean = false
+
+    private val mediaOptions: Array<String>
+        get() = listOfNotNull(
+            ":network-caching=$networkCaching",
+            ":http-user-agent=${NetConfig.userAgent}",
+            if (hardwareDecoding) ":avcodec-hw=any" else ":avcodec-hw=none",
+            ":sub-text-scale=${(subtitleScale * 100).toInt()}",
+            if (subtitleBackground) ":freetype-background-opacity=170" else null,
+            if (subtitleBackground) ":freetype-background-color=0" else null,
+            if (noAudio) ":no-audio" else null,
+        ).toTypedArray()
 
     val available: Boolean get() = player != null
     val initError: String? get() = if (player == null) Vlc.error ?: "VLC konnte nicht gestartet werden" else null
@@ -173,7 +184,11 @@ class PlayerController(
     fun play(url: String, startAt: Long = 0L) {
         val p = player ?: return
         currentUrl = url
-        error = null; ended = false; buffering = true
+        // VPN-Kill-Switch gilt auch fuer Streams (wie Android)
+        if (!url.startsWith("file:") && !NetConfig.allowed()) {
+            error = com.poweriptv.desktop.data.VpnRequiredException().message; buffering = false; return
+        }
+        error = null; ended = false; buffering = true; frameCounter = 0
         time = startAt; length = 0L; seekable = false
         audioTracks = emptyList(); subtitleTracks = emptyList()
         pendingSeek = null
@@ -196,6 +211,31 @@ class PlayerController(
     }
 
     fun pause() = player?.controls()?.setPause(true)
+
+    /** Verbindung zum Anbieter freigeben, letztes Bild bleibt stehen (Multi-View-Limit). */
+    fun stopKeepFrame() {
+        player?.controls()?.stop()
+        currentUrl = null
+        playing = false
+    }
+
+    fun muteAudio(m: Boolean) {
+        muted = m
+        player?.audio()?.setMute(m)
+    }
+
+    /** Uebertragung an einen Fernseher (Chromecast) oder zurueck auf den PC (null). */
+    var castingTo by mutableStateOf<String?>(null); private set
+
+    fun castTo(item: uk.co.caprica.vlcj.player.renderer.RendererItem?) {
+        val p = player ?: return
+        val url = currentUrl ?: return
+        val pos = time
+        p.controls().stop()
+        p.setRenderer(item)
+        castingTo = item?.name()
+        play(url, pos)
+    }
 
     fun stop() {
         player?.controls()?.stop()

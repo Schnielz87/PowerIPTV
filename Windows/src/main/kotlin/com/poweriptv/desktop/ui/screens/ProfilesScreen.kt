@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Visibility
@@ -40,6 +41,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -80,6 +82,7 @@ fun ProfilesScreen(app: AppState) {
     val profiles by app.profiles.profiles.collectAsState()
     var adding by remember { mutableStateOf(profiles.isEmpty()) }
     var deleteAsk by remember { mutableStateOf<Profile?>(null) }
+    var editing by remember { mutableStateOf<Profile?>(null) }
 
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(
@@ -122,10 +125,13 @@ fun ProfilesScreen(app: AppState) {
                             modifier = Modifier.clip(RoundedCornerShape(50)).background(BrandCyan).padding(horizontal = 8.dp, vertical = 2.dp),
                         )
                     }
+                    IconButton(onClick = { editing = p; adding = false }, modifier = Modifier.handCursor()) { Icon(Icons.Filled.Edit, "Bearbeiten") }
                     IconButton(onClick = { deleteAsk = p }, modifier = Modifier.handCursor()) { Icon(Icons.Filled.Delete, "Löschen") }
                 }
             }
-            if (adding) {
+            if (editing != null) {
+                key(editing!!.id) { AddProfileForm(app, edit = editing, onCancel = { editing = null }) { editing = null } }
+            } else if (adding) {
                 AddProfileForm(app, onCancel = if (profiles.isNotEmpty()) ({ adding = false }) else null) { adding = false }
             } else {
                 OutlinedButton(onClick = { adding = true }, modifier = Modifier.handCursor()) {
@@ -152,17 +158,17 @@ fun ProfilesScreen(app: AppState) {
 }
 
 @Composable
-private fun AddProfileForm(app: AppState, onCancel: (() -> Unit)?, onDone: () -> Unit) {
+private fun AddProfileForm(app: AppState, edit: Profile? = null, onCancel: (() -> Unit)?, onDone: () -> Unit) {
     val scope = rememberCoroutineScope()
-    var type by remember { mutableStateOf(ProfileType.XTREAM) }
-    var name by remember { mutableStateOf("") }
-    var server by remember { mutableStateOf("") }
-    var user by remember { mutableStateOf("") }
-    var pass by remember { mutableStateOf("") }
+    var type by remember { mutableStateOf(edit?.type ?: ProfileType.XTREAM) }
+    var name by remember { mutableStateOf(edit?.name ?: "") }
+    var server by remember { mutableStateOf(edit?.serverUrl ?: "") }
+    var user by remember { mutableStateOf(edit?.username ?: "") }
+    var pass by remember { mutableStateOf(edit?.password ?: "") }
     var showPass by remember { mutableStateOf(false) }
-    var m3u by remember { mutableStateOf("") }
+    var m3u by remember { mutableStateOf(edit?.m3uUrl ?: "") }
     var file by remember { mutableStateOf<File?>(null) }
-    var epg by remember { mutableStateOf("") }
+    var epg by remember { mutableStateOf(edit?.epgUrl ?: "") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -170,7 +176,7 @@ private fun AddProfileForm(app: AppState, onCancel: (() -> Unit)?, onDone: () ->
         Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Surface).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Neuer Zugang", style = MaterialTheme.typography.titleLarge)
+        Text(if (edit != null) "Zugang bearbeiten" else "Neuer Zugang", style = MaterialTheme.typography.titleLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(ProfileType.XTREAM to "Xtream Codes", ProfileType.M3U_URL to "M3U-Link", ProfileType.M3U_FILE to "M3U-Datei").forEach { (t, l) ->
                 FilterChip(selected = type == t, onClick = { type = t }, label = { Text(l) }, modifier = Modifier.handCursor())
@@ -208,7 +214,7 @@ private fun AddProfileForm(app: AppState, onCancel: (() -> Unit)?, onDone: () ->
                 onClick = {
                     error = null; busy = true
                     scope.launch {
-                        val id = UUID.randomUUID().toString()
+                        val id = edit?.id ?: UUID.randomUUID().toString()
                         val result = runCatching {
                             withContext(Dispatchers.IO) {
                                 when (type) {
@@ -225,9 +231,9 @@ private fun AddProfileForm(app: AppState, onCancel: (() -> Unit)?, onDone: () ->
                                         p
                                     }
                                     ProfileType.M3U_FILE -> {
-                                        val f = file ?: error("Bitte eine Datei wählen")
+                                        val f = file ?: edit?.localFile?.takeIf { it.isNotBlank() }?.let { File(it) } ?: error("Bitte eine Datei wählen")
                                         val target = File(AppDirs.file("playlists").apply { mkdirs() }, "$id.m3u")
-                                        f.copyTo(target, overwrite = true)
+                                        if (f.absolutePath != target.absolutePath) f.copyTo(target, overwrite = true)
                                         val p = Profile(id, name.ifBlank { f.nameWithoutExtension }, type, localFile = target.absolutePath, epgUrl = epg.trim())
                                         M3uSource(p, Http).validate()
                                         p
@@ -237,6 +243,8 @@ private fun AddProfileForm(app: AppState, onCancel: (() -> Unit)?, onDone: () ->
                         }
                         busy = false
                         result.onSuccess { p ->
+                            // Zugangsdaten koennen sich geaendert haben -> gespeicherte Playlist verwerfen (wie Android)
+                            if (edit != null) File(AppDirs.cache, "playlist/" + p.id.replace(Regex("[^A-Za-z0-9_-]"), "_")).deleteRecursively()
                             app.profiles.save(p)
                             app.activate(p)
                             onDone()

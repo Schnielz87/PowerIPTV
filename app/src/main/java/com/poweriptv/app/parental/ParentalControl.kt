@@ -1,7 +1,7 @@
 package com.poweriptv.app.parental
 
-import android.content.Context
 import com.poweriptv.app.data.Category
+import com.poweriptv.app.data.KeyValueStore
 import com.poweriptv.app.data.ContentType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,13 +13,13 @@ import java.security.SecureRandom
  * Erwachseneninhalte), optionaler Schutz der Einstellungen.
  * Nach korrekter PIN-Eingabe ist bis zum Neustart der App alles freigeschaltet.
  */
-class ParentalControl(context: Context) {
-    private val prefs = context.getSharedPreferences("parental", Context.MODE_PRIVATE)
+class ParentalControl(private val prefs: KeyValueStore) {
+    // Geteilt mit der Windows-App (Windows/) – Speicher kommt von der Plattform.
 
     private val _enabled = MutableStateFlow(prefs.getBoolean(K_ENABLED, false) && hasPin())
     private val _autoAdult = MutableStateFlow(prefs.getBoolean(K_AUTO_ADULT, true))
     private val _protectSettings = MutableStateFlow(prefs.getBoolean(K_PROTECT_SETTINGS, true))
-    private val _locked = MutableStateFlow(prefs.getStringSet(K_LOCKED, emptySet())!!.toSet())
+    private val _locked = MutableStateFlow(prefs.getStringSet(K_LOCKED))
     private val _unlocked = MutableStateFlow(false)
 
     val enabled: StateFlow<Boolean> = _enabled
@@ -33,7 +33,7 @@ class ParentalControl(context: Context) {
 
     fun setPin(pin: String) {
         val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it) }
-        prefs.edit().putString(K_SALT, salt).putString(K_HASH, hash(salt, pin)).apply()
+        prefs.edit { putString(K_SALT, salt); putString(K_HASH, hash(salt, pin)) }
     }
 
     fun verify(pin: String): Boolean {
@@ -47,15 +47,15 @@ class ParentalControl(context: Context) {
 
     fun setEnabled(v: Boolean) {
         val value = v && hasPin()
-        prefs.edit().putBoolean(K_ENABLED, value).apply(); _enabled.value = value
+        prefs.edit { putBoolean(K_ENABLED, value) }; _enabled.value = value
     }
 
-    fun setAutoAdult(v: Boolean) { prefs.edit().putBoolean(K_AUTO_ADULT, v).apply(); _autoAdult.value = v }
-    fun setProtectSettings(v: Boolean) { prefs.edit().putBoolean(K_PROTECT_SETTINGS, v).apply(); _protectSettings.value = v }
+    fun setAutoAdult(v: Boolean) { prefs.edit { putBoolean(K_AUTO_ADULT, v) }; _autoAdult.value = v }
+    fun setProtectSettings(v: Boolean) { prefs.edit { putBoolean(K_PROTECT_SETTINGS, v) }; _protectSettings.value = v }
 
     /** Kindersicherung komplett entfernen (PIN loeschen). */
     fun reset() {
-        prefs.edit().clear().apply()
+        prefs.clear()
         _enabled.value = false; _locked.value = emptySet(); _unlocked.value = false
         _autoAdult.value = true; _protectSettings.value = true
     }
@@ -101,7 +101,7 @@ class ParentalControl(context: Context) {
     fun setLocked(profileId: String, type: ContentType, categoryId: String, locked: Boolean) {
         val k = key(profileId, type, categoryId)
         val updated = if (locked) _locked.value + k else _locked.value - k
-        prefs.edit().putStringSet(K_LOCKED, updated).apply()
+        prefs.edit { putStringSet(K_LOCKED, updated) }
         _locked.value = updated
     }
 

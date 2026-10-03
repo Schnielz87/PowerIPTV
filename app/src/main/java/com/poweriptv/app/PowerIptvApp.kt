@@ -73,9 +73,15 @@ class AppContainer(private val app: Application) {
         .followRedirects(true)
         .build()
 
-    val downloads = DownloadRepository(app, json, { http }) { downloadConnections() }
+    val downloads = DownloadRepository(
+        java.io.File(app.filesDir, "downloads.json"),
+        app.getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES) ?: java.io.File(app.filesDir, "downloads"),
+        json, { http }, { downloadConnections() },
+    ) {
+        androidx.core.content.ContextCompat.startForegroundService(app, android.content.Intent(app, com.poweriptv.app.download.DownloadService::class.java))
+    }
     val epg = EpgRepository({ java.io.File(app.cacheDir, "epg") }, { http }) { android.util.Xml.newPullParser() }
-    val parental = ParentalControl(app)
+    val parental = ParentalControl(com.poweriptv.app.data.SharedPrefsStore(app.getSharedPreferences("parental", android.content.Context.MODE_PRIVATE)))
     val recordings = RecordingRepository(app, json)
     val reminders = com.poweriptv.app.reminder.ReminderRepository(app, json)
     /** Sleep-Timer: Zeitpunkt, an dem die Wiedergabe endet (0 = aus). */
@@ -85,7 +91,7 @@ class AppContainer(private val app: Application) {
     val backup by lazy { com.poweriptv.app.data.BackupManager(app, secure, json) }
     val resume = com.poweriptv.app.data.ResumeRepository(app)
     val cast = CastManager(app)
-    val ai = AiRecommender({ http }, secure, settings, parental, json)
+    val ai = AiRecommender({ http }, secure, { settings.aiModel.value }, { settings.aiBaseUrl.value }, { p, t, c -> parental.lockedIds(p, t, c) }, json)
     val ageRatings = com.poweriptv.app.data.AgeRatingRepository({ http }, secure, json)
 
     /** Aktuell ausgewaehlte Quelle (Profil). */

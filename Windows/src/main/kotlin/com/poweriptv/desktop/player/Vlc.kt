@@ -63,6 +63,7 @@ object Vlc {
     /** Beim Beenden: erst alle Player, dann die VLC-Instanz freigeben. */
     fun release() {
         players.toList().forEach { it.release() }
+        CastDiscovery.release()
         if (lazyFactory.isInitialized()) runCatching { lazyFactory.value?.release() }
     }
 }

@@ -1,9 +1,5 @@
 package com.poweriptv.app.download
 
-import android.content.Context
-import android.content.Intent
-import android.os.Environment
-import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -52,16 +48,18 @@ data class DownloadEntry(
  * Unterbrochene Downloads werden per HTTP-Range fortgesetzt.
  */
 class DownloadRepository(
-    private val context: Context,
+    /** Liste der Downloads (JSON) und Zielordner – von der Plattform vorgegeben. Geteilt mit Windows/. */
+    private val metaFile: File,
+    dir: File,
     private val json: Json,
     private val http: () -> OkHttpClient,
     /** Anzahl paralleler Verbindungen pro Download. */
     private val connections: suspend () -> Int = { 1 },
+    /** Startet die Abarbeitung der Warteschlange (Android: Dienst, Windows: Hintergrund-Aufgabe). */
+    private val startWorker: () -> Unit = {},
 ) {
-    private val metaFile = File(context.filesDir, "downloads.json")
     private val serializer = ListSerializer(DownloadEntry.serializer())
-    private val dir: File =
-        (context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: File(context.filesDir, "downloads")).apply { mkdirs() }
+    private val dir: File = dir.apply { mkdirs() }
 
     private val _entries = MutableStateFlow(load())
     val entries: StateFlow<List<DownloadEntry>> = _entries
@@ -115,9 +113,7 @@ class DownloadRepository(
         mutate { list -> list.filterNot { it.id == id } }
     }
 
-    private fun startService() {
-        ContextCompat.startForegroundService(context, Intent(context, DownloadService::class.java))
-    }
+    private fun startService() = startWorker()
 
     fun nextQueued(): DownloadEntry? = _entries.value.firstOrNull { it.status == DownloadStatus.QUEUED }
 

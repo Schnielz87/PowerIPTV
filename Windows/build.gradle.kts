@@ -33,6 +33,13 @@ sourceSets {
                 "com/poweriptv/app/data/M3uSource.kt",
                 "com/poweriptv/app/data/XtreamSource.kt",
                 "com/poweriptv/app/data/EpgRepository.kt",
+                "com/poweriptv/app/data/PlatformStores.kt",
+                "com/poweriptv/app/data/AgeRatingRepository.kt",
+                "com/poweriptv/app/parental/ParentalControl.kt",
+                "com/poweriptv/app/ai/AiRecommender.kt",
+                "com/poweriptv/app/record/StreamCapture.kt",
+                "com/poweriptv/app/record/RecordingModels.kt",
+                "com/poweriptv/app/download/DownloadRepository.kt",
                 "com/poweriptv/app/ui/components/CategoryRules.kt",
                 "com/poweriptv/app/ui/components/ContentFilter.kt",
             )
