@@ -161,14 +161,20 @@ class VlcPlayerActivity : ComponentActivity() {
         mediaPlayer.setEventListener { event ->
             when (event.type) {
                 MediaPlayer.Event.Buffering -> buffering = event.buffering < 100f
-                MediaPlayer.Event.Playing -> { playing = true; buffering = false; error = null; if (mediaPlayer.length > 0) applyResume() }
+                MediaPlayer.Event.Playing -> {
+                    playing = true; buffering = false; error = null
+                    if (mediaPlayer.length > 0) applyResume()
+                    // Nach dem Spulen im Ein-Verbindungs-Modus: vorher gewaehlte Tonspur wieder setzen
+                    scrubAudioTrack?.let { t -> scrubAudioTrack = null; runOnUiThread { runCatching { mediaPlayer.setAudioTrack(t) } } }
+                }
                 MediaPlayer.Event.Paused, MediaPlayer.Event.Stopped -> playing = false
                 MediaPlayer.Event.EncounteredError -> runOnUiThread {
                     // Film bricht ab, waehrend die Spul-Vorschau lief -> Anbieter erlaubt keine 2. Verbindung
-                    if (scrubPreview?.recentlyUsed() == true && container.settings.scrubPreviewEnum() == ScrubPreviewMode.AUTO) {
+                    if (scrubPreview?.recentlyUsed() == true && scrubPreview?.exclusive == false && container.settings.scrubPreviewEnum() == ScrubPreviewMode.AUTO) {
+                        // Ab jetzt Ein-Verbindungs-Modus: Vorschau bleibt, der Film haelt beim Spulen nur kurz an
                         container.settings.setScrubBlocked(true)
-                        scrubPreview?.release(); scrubPreview = null
-                        toast = "Vorschaubilder abgeschaltet – dein Anbieter erlaubt beim Spulen keine 2. Verbindung"
+                        scrubPreview?.release(); scrubPreview = ScrubPreview.create(container, current())
+                        toast = "Dein Anbieter erlaubt nur 1 Verbindung – Vorschau beim Spulen pausiert den Film jetzt kurz"
                         lifecycleScope.launch { delay(1500); play(container.playIndex) }
                     } else {
                         error = "Wiedergabe fehlgeschlagen (VLC)"; buffering = false
@@ -404,11 +410,40 @@ class VlcPlayerActivity : ComponentActivity() {
             Text(formatTime(shown), color = Color.White, style = MaterialTheme.typography.labelMedium)
             Slider(
                 value = dragging ?: (position.toFloat() / length).coerceIn(0f, 1f),
-                onValueChange = { dragging = it; showOverlay = true; lastInteraction = System.currentTimeMillis(); scrubPreview?.request((it * length).toLong()) },
+                onValueChange = {
+                    dragging = it; showOverlay = true; lastInteraction = System.currentTimeMillis()
+                    scrubPreview?.let { p ->
+                        // Ein-Verbindungs-Modus: Film-Verbindung freigeben, solange die Vorschau laeuft
+                        if (p.exclusive && !scrubSuspended) {
+                            scrubSuspended = true
+                            scrubAudioTrack = runCatching { mediaPlayer.audioTrack }.getOrNull()?.takeIf { t -> t >= 0 }
+                            runCatching { mediaPlayer.stop() }
+                        }
+                        p.request((it * length).toLong())
+                    }
+                },
                 onValueChangeFinished = {
-                    scrubPreview?.pause()
-                    dragging?.let { mediaPlayer.setTime((it * length).toLong(), true) } // Zeitleiste: schneller Sprung
+                    val target = dragging?.let { (it * length).toLong() }
                     dragging = null
+                    if (scrubSuspended) {
+                        val resume = {
+                            runOnUiThread {
+                                lifecycleScope.launch {
+                                    delay(500) // Anbieter kurz Zeit geben, die Vorschau-Verbindung abzumelden
+                                    scrubSuspended = false
+                                    userPaused = false; stallSince = 0L
+                                    if (target != null) { resumeTarget = target; position = target }
+                                    else resumeTarget = position
+                                    buffering = true
+                                    mediaPlayer.play() // gleicher Stream, applyResume springt an die Zielstelle
+                                }
+                            }
+                        }
+                        scrubPreview?.pause { resume() } ?: resume()
+                    } else {
+                        scrubPreview?.pause()
+                        target?.let { mediaPlayer.setTime(it, true) } // Zeitleiste: schneller Sprung
+                    }
                 },
                 modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
                 colors = SliderDefaults.colors(thumbColor = BrandCyan, activeTrackColor = BrandCyan),
@@ -427,6 +462,9 @@ class VlcPlayerActivity : ComponentActivity() {
 
     /** Startposition fuer "Weiterschauen" (wird gesetzt, sobald VLC die Laenge kennt). */
     private var resumeTarget = -1L
+    /** Film fuer die Spul-Vorschau angehalten (Ein-Verbindungs-Modus) + Tonspur, die danach wieder gilt. */
+    private var scrubSuspended = false
+    private var scrubAudioTrack: Int? = null
 
     // ---------- Haenger-Waechter ----------
     // Bleibt das Bild stehen (z.B. Anbieter kappt beim Spulen die Verbindung, VLC meldet aber keinen Fehler),
@@ -438,7 +476,7 @@ class VlcPlayerActivity : ComponentActivity() {
 
     private fun checkStall() {
         val e = current() ?: return
-        if (userPaused || error != null || watchingRecording || blockedRec != null) { stallSince = 0L; return }
+        if (scrubSuspended || userPaused || error != null || watchingRecording || blockedRec != null) { stallSince = 0L; return }
         // Nur wenn VLC abspielen will (laeuft oder puffert) – nicht bei Pause/Cast
         if (!runCatching { mediaPlayer.isPlaying }.getOrDefault(false) && !buffering) { stallSince = 0L; return }
         val t = runCatching { mediaPlayer.time }.getOrDefault(-1L)
@@ -534,6 +572,7 @@ class VlcPlayerActivity : ComponentActivity() {
 
         scrubPreview?.release()
         scrubPreview = ScrubPreview.create(container, entry)
+        scrubSuspended = false; scrubAudioTrack = null
         blockedRec = null
         watchingRecording = false
         recPipe?.let { runCatching { mediaPlayer.stop(); it.close() } }

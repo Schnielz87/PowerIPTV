@@ -36,8 +36,8 @@ import java.util.concurrent.atomic.AtomicLong
 
 /** Vorschaubilder beim Spulen: Automatisch / Immer / Aus. */
 enum class ScrubPreviewMode(val label: String) {
-    AUTO("Automatisch (wird abgeschaltet, falls dein Anbieter beim Spulen den Film abbricht)"),
-    ALWAYS("Immer (oeffnet beim Spulen kurz eine 2. Verbindung)"),
+    AUTO("Automatisch (bei nur 1 erlaubten Verbindung haelt der Film beim Spulen kurz an)"),
+    ALWAYS("Immer parallel (Film laeuft beim Spulen weiter, braucht eine 2. Verbindung)"),
     OFF("Aus"),
 }
 
@@ -45,7 +45,16 @@ enum class ScrubPreviewMode(val label: String) {
  * Thumbnail-Scrubbing: holt beim Ziehen auf dem Zeitstrahl ein Standbild an der Zielposition.
  * Es wird immer nur das zuletzt angefragte Bild berechnet; fertige Bilder werden zwischengespeichert.
  */
-class ScrubPreview private constructor(private val source: String, private val userAgent: String) {
+class ScrubPreview private constructor(
+    private val source: String,
+    private val userAgent: String,
+    /**
+     * Ein-Verbindungs-Modus: Der Zugang erlaubt nur 1 Stream. Der Player gibt seine Verbindung
+     * waehrend des Spulens frei, die Vorschau nutzt sie, danach geht es an der Zielstelle weiter.
+     * So gibt es nie zwei Verbindungen gleichzeitig (kein Abbruch/Haenger beim Anbieter).
+     */
+    val exclusive: Boolean,
+) {
     private val executor = Executors.newSingleThreadExecutor()
     private val pending = AtomicLong(-1L)
     private val cache = LruCache<Long, Bitmap>(60)
@@ -92,10 +101,11 @@ class ScrubPreview private constructor(private val source: String, private val u
         return Bitmap.createScaledBitmap(b, w, h, true).also { if (it !== b) b.recycle() }
     }
 
-    /** Verbindung freigeben (nach dem Spulen); Bilder-Cache bleibt erhalten. */
-    fun pause() {
+    /** Verbindung freigeben (nach dem Spulen); Bilder-Cache bleibt erhalten. onReleased laeuft danach (Hintergrund-Thread). */
+    fun pause(onReleased: (() -> Unit)? = null) {
         pending.set(-1L)
-        executor.execute { runCatching { retriever?.release() }; retriever = null }
+        val task = Runnable { runCatching { retriever?.release() }; retriever = null; onReleased?.invoke() }
+        if (runCatching { executor.execute(task) }.isFailure) onReleased?.invoke()
     }
 
     fun release() {
@@ -114,18 +124,18 @@ class ScrubPreview private constructor(private val source: String, private val u
             if (entry == null || entry.live) return null
             val local = entry.url.startsWith("/")
             val mode = container.settings.scrubPreviewEnum()
-            val allowed = when (mode) {
-                ScrubPreviewMode.OFF -> false
-                ScrubPreviewMode.ALWAYS -> true
-                // Automatik: nur wenn der Zugang sicher eine 2. Verbindung erlaubt – sonst kappt der Anbieter
-                // beim Spulen die Film-Verbindung und das Bild bleibt stehen (v.a. bei Zugaengen mit 1 Stream)
-                ScrubPreviewMode.AUTO -> local || (!container.settings.scrubBlocked.value &&
-                    ((container.maxConnections ?: 1) - container.recordings.running().size) >= 2)
+            // Genug Verbindungen frei? Dann parallel (Film laeuft beim Spulen weiter), sonst Ein-Verbindungs-Modus.
+            val parallelOk = local || (!container.settings.scrubBlocked.value &&
+                ((container.maxConnections ?: 1) - container.recordings.running().size) >= 2)
+            val allowed = mode != ScrubPreviewMode.OFF
+            val exclusive = when (mode) {
+                ScrubPreviewMode.ALWAYS -> false
+                else -> !parallelOk
             }
             if (!allowed) return null
             // Vorschau laeuft nicht ueber den VPN-Tunnel-Schutz der App -> bei Pflicht-VPN ohne Tunnel nicht laden
             if (!local && container.settings.vpnRequired.value && !container.vpn.isProtected()) return null
-            return ScrubPreview(entry.url, container.settings.userAgent.value)
+            return ScrubPreview(entry.url, container.settings.userAgent.value, exclusive)
         }
     }
 }

@@ -219,10 +219,11 @@ class PlayerActivity : ComponentActivity() {
         player.addListener(object : Player.Listener {
             override fun onPlayerError(e: PlaybackException) {
                 // Film bricht ab, waehrend die Spul-Vorschau lief -> Anbieter erlaubt keine 2. Verbindung
-                if (scrubPreview?.recentlyUsed() == true && container.settings.scrubPreviewEnum() == ScrubPreviewMode.AUTO) {
+                if (scrubPreview?.recentlyUsed() == true && scrubPreview?.exclusive == false && container.settings.scrubPreviewEnum() == ScrubPreviewMode.AUTO) {
+                    // Ab jetzt Ein-Verbindungs-Modus: Vorschau bleibt, der Film haelt beim Spulen nur kurz an
                     container.settings.setScrubBlocked(true)
-                    scrubPreview?.release(); scrubPreview = null
-                    toast = "Vorschaubilder abgeschaltet – dein Anbieter erlaubt beim Spulen keine 2. Verbindung"
+                    scrubPreview?.release(); scrubPreview = ScrubPreview.create(container, current())
+                    toast = "Dein Anbieter erlaubt nur 1 Verbindung – Vorschau beim Spulen pausiert den Film jetzt kurz"
                     lifecycleScope.launch { delay(1500); play(container.playIndex) }
                     return
                 }
@@ -267,6 +268,15 @@ class PlayerActivity : ComponentActivity() {
                 val unsupported = video.isNotEmpty() && video.none { g -> (0 until g.length).any { g.isTrackSupported(it) } }
                 if (unsupported && !switchToVlc()) {
                     toast = "Videoformat wird von diesem Geraet nicht unterstuetzt – in den Einstellungen \"VLC\" waehlen"
+                    return
+                }
+                // Tonspuren vorhanden, aber keine abspielbar (z.B. DTS/TrueHD auf vielen Handys/Tablets) -> Bild ohne Ton.
+                // VLC dekodiert diese Formate selbst -> automatisch dorthin wechseln (Tonspur bleibt waehlbar).
+                val audio = tracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
+                val noAudio = audio.isNotEmpty() && audio.none { g -> (0 until g.length).any { g.isTrackSupported(it) } }
+                // Bild ohne Ton will niemand -> auch bei fest eingestelltem Standard-Player auf VLC wechseln
+                if (noAudio && !switchToVlc(force = true)) {
+                    toast = "Tonformat (${audioCodecs(audio)}) kann der Standard-Player hier nicht abspielen"
                 }
             }
 
@@ -333,7 +343,7 @@ class PlayerActivity : ComponentActivity() {
                                         override fun onScrubMove(timeBar: androidx.media3.ui.TimeBar, position: Long) = onScrub(position)
                                         override fun onScrubStop(timeBar: androidx.media3.ui.TimeBar, position: Long, canceled: Boolean) {
                                             scrubPos = null
-                                            scrubPreview?.pause()
+                                            endScrub(if (canceled) null else position)
                                         }
                                     })
                                 playerView = this
@@ -549,9 +559,9 @@ class PlayerActivity : ComponentActivity() {
     /** Automatische Neuverbindungen bei Netzwerk-Aussetzern (wird bei laufendem Bild zurueckgesetzt). */
     private var netRetries = 0
 
-    private fun switchToVlc(): Boolean {
+    private fun switchToVlc(force: Boolean = false): Boolean {
         if (switchedToVlc) return true
-        if (container.settings.playerEngineEnum() != PlayerEngine.AUTO) return false
+        if (!force && container.settings.playerEngineEnum() != PlayerEngine.AUTO) return false
         switchedToVlc = true
         val entry = current() ?: return false
         // Nur diesen Stream merken (nicht die ganze Kategorie) – andere Titel bleiben im Standard-Player
@@ -610,14 +620,27 @@ class PlayerActivity : ComponentActivity() {
 
     // ---------- Audio & Untertitel ----------
 
+    /** Tonformate der Spuren fuer Hinweise, z.B. "DTS". */
+    private fun audioCodecs(groups: List<Tracks.Group>): String =
+        groups.flatMap { g -> (0 until g.length).mapNotNull { g.getTrackFormat(it).sampleMimeType?.substringAfter('/')?.removePrefix("vnd.")?.uppercase() } }
+            .distinct().joinToString(", ").ifBlank { "unbekannt" }
+
     private fun trackOptions(type: Int): List<TrackOption> {
         val list = mutableListOf<TrackOption>()
         var anySelected = false
         player.currentTracks.groups.forEachIndexed { g, group ->
             if (group.type != type) return@forEachIndexed
             for (t in 0 until group.length) {
-                if (!group.isTrackSupported(t)) continue
                 val f = group.getTrackFormat(t)
+                if (!group.isTrackSupported(t)) {
+                    // Nicht abspielbare Tonspur trotzdem zeigen: Auswahl wechselt auf VLC, der sie abspielen kann
+                    if (type == C.TRACK_TYPE_AUDIO) {
+                        val name = listOfNotNull(f.label?.takeIf { it.isNotBlank() } ?: languageName(f.language),
+                            f.sampleMimeType?.substringAfter('/')?.removePrefix("vnd.")?.uppercase()).joinToString(" · ")
+                        list += TrackOption("$VLC_KEY$g:$t", "${name.ifBlank { "Spur ${list.size + 1}" }} (mit VLC)", false)
+                    }
+                    continue
+                }
                 val parts = listOfNotNull(
                     f.label?.takeIf { it.isNotBlank() },
                     languageName(f.language).takeIf { f.label.isNullOrBlank() },
@@ -634,6 +657,10 @@ class PlayerActivity : ComponentActivity() {
     }
 
     private fun selectTrack(type: Int, option: TrackOption) {
+        if (option.key.startsWith(VLC_KEY)) {
+            if (!switchToVlc(force = true)) toast = "Diese Tonspur kann nur der VLC-Player abspielen"
+            return
+        }
         val params = player.trackSelectionParameters.buildUpon()
         if (option.key == OFF_KEY) {
             params.setTrackTypeDisabled(type, true)
@@ -877,6 +904,7 @@ class PlayerActivity : ComponentActivity() {
         }
         scrubPreview?.release()
         scrubPreview = ScrubPreview.create(container, entry)
+        scrubSuspended = false
         blockedRec = null
         watchingRecording = false
         playerView?.setShowRewindButton(!entry.live)
@@ -917,7 +945,37 @@ class PlayerActivity : ComponentActivity() {
         showOverlay = true
         if (current()?.live == true || timeshiftActive || watchingRecording) return
         scrubPos = position
-        scrubPreview?.request(position)
+        val p = scrubPreview ?: return
+        // Ein-Verbindungs-Modus: Film-Verbindung freigeben, solange die Vorschau laeuft
+        if (p.exclusive && !scrubSuspended) {
+            scrubSuspended = true
+            scrubResumePlay = player.playWhenReady
+            withSwitch { player.stop() } // Position und Tonspur-Auswahl bleiben erhalten
+        }
+        p.request(position)
+    }
+
+    /** Wurde der Film fuer die Vorschau angehalten (Ein-Verbindungs-Modus)? */
+    private var scrubSuspended = false
+    private var scrubResumePlay = true
+
+    /** Spulen beendet: Vorschau-Verbindung schliessen, dann (falls angehalten) an der Zielstelle weiter. */
+    private fun endScrub(target: Long?) {
+        val p = scrubPreview
+        if (!scrubSuspended) { p?.pause(); return }
+        val resume = {
+            runOnUiThread {
+                lifecycleScope.launch {
+                    delay(500) // Anbieter kurz Zeit geben, die Vorschau-Verbindung abzumelden
+                    scrubSuspended = false
+                    withSwitch {
+                        target?.let { player.seekTo(it) }
+                        player.prepare(); player.playWhenReady = scrubResumePlay
+                    }
+                }
+            }
+        }
+        if (p != null) p.pause { resume() } else resume()
     }
 
     // ---------- Aufnahme + Schauen mit einer Verbindung ----------

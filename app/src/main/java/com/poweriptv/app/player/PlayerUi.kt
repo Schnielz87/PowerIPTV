@@ -89,7 +89,7 @@ fun PlayerSettingsDialog(
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Header("Audiospur")
-                if (audio.size <= 1) {
+                if (audio.isEmpty() || (audio.size == 1 && !audio[0].key.startsWith(VLC_KEY))) {
                     Text(audio.firstOrNull()?.label ?: "Keine Auswahl verfuegbar", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else audio.forEach { a -> Option(a.label, a.selected) { onAudio(a) } }
                 Header("Untertitel")
@@ -124,6 +124,8 @@ fun PlayerSettingsDialog(
 
 /** Schluessel fuer "Untertitel aus". */
 const val OFF_KEY = "off"
+/** Praefix fuer Tonspuren, die nur VLC abspielen kann (Auswahl wechselt den Player). */
+const val VLC_KEY = "vlc:"
 
 /** Sprachcode -> deutscher Name ("de" -> "Deutsch"); unbekannt -> null. */
 fun languageName(code: String?): String? {

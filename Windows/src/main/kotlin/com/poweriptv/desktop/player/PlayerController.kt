@@ -146,8 +146,14 @@ class PlayerController(
                 if (v.sampleAspectRatio() > 0 && v.sampleAspectRatioBase() > 0) v.sampleAspectRatio().toFloat() / v.sampleAspectRatioBase() else 1f
             }
         }.getOrNull() ?: 1f
+        // Nach dem Spulen im Ein-Verbindungs-Modus: vorher gewaehlte Tonspur wieder setzen
+        val restore = restoreAudio
+        if (restore != null && audio.any { it.id == restore } && a != restore) {
+            restoreAudio = null
+            runCatching { p.audio().setTrack(restore) }
+        } else if (restore != null && audio.isNotEmpty()) restoreAudio = null
         ui {
-            audioTracks = audio; subtitleTracks = subs; audioTrack = a; subtitleTrack = s
+            audioTracks = audio; subtitleTracks = subs; audioTrack = if (restore != null && audio.any { it.id == restore }) restore else a; subtitleTrack = s
             pixelAspect = sar.coerceIn(0.5f, 2f)
         }
     }
@@ -250,6 +256,36 @@ class PlayerController(
         val target = if (live) 0L else (pendingSeek ?: time).coerceAtLeast(0L)
         play(url, target, live)
         return "Verbindung hing – wird neu geladen …"
+    }
+
+    // ---------- Spul-Vorschau mit nur 1 erlaubten Verbindung ----------
+    /** Film ist fuer die Spul-Vorschau angehalten (Verbindung frei fuer das Vorschaubild). */
+    var previewSuspended by mutableStateOf(false); private set
+    @Volatile private var restoreAudio: Int? = null
+    private var suspendedUrl: String? = null
+    private var suspendedPaused = false
+
+    /** Film-Verbindung freigeben, solange die Vorschau laeuft (letztes Bild bleibt stehen). */
+    fun suspendForPreview() {
+        if (previewSuspended) return
+        val url = currentUrl ?: return
+        suspendedUrl = url
+        suspendedPaused = userPaused
+        restoreAudio = audioTrack.takeIf { it >= 0 }
+        previewSuspended = true
+        player?.controls()?.stop()
+        currentUrl = null // Haenger-Waechter ruht
+        playing = false; buffering = false
+    }
+
+    /** Nach dem Spulen an der Zielstelle weiter (gleiche Tonspur). */
+    fun resumeAfterPreview(target: Long) {
+        if (!previewSuspended) return
+        previewSuspended = false
+        val url = suspendedUrl ?: return
+        suspendedUrl = null
+        play(url, target.coerceAtLeast(0L), false)
+        if (suspendedPaused) pause()
     }
 
     /** Verbindung zum Anbieter freigeben, letztes Bild bleibt stehen (Multi-View-Limit). */

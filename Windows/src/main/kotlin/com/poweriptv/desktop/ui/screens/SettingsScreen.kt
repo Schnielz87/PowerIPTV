@@ -97,11 +97,11 @@ fun SettingsScreen(app: AppState) {
                 Toggle("Untertitel mit dunklem Hintergrund", s.subtitleBackground) { v -> app.settings.update { it.copy(subtitleBackground = v) } }
                 Text("Vorschaubilder beim Spulen")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("AUTO" to "Automatisch", "ALWAYS" to "Immer", "OFF" to "Aus").forEach { (k, l) ->
+                    listOf("AUTO" to "Automatisch", "ALWAYS" to "Immer parallel", "OFF" to "Aus").forEach { (k, l) ->
                         FilterChip(selected = s.scrubPreview == k, onClick = { app.settings.update { it.copy(scrubPreview = k, scrubBlocked = false) } }, label = { Text(l) }, modifier = Modifier.handCursor())
                     }
                 }
-                Text("Braucht eine zweite Verbindung zum Anbieter. „Automatisch“ schaltet sich ab, wenn dein Zugang nur 1 Stream erlaubt.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("„Automatisch“: Erlaubt dein Zugang nur 1 Stream, hält der Film beim Spulen kurz an, damit nie zwei Verbindungen offen sind. „Immer parallel“ braucht eine zweite Verbindung.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Live-TV-Format (Xtream)")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("ts" to "MPEG-TS (.ts)", "m3u8" to "HLS (.m3u8)").forEach { (k, l) ->

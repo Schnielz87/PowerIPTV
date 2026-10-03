@@ -115,6 +115,7 @@ import com.poweriptv.desktop.ui.handCursor
 import com.poweriptv.desktop.ui.screens.AspectModes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.skia.FilterMipmap
 import org.jetbrains.skia.FilterMode
@@ -153,6 +154,7 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
     var episodes by remember(req.item.key) { mutableStateOf(req.episodes) }
     var nextDismissed by remember(req.url) { mutableStateOf(false) }
     var dragging by remember { mutableStateOf<Float?>(null) }
+    val scrubScope = androidx.compose.runtime.rememberCoroutineScope()
     val focus = remember { FocusRequester() }
 
     // --- Hilfsfunktionen ---
@@ -447,8 +449,21 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                         ScrubPreviewBubble(app, req, ctl, dragging)
                         Slider(
                             value = shown,
-                            onValueChange = { dragging = it; poke() },
-                            onValueChangeFinished = { dragging?.let { ctl.seekTo((it * ctl.length).toLong()) }; dragging = null },
+                            onValueChange = {
+                                dragging = it; poke()
+                                // Nur 1 Verbindung erlaubt: Film waehrend der Vorschau anhalten (keine 2. Verbindung)
+                                if (scrubPreviewMode(app, req) == ScrubMode.EXCLUSIVE) ctl.suspendForPreview()
+                            },
+                            onValueChangeFinished = {
+                                val target = dragging?.let { (it * ctl.length).toLong() }
+                                dragging = null
+                                if (ctl.previewSuspended) {
+                                    scrubScope.launch {
+                                        delay(700) // Vorschau-Verbindung ist dann sicher geschlossen
+                                        ctl.resumeAfterPreview(target ?: 0L)
+                                    }
+                                } else target?.let { ctl.seekTo(it) }
+                            },
                             colors = SliderDefaults.colors(thumbColor = BrandCyan, activeTrackColor = BrandCyan, inactiveTrackColor = Color.White.copy(alpha = 0.3f)),
                             modifier = Modifier.fillMaxWidth().handCursor(),
                         )
@@ -695,15 +710,26 @@ private fun CastMenu(ctl: PlayerController, onInfo: (String) -> Unit) {
  * Vorschaubild beim Spulen (wie Android): zweiter, stummer Player springt an die Zielstelle.
  * Braucht eine zweite Verbindung – Einstellung AUTO/IMMER/AUS, AUTO nur bei mindestens 2 erlaubten Streams.
  */
+private enum class ScrubMode { OFF, PARALLEL, EXCLUSIVE }
+
+/**
+ * Wie Android: AUS, parallel (2. Verbindung, Film laeuft weiter) oder Ein-Verbindungs-Modus
+ * (Film haelt beim Spulen kurz an, damit nie zwei Verbindungen gleichzeitig offen sind).
+ */
+private fun scrubPreviewMode(app: AppState, req: PlayRequest): ScrubMode {
+    val s = app.settings.value
+    if (req.url.startsWith("file:")) return ScrubMode.PARALLEL
+    return when (s.scrubPreview) {
+        "OFF" -> ScrubMode.OFF
+        "ALWAYS" -> ScrubMode.PARALLEL
+        else -> if (!s.scrubBlocked && (app.maxConnections ?: 1) - app.recordings.running().size >= 2) ScrubMode.PARALLEL else ScrubMode.EXCLUSIVE
+    }
+}
+
 @Composable
 private fun ScrubPreviewBubble(app: AppState, req: PlayRequest, ctl: PlayerController, dragging: Float?) {
     val s = app.settings.value
-    val local = req.url.startsWith("file:")
-    val enabled = local || when (s.scrubPreview) {
-        "ALWAYS" -> true
-        "OFF" -> false
-        else -> !s.scrubBlocked && (app.maxConnections ?: 1) - app.recordings.running().size >= 2
-    }
+    val enabled = scrubPreviewMode(app, req) != ScrubMode.OFF
     val preview = remember { mutableStateOf<PlayerController?>(null) }
     DisposableEffect(Unit) { onDispose { preview.value?.release(); preview.value = null } }
     if (!enabled || ctl.length <= 0) return
