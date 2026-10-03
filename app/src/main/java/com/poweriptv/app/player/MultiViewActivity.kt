@@ -46,6 +46,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -90,6 +92,12 @@ class MultiViewActivity : ComponentActivity() {
     private var audioSlot by mutableIntStateOf(0)
     private var fourWay by mutableStateOf(true)
     private var pickerFor by mutableStateOf<Int?>(null)
+    /** Bedienelemente nur kurz einblenden (sonst verdecken sie Senderlogos). */
+    private var controlsVisible by mutableStateOf(true)
+    private var lastTouch by mutableLongStateOf(System.currentTimeMillis())
+    private val retry = android.os.Handler(android.os.Looper.getMainLooper())
+
+    private fun touch() { lastTouch = System.currentTimeMillis(); controlsVisible = true }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -120,14 +128,23 @@ class MultiViewActivity : ComponentActivity() {
                             }
                         }
                     }
-                    Row(
-                        Modifier.align(Alignment.TopEnd).padding(8.dp)
-                            .clip(RoundedCornerShape(10.dp)).background(Color(0x99000000)),
+                    // Bedienelemente 4 s nach der letzten Beruehrung ausblenden
+                    LaunchedEffect(controlsVisible, lastTouch, pickerFor) {
+                        if (!controlsVisible || pickerFor != null) return@LaunchedEffect
+                        kotlinx.coroutines.delay(4000)
+                        if (slots.any { it != null }) controlsVisible = false
+                    }
+                    if (controlsVisible) Row(
+                        Modifier.align(Alignment.BottomCenter).padding(10.dp)
+                            .clip(RoundedCornerShape(24.dp)).background(Color(0xCC000000)).padding(horizontal = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        IconButton(onClick = { setLayout(!fourWay) }) {
+                        IconButton(onClick = { touch(); setLayout(!fourWay) }, modifier = Modifier.tvFocus(CircleShape)) {
                             Icon(if (fourWay) Icons.Filled.Splitscreen else Icons.Filled.GridView, "Layout", tint = Color.White)
                         }
-                        IconButton(onClick = { finish() }) { Icon(Icons.Filled.Close, "Schliessen", tint = Color.White) }
+                        Text(if (fourWay) "4 Fenster" else "2 Fenster", color = Color.White, style = MaterialTheme.typography.labelMedium)
+                        Spacer(Modifier.width(6.dp))
+                        IconButton(onClick = { finish() }, modifier = Modifier.tvFocus(CircleShape)) { Icon(Icons.Filled.Close, "Multi-View schliessen", tint = Color.White) }
                     }
                     pickerFor?.takeIf { it < count }?.let { slot -> ChannelPicker(slot) }
                 }
@@ -137,6 +154,7 @@ class MultiViewActivity : ComponentActivity() {
 
     private fun setLayout(four: Boolean) {
         fourWay = four
+        applyTrackLimits()
         if (!four) {
             for (i in 2..3) { players[i]?.release(); players[i] = null; slots[i] = null }
             if (audioSlot > 1) selectAudio(0)
@@ -154,8 +172,8 @@ class MultiViewActivity : ComponentActivity() {
                 .border(if (selected) 3.dp else 1.dp, if (selected) BrandCyan else Color.DarkGray)
                 .tvFocus(RoundedCornerShape(0.dp), 1f)
                 .combinedClickable(
-                    onClick = { if (entry == null) pickerFor = index else selectAudio(index) },
-                    onLongClick = { pickerFor = index },
+                    onClick = { touch(); if (entry == null) pickerFor = index else selectAudio(index) },
+                    onLongClick = { touch(); pickerFor = index },
                 ),
             contentAlignment = Alignment.Center,
         ) {
@@ -171,6 +189,8 @@ class MultiViewActivity : ComponentActivity() {
                             PlayerView(ctx).apply {
                                 layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                                 useController = false
+                                setShutterBackgroundColor(android.graphics.Color.BLACK)
+                                resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
                                 player = players[index]
                             }
                         },
@@ -178,7 +198,7 @@ class MultiViewActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
-                Row(
+                if (controlsVisible || selected) Row(
                     Modifier.align(Alignment.TopStart).padding(6.dp)
                         .clip(RoundedCornerShape(6.dp)).background(Color(0x99000000)).padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -189,9 +209,12 @@ class MultiViewActivity : ComponentActivity() {
                     }
                     Text(entry.title, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelMedium)
                 }
-                Row(Modifier.align(Alignment.TopEnd).padding(4.dp)) {
-                    IconButton(onClick = { pickerFor = index }) { Icon(Icons.Filled.SwapHoriz, "Kanal wechseln", tint = Color.White) }
-                    IconButton(onClick = { clearSlot(index) }) { Icon(Icons.Filled.Close, "Entfernen", tint = Color.White) }
+                if (controlsVisible) Row(
+                    Modifier.align(Alignment.BottomEnd).padding(6.dp)
+                        .clip(RoundedCornerShape(20.dp)).background(Color(0x99000000)),
+                ) {
+                    IconButton(onClick = { touch(); pickerFor = index }) { Icon(Icons.Filled.SwapHoriz, "Kanal wechseln", tint = Color.White) }
+                    IconButton(onClick = { touch(); clearSlot(index) }) { Icon(Icons.Filled.Close, "Entfernen", tint = Color.White) }
                 }
             }
         }
@@ -246,10 +269,40 @@ class MultiViewActivity : ComponentActivity() {
         )
     }
 
-    private fun setSlot(index: Int, entry: PlayEntry) {
-        val p = players[index] ?: ExoPlayer.Builder(this)
+    /**
+     * Schlanker Player fuer ein Fenster: kleiner Puffer (statt bis zu 50 s), Decoder-Ausweichen,
+     * begrenzte Aufloesung bei 4 Fenstern und automatischer Neustart bei Abbruechen.
+     */
+    private fun createPlayer(index: Int): ExoPlayer {
+        val load = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+            .setBufferDurationsMs(4_000, 12_000, 1_500, 2_500)
+            .build()
+        val p = ExoPlayer.Builder(this, androidx.media3.exoplayer.DefaultRenderersFactory(this).setEnableDecoderFallback(true))
             .setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(this, OkHttpDataSource.Factory(container.http))))
-            .build().also { players[index] = it }
+            .setLoadControl(load)
+            .build()
+        p.addListener(object : androidx.media3.common.Player.Listener {
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                // Stream abgebrochen -> nach 2 s selbst neu verbinden
+                retry.postDelayed({ if (players[index] === p) { p.prepare(); p.playWhenReady = true } }, 2_000)
+            }
+        })
+        return p
+    }
+
+    /** Ton nur im ausgewaehlten Fenster dekodieren; bei 4 Fenstern hoechstens 720p (bei HLS-Streams). */
+    private fun applyTrackLimits() {
+        players.forEachIndexed { i, p ->
+            p ?: return@forEachIndexed
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_AUDIO, i != audioSlot)
+                .setMaxVideoSize(if (fourWay) 1280 else 1920, if (fourWay) 720 else 1080)
+                .build()
+        }
+    }
+
+    private fun setSlot(index: Int, entry: PlayEntry) {
+        val p = players[index] ?: createPlayer(index).also { players[index] = it }
         val builder = MediaItem.Builder().setUri(entry.url)
         if (entry.url.contains(".m3u8", true)) builder.setMimeType(MimeTypes.APPLICATION_M3U8)
         p.setMediaItem(builder.build())
@@ -275,6 +328,7 @@ class MultiViewActivity : ComponentActivity() {
 
     private fun applyAudio() {
         players.forEachIndexed { i, p -> p?.volume = if (i == audioSlot) 1f else 0f }
+        applyTrackLimits()
     }
 
     override fun onStop() {
@@ -288,6 +342,7 @@ class MultiViewActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        retry.removeCallbacksAndMessages(null)
         players.forEach { it?.release() }
         super.onDestroy()
     }

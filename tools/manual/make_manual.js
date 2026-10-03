@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.65 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.66 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -164,7 +164,8 @@ c.push(bullet([b('Downloads: '), t('„Offline“ lädt Filme und Folgen herunte
 c.push(h1('11. Auf den Fernseher bringen'));
 c.push(bullet([b('Google Cast: '), t('Cast-Symbol → Chromecast, Google TV oder Fernseher mit „Chromecast built-in“ im gleichen WLAN.')]));
 c.push(bullet([b('Smart View / Bildschirm spiegeln: '), t('Für Samsung-Fernseher und Fire TV (dort „Display-Mirroring“ einschalten). Wird das Handy abgelehnt: am Samsung-TV unter Allgemein → Externe Geräteverwaltung → Geräteverbindungs-Manager → Geräteliste freigeben.')]));
-c.push(bullet([b('Multi-View: '), t('Mehrere Sender gleichzeitig; Bild-in-Bild auf dem Handy beim Verlassen der App.')]));
+c.push(bullet([b('Multi-View: '), t('Bis zu 4 Sender gleichzeitig (Kachel „Multi-View“). Leeres Fenster antippen = Sender wählen; Fenster antippen = dessen Ton hören (blauer Rahmen); lange drücken = Sender wechseln. Die Bedienknöpfe blenden sich nach 4 Sekunden aus und kommen mit einem Tipp zurück. Unten: Umschalten zwischen 2 und 4 Fenstern. Hinweis: 4 Sender in Full-HD brauchen eine schnelle Internetleitung (ca. 40 MBit/s) und zählen beim Anbieter als 4 Verbindungen.')]));
+c.push(bullet([b('Bild-in-Bild: '), t('Auf dem Handy läuft der Sender beim Verlassen der App im kleinen Fenster weiter.')]));
 
 // 12
 c.push(h1('12. Einstellungen'));
