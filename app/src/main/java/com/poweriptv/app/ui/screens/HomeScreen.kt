@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.VideoLibrary
@@ -100,6 +101,7 @@ fun HomeScreen(
     onOpen: (ContentType) -> Unit,
     onFavorites: () -> Unit,
     onSettings: () -> Unit,
+    onUpdate: () -> Unit = {},
     onVpn: () -> Unit,
     onDownloads: () -> Unit,
     onSwitchProfile: () -> Unit,
@@ -124,6 +126,18 @@ fun HomeScreen(
     val cached = source as? CachedSource
     // Beim Oeffnen: automatisch aktualisieren, wenn die letzte Aktualisierung > 24 h her ist
     LaunchedEffect(source) { container.refreshPlaylist(force = false) }
+    // Neue Version auf GitHub? -> Kachel markieren + einmaliger Hinweis
+    val updateAvailable by container.updates.available.collectAsState()
+    updateAvailable?.let { r ->
+        var hide by remember(r.build) { mutableStateOf(container.updates.dismissed(r.build)) }
+        if (!hide) androidx.compose.material3.AlertDialog(
+            onDismissRequest = { container.updates.dismiss(r.build); hide = true },
+            title = { Text("Neue Version ${r.tag}") },
+            text = { Text("Eine neue Version von Portiva – PowerIPTV ist verfügbar. Jetzt herunterladen und installieren? Zugänge und Einstellungen bleiben erhalten.") },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { hide = true; onUpdate() }) { Text("Ansehen") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { container.updates.dismiss(r.build); hide = true }) { Text("Später") } },
+        )
+    }
     var account by remember { mutableStateOf<AccountInfo?>(null) }
     LaunchedEffect(source) { account = source?.accountInfo() }
     val firstFocus = remember { FocusRequester() }
@@ -214,6 +228,7 @@ fun HomeScreen(
                     Triple("VPN & Sicherheit", Icons.Filled.Shield, onVpn),
                     Triple("Benutzer wechseln", Icons.Filled.People, onSwitchProfile),
                     Triple("Einstellungen", Icons.Filled.Settings, onSettings),
+                    Triple(if (updateAvailable != null) "Update verfügbar!" else "Update", Icons.Filled.SystemUpdate, onUpdate),
                 )
                 val perRow = if (wide) 3 else 2
                 tiles.chunked(perRow).forEach { row ->

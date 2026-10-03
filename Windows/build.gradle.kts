@@ -40,6 +40,7 @@ sourceSets {
                 "com/poweriptv/app/record/StreamCapture.kt",
                 "com/poweriptv/app/record/RecordingModels.kt",
                 "com/poweriptv/app/download/DownloadRepository.kt",
+                "com/poweriptv/app/update/UpdateChecker.kt",
                 "com/poweriptv/app/ui/components/CategoryRules.kt",
                 "com/poweriptv/app/ui/components/ContentFilter.kt",
             )

@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.VideoLibrary
@@ -95,6 +96,17 @@ fun HomeScreen(app: AppState) {
     val pid = app.profile?.id
     val history = remember(historyAll, parentalOn, parentalUnlocked) { historyAll.filterNot { pid != null && app.parental.isItemBlocked(pid, it.item) } }
     val favorites = remember(favoritesAll, parentalOn, parentalUnlocked) { app.parental.visible(pid, favoritesAll) }
+    val updateAvailable by app.updates.available.collectAsState()
+    updateAvailable?.let { r ->
+        var hide by remember(r.build) { mutableStateOf(app.updates.dismissed(r.build)) }
+        if (!hide) androidx.compose.material3.AlertDialog(
+            onDismissRequest = { app.updates.dismiss(r.build); hide = true },
+            title = { Text("Neue Version ${r.tag}") },
+            text = { Text("Eine neue Version von Portiva – PowerIPTV ist verfügbar. Jetzt herunterladen und installieren? Zugänge und Einstellungen bleiben erhalten.") },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { hide = true; app.navigate(Screen.Update) }) { Text("Ansehen") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { app.updates.dismiss(r.build); hide = true }) { Text("Später") } },
+        )
+    }
     var account by remember { mutableStateOf<AccountInfo?>(null) }
     LaunchedEffect(app.source) { account = runCatching { app.source?.accountInfo() }.getOrNull() }
 
@@ -244,6 +256,7 @@ private data class Tile(val label: String, val icon: ImageVector, val onClick: (
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun ToolTiles(app: AppState) {
+    val updateAvailable by app.updates.available.collectAsState()
     val tiles = listOf(
         Tile("Suche", Icons.Filled.Search) { app.navigate(Screen.Search) },
         Tile("Playlist aktualisieren", Icons.Filled.Sync) { app.refresh() },
@@ -257,6 +270,7 @@ private fun ToolTiles(app: AppState) {
         Tile("Benutzer wechseln", Icons.Filled.People) { app.navigate(Screen.Profiles) },
         Tile("Kindersicherung", Icons.Filled.Lock) { app.navigate(Screen.Parental) },
         Tile("Einstellungen", Icons.Filled.Settings) { app.navigate(Screen.Settings) },
+        Tile(if (updateAvailable != null) "Update verfügbar!" else "Update", Icons.Filled.SystemUpdate) { app.navigate(Screen.Update) },
     )
     androidx.compose.foundation.layout.FlowRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),

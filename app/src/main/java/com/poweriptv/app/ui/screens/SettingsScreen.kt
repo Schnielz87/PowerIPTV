@@ -416,7 +416,7 @@ fun SettingsScreen(
             }
 
             SettingsSection("Info") {
-                Text("PowerIPTV ${BuildConfigInfo.VERSION}")
+                Text("PowerIPTV ${container.updates.currentVersion}")
                 Text(
                     "Zugangsdaten und VPN-Konfiguration werden verschluesselt (AES-256, Android Keystore) gespeichert.",
                     style = MaterialTheme.typography.bodySmall,

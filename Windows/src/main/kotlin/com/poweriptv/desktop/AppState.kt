@@ -34,6 +34,7 @@ sealed interface Screen {
     data object Parental : Screen
     data object Vpn : Screen
     data object MultiView : Screen
+    data object Update : Screen
     data class Detail(val item: ContentItem) : Screen
 }
 
@@ -98,6 +99,8 @@ class AppState(val window: WindowState) {
         { com.poweriptv.desktop.data.Http }, { downloadConnections() },
     ) { startDownloadWorker() }
     val backup = com.poweriptv.desktop.data.BackupManager(profiles, settings, categoryPrefs, parentalStore)
+    /** Updates direkt von GitHub (alle 24 h pruefen). */
+    val updates = com.poweriptv.desktop.data.DesktopUpdates(scope, AppVersion)
 
     fun videosDir(): java.io.File = java.io.File(System.getProperty("user.home"), "Videos/Portiva")
     fun downloadDir(): java.io.File = settings.value.downloadDir.takeIf { it.isNotBlank() }?.let { java.io.File(it) } ?: java.io.File(videosDir(), "Downloads")
@@ -152,6 +155,14 @@ class AppState(val window: WindowState) {
         com.poweriptv.desktop.data.NetConfig.allowed = { !settings.value.vpnRequired || vpn.isProtected() }
         scope.launch { settings.state.collect { com.poweriptv.desktop.data.NetConfig.userAgent = it.userAgent } }
         if (settings.value.vpnAutoConnect && vpn.hasConfig.value && !vpn.isProtected()) scope.launch { vpn.connect() }
+        updates.startAutoCheck()
+        // Playlist + TV-Guide alle 24 h automatisch aktualisieren – auch wenn die App laenger offen ist
+        scope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(3600_000L)
+                if (source?.isStale() == true) refresh()
+            }
+        }
         // Unterbrochene Downloads weiterlaufen lassen
         if (downloads.nextQueued() != null) startDownloadWorker()
         val last = settings.value.lastProfileId

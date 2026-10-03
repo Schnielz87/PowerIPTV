@@ -235,8 +235,19 @@ class AppContainer(private val app: Application) {
     /** Erlaubte gleichzeitige Verbindungen des Accounts (Xtream max_connections; null = unbekannt). */
     @Volatile var maxConnections: Int? = null
 
+    /** Updates direkt von GitHub (alle 24 h pruefen). */
+    val updates by lazy { com.poweriptv.app.update.UpdateManager(app, { http }, json, scope) }
+
     init {
         activate(profiles.get(settings.lastProfileId.value))
+        updates.startAutoCheck()
+        // Playlist + TV-Guide alle 24 h automatisch aktualisieren – auch wenn die App laenger offen ist
+        scope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(3600_000L)
+                refreshPlaylist(force = false)
+            }
+        }
     }
 }
 

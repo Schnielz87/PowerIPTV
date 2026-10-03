@@ -33,6 +33,7 @@ object Routes {
     const val SERIES = "series"
     const val FAVORITES = "favorites"
     const val SETTINGS = "settings"
+    const val UPDATE = "update"
     const val VPN = "vpn"
     const val DOWNLOADS = "downloads"
     const val EPG = "epg"
@@ -85,6 +86,7 @@ fun AppNavigation(container: AppContainer, onConnectVpn: () -> Unit) {
                 onOpen = { nav.navigate(Routes.browse(it)) },
                 onFavorites = { nav.navigate(Routes.FAVORITES) },
                 onSettings = { nav.navigate(Routes.SETTINGS) },
+                onUpdate = { nav.navigate(Routes.UPDATE) },
                 onVpn = { nav.navigate(Routes.VPN) },
                 onDownloads = { nav.navigate(Routes.DOWNLOADS) },
                 onEpg = { nav.navigate(Routes.EPG) },
@@ -138,6 +140,9 @@ fun AppNavigation(container: AppContainer, onConnectVpn: () -> Unit) {
                     nav.navigate(if (item.type == ContentType.SERIES) Routes.SERIES else Routes.MOVIE)
                 },
             )
+        }
+        composable(Routes.UPDATE) {
+            com.poweriptv.app.ui.screens.UpdateScreen(container, onBack = { nav.popBackStack() })
         }
         composable(Routes.SETTINGS) {
             SettingsScreen(

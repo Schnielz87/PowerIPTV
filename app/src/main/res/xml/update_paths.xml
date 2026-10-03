@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Heruntergeladene Update-APKs fuer den Android-Installer freigeben -->
+<paths>
+    <external-files-path name="updates" path="update/" />
+    <cache-path name="updates_cache" path="update/" />
+</paths>

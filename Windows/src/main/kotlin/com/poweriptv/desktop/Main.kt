@@ -68,6 +68,8 @@ fun main() = application {
         app.shutdown()
         exitApplication()
     }
+    // Update geladen -> Portiva beenden, damit der Installer die Dateien ersetzen kann
+    app.updates.onReadyToInstall = quit
     // F11 schaltet ueberall ins Vollbild
     val globalKeys: (androidx.compose.ui.input.key.KeyEvent) -> Boolean = { e ->
         if (e.type == KeyEventType.KeyDown && e.key == Key.F11) { app.toggleFullscreen(); true } else false
@@ -142,6 +144,7 @@ private fun Root(app: AppState) {
                     Screen.Parental -> com.poweriptv.desktop.ui.screens.ParentalScreen(app)
                     Screen.Vpn -> com.poweriptv.desktop.ui.screens.VpnScreen(app)
                     Screen.MultiView -> com.poweriptv.desktop.ui.screens.MultiViewScreen(app)
+                    Screen.Update -> com.poweriptv.desktop.ui.screens.UpdateScreen(app)
                     is Screen.Detail -> DetailScreen(app, s.item)
                 }
             }
