@@ -71,9 +71,32 @@ class ParentalControl(context: Context) {
         _enabled.value && !_unlocked.value && isConfiguredLocked(profileId, type, category)
 
     /** IDs der aktuell gesperrten Kategorien (fuer das Ausblenden in "Alle", Suche, EPG, Empfehlungen). */
-    fun lockedIds(profileId: String, type: ContentType, categories: List<Category>): Set<String> =
-        if (!_enabled.value || _unlocked.value) emptySet()
+    fun lockedIds(profileId: String, type: ContentType, categories: List<Category>): Set<String> {
+        register(profileId, type, categories)
+        return if (!_enabled.value || _unlocked.value) emptySet()
         else categories.filter { isConfiguredLocked(profileId, type, it) }.map { it.id }.toSet()
+    }
+
+    /** Erwachsenen-Kategorien merken (damit auch Einzeltitel aus Verlauf/Favoriten erkannt werden). */
+    private val adultCats = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    fun register(profileId: String, type: ContentType, categories: List<Category>) {
+        categories.forEach { if (isAdult(it.name)) adultCats.add(key(profileId, type, it.id)) }
+    }
+
+    /**
+     * Ist dieser einzelne Titel/Sender gesperrt? Gilt ueberall – auch fuer "Zuletzt gesehen",
+     * "Weiterschauen", Favoriten, Senderliste im Player und Erinnerungen.
+     */
+    fun isItemBlocked(profileId: String, item: com.poweriptv.app.data.ContentItem): Boolean {
+        if (!_enabled.value || _unlocked.value) return false
+        val k = key(profileId, item.type, item.categoryId)
+        return k in _locked.value || (_autoAdult.value && (k in adultCats || isAdult(item.name)))
+    }
+
+    /** Liste ohne gesperrte Titel. */
+    fun visible(profileId: String?, items: List<com.poweriptv.app.data.ContentItem>) =
+        if (profileId == null || !_enabled.value || _unlocked.value) items else items.filterNot { isItemBlocked(profileId, it) }
 
     fun setLocked(profileId: String, type: ContentType, categoryId: String, locked: Boolean) {
         val k = key(profileId, type, categoryId)

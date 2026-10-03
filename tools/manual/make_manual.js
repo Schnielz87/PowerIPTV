@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.68 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.69 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -157,6 +157,7 @@ c.push(bullet('Aufnahme planen'));
 // 10
 c.push(h1('10. Favoriten, Listen, Downloads'));
 c.push(bullet([b('Favoriten: '), t('Überall möglich: Herz auf der Detailseite und im Player (oben), oder lange drücken (TV: OK halten) auf ein Poster, einen Sender, im Programmführer, in der Suche, bei „Weiterschauen“/„Zuletzt gesehen“. Favoriten tragen ein rotes Herz.')]));
+c.push(bullet([b('Menü bei langem Drücken: '), t('Zu Favoriten hinzufügen/entfernen, Teilen (WhatsApp & Co. – geteilt wird nur der Titel, nie der Stream-Link mit deinen Zugangsdaten) und bei „Weiterschauen“/„Zuletzt gesehen“ zusätzlich „Aus Liste entfernen“ (der Titel selbst bleibt erhalten).')]));
 c.push(bullet([b('Eigene Listen: '), t('„Liste“ auf der Detailseite, z.B. „Filmabend“ oder „Kinder“.')]));
 c.push(bullet([b('Downloads: '), t('„Offline“ lädt Filme und Folgen herunter (mehrere Verbindungen parallel, wenn der Zugang es erlaubt).')]));
 
@@ -173,7 +174,7 @@ c.push(table(['Bereich', 'Was man einstellen kann'], [
   ['Player', 'Automatisch / Standard / VLC, VLC-Leistung (Automatisch / Schnell / Qualität), Bildwiederholrate (AFR), Bildformat, Vorschaubilder beim Spulen'],
   ['Live-Format & User-Agent', 'Stream-Format (TS/HLS) und Kennung gegenüber dem Anbieter'],
   ['VPN', 'WireGuard-Konfiguration, Auto-Verbinden, Kill-Switch („nur mit VPN abspielen“)'],
-  ['Kindersicherung', 'PIN, gesperrte Kategorien, Erwachseneninhalte ausblenden'],
+  ['Kindersicherung', 'Erst mit festgelegter PIN aktiv (grüner Hinweis „AKTIV“ oben). Sperrt Kategorien, Erwachseneninhalte automatisch und gilt überall – auch in Verlauf, Weiterschauen, Favoriten, Suche und Programmführer.'],
   ['KI-Empfehlungen', 'ChatGPT-Schlüssel und Modell'],
   ['Altersfreigaben (FSK)', 'TMDB-Schlüssel für die offizielle FSK'],
   ['Sichern & Wiederherstellen', 'Alles als Datei sichern (optional mit Zugangsdaten und Passwort) und auf einem anderen Gerät laden'],

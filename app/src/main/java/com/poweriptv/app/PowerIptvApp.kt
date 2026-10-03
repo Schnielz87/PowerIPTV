@@ -104,6 +104,8 @@ class AppContainer(private val app: Application) {
 
     /** Offene Frage "Weiterschauen oder von vorne?" (wird in MainActivity als Dialog gezeigt). */
     val resumePrompt = kotlinx.coroutines.flow.MutableStateFlow<ResumePrompt?>(null)
+    /** Gesperrter Inhalt: nach richtiger PIN wird diese Aktion ausgefuehrt (Dialog in MainActivity). */
+    val pinGate = kotlinx.coroutines.flow.MutableStateFlow<(() -> Unit)?>(null)
 
     fun createSource(profile: Profile): ContentSource = when (profile.type) {
         ProfileType.XTREAM -> XtreamSource(profile, http, json) { settings.liveFormatEnum().ext }
@@ -214,6 +216,14 @@ class AppContainer(private val app: Application) {
         history.bind(profile?.id)
         maxConnections = null
         source?.let { src -> scope.launch { maxConnections = runCatching { src.accountInfo()?.maxConnections?.toIntOrNull() }.getOrNull() } }
+        // Kategorien fuer die Kindersicherung kennen (Erwachsenen-Kategorien auch bei Einzeltiteln erkennen)
+        source?.let { src ->
+            scope.launch(Dispatchers.IO) {
+                listOf(ContentType.LIVE, ContentType.MOVIE, ContentType.SERIES).forEach { t ->
+                    runCatching { parental.register(src.profile.id, t, src.categories(t)) }
+                }
+            }
+        }
     }
 
     /** Erlaubte gleichzeitige Verbindungen des Accounts (Xtream max_connections; null = unbekannt). */

@@ -104,6 +104,9 @@ fun EpgGridScreen(container: AppContainer, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val epgState by container.epg.state.collectAsState()
     val favorites by container.favorites.favorites.collectAsState()
+    // Langes Druecken: Menue (Favorit, Teilen)
+    var actionsFor by remember { mutableStateOf<ContentItem?>(null) }
+    actionsFor?.let { com.poweriptv.app.ui.components.ItemActionsDialog(container, it, onDismiss = { actionsFor = null }) }
     val parentalUnlocked by container.parental.sessionUnlocked.collectAsState()
 
     var categories by remember { mutableStateOf<List<Category>>(emptyList()) }
@@ -145,7 +148,7 @@ fun EpgGridScreen(container: AppContainer, onBack: () -> Unit) {
     LaunchedEffect(group, if (group == FAV_GROUP) favorites else Unit) {
         val g = group ?: return@LaunchedEffect
         channels = null
-        channels = if (g == FAV_GROUP) favorites.filter { it.type == ContentType.LIVE }
+        channels = if (g == FAV_GROUP) container.parental.visible(source.profile.id, favorites.filter { it.type == ContentType.LIVE })
         else runCatching { source.items(ContentType.LIVE, g) }.getOrElse { error = it.message; emptyList() }
     }
 
@@ -275,7 +278,7 @@ fun EpgGridScreen(container: AppContainer, onBack: () -> Unit) {
                                 },
                                 onProgrammeClick = { p -> selected = ch to p },
                                 isFavorite = favorites.any { it.key == ch.key },
-                                onChannelLongClick = { com.poweriptv.app.ui.components.toggleFavorite(context, container, ch) },
+                                onChannelLongClick = { actionsFor = ch },
                             )
                         }
                     }

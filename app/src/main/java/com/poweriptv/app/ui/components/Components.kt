@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.GppGood
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.filled.PlayArrow
@@ -235,6 +237,19 @@ fun vlcCategoryKey(profileId: String?, item: com.poweriptv.app.data.ContentItem)
 /** Startet den Player mit einer Wiedergabeliste. */
 fun startPlayback(context: Context, container: AppContainer, entries: List<PlayEntry>, index: Int, askResume: Boolean = true) {
     if (entries.isEmpty()) return
+    // Kindersicherung: gesperrter Titel -> erst PIN, gesperrte Nachbarn aus der Warteschlange nehmen
+    val pid = container.source?.profile?.id
+    if (pid != null) {
+        val target = entries[index.coerceIn(0, entries.lastIndex)]
+        if (target.item?.let { container.parental.isItemBlocked(pid, it) } == true) {
+            container.pinGate.value = { startPlayback(context, container, entries, index, askResume) }
+            return
+        }
+        val clean = entries.filter { it === target || it.item == null || !container.parental.isItemBlocked(pid, it.item) }
+        if (clean.size != entries.size) {
+            startPlayback(context, container, clean, clean.indexOf(target), askResume); return
+        }
+    }
     // Film/Folge schon angefangen? -> erst fragen: weiterschauen oder von vorne
     val first = entries[index.coerceIn(0, entries.lastIndex)]
     if (askResume && !first.live) {
@@ -341,4 +356,75 @@ fun toggleFavorite(context: Context, container: AppContainer, item: com.poweript
     android.widget.Toast.makeText(
         context, if (now) "♥ ${item.name} zu Favoriten hinzugefuegt" else "${item.name} aus Favoriten entfernt", android.widget.Toast.LENGTH_SHORT,
     ).show()
+}
+
+/** PIN-Abfrage fuer gesperrte Inhalte (einmal global in MainActivity eingebunden). */
+@Composable
+fun PinGateDialog(container: AppContainer) {
+    val action by container.pinGate.collectAsState()
+    val a = action ?: return
+    com.poweriptv.app.parental.PinDialog(
+        container.parental,
+        message = "Dieser Inhalt ist durch die Kindersicherung gesperrt",
+        onDismiss = { container.pinGate.value = null },
+        onSuccess = { container.pinGate.value = null; a() },
+    )
+}
+
+/**
+ * Menue beim langen Druecken: Favorit, Teilen und (optional) aus einer Liste entfernen.
+ * Geteilt wird nur der Titel – niemals der Stream-Link (der enthaelt die Zugangsdaten).
+ */
+@Composable
+fun ItemActionsDialog(
+    container: AppContainer,
+    item: com.poweriptv.app.data.ContentItem,
+    onDismiss: () -> Unit,
+    removeLabel: String? = null,
+    onRemove: (() -> Unit)? = null,
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val favs by container.favorites.favorites.collectAsState()
+    val isFav = favs.any { it.key == item.key }
+    val btn = Modifier.fillMaxWidth().tvFocus(RoundedCornerShape(50))
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(item.name, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                androidx.compose.material3.OutlinedButton(onClick = { toggleFavorite(context, container, item); onDismiss() }, modifier = btn) {
+                    Icon(androidx.compose.material.icons.Icons.Filled.Favorite, null, tint = androidx.compose.ui.graphics.Color(0xFFFF5370))
+                    Spacer(Modifier.width(8.dp)); Text(if (isFav) "Aus Favoriten entfernen" else "Zu Favoriten hinzufuegen")
+                }
+                androidx.compose.material3.OutlinedButton(onClick = { shareItem(context, item); onDismiss() }, modifier = btn) {
+                    Icon(androidx.compose.material.icons.Icons.Filled.Share, null)
+                    Spacer(Modifier.width(8.dp)); Text("Teilen (WhatsApp & Co.)")
+                }
+                if (onRemove != null) {
+                    androidx.compose.material3.OutlinedButton(onClick = { onRemove(); onDismiss() }, modifier = btn) {
+                        Icon(androidx.compose.material.icons.Icons.Filled.Delete, null)
+                        Spacer(Modifier.width(8.dp)); Text(removeLabel ?: "Aus Liste entfernen")
+                    }
+                }
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = onDismiss, modifier = Modifier.tvFocus(RoundedCornerShape(50))) { Text("Schliessen") } },
+    )
+}
+
+/** Titel teilen (ohne Stream-Link/Zugangsdaten). */
+fun shareItem(context: Context, item: com.poweriptv.app.data.ContentItem) {
+    val kind = when (item.type) {
+        com.poweriptv.app.data.ContentType.MOVIE -> "Film-Tipp"
+        com.poweriptv.app.data.ContentType.SERIES -> "Serien-Tipp"
+        else -> "Sender-Tipp"
+    }
+    val title = item.name.replace(Regex("\\s*#\\s*[A-Z]{2,3}$"), "").trim()
+    val text = buildString {
+        append("📺 $kind: $title")
+        item.year?.let { append(" ($it)") }
+        item.ratingValue?.let { append(" – ★ %.1f".format(it)) }
+    }
+    val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
+    context.startActivity(Intent.createChooser(send, "Teilen").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }

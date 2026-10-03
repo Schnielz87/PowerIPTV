@@ -70,7 +70,9 @@ fun RecentScreen(
 ) {
     val source = container.source
     val context = LocalContext.current
-    val history by container.history.items.collectAsState()
+    val historyAll by container.history.items.collectAsState()
+    val parentalUnlocked by container.parental.sessionUnlocked.collectAsState()
+    val history = remember(historyAll, parentalUnlocked) { container.parental.visible(container.source?.profile?.id, historyAll) }
     val types = listOf(ContentType.LIVE to "Live TV", ContentType.MOVIE to "Filme", ContentType.SERIES to "Serien")
     var tab by rememberSaveable { mutableStateOf(types.indexOfFirst { it.first == initialType }.coerceAtLeast(0)) }
     var confirmClear by remember { mutableStateOf(false) }
@@ -174,17 +176,11 @@ fun RecentScreen(
         dismissButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50)), onClick = { confirmClear = false }) { Text("Abbrechen") } },
     )
     removeItem?.let { item ->
-        AlertDialog(
-            onDismissRequest = { removeItem = null },
-            title = { Text(item.name) },
-            text = {
-                // Favorit umschalten oder aus dem Verlauf entfernen
-                TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50)), onClick = {
-                    com.poweriptv.app.ui.components.toggleFavorite(context, container, item); removeItem = null
-                }) { Text(if (container.favorites.isFavorite(item)) "♥ Aus Favoriten entfernen" else "♥ Zu Favoriten hinzufuegen") }
-            },
-            confirmButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50)), onClick = { container.history.remove(item.key); removeItem = null }) { Text("Aus Verlauf entfernen") } },
-            dismissButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50)), onClick = { removeItem = null }) { Text("Abbrechen") } },
+        com.poweriptv.app.ui.components.ItemActionsDialog(
+            container, item,
+            onDismiss = { removeItem = null },
+            removeLabel = "Aus „Zuletzt gesehen“ entfernen",
+            onRemove = { container.history.remove(item.key) },
         )
     }
 }

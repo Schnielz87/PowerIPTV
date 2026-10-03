@@ -118,6 +118,7 @@ class MainActivity : ComponentActivity() {
                         if (splash) SplashScreen(onFinished = { splash = false })
                         else AppNavigation(container = container, onConnectVpn = ::connectVpn)
                         com.poweriptv.app.ui.components.ResumePromptDialog(container)
+                        com.poweriptv.app.ui.components.PinGateDialog(container)
                     }
                 }
             }

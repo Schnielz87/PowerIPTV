@@ -109,7 +109,12 @@ fun HomeScreen(
 ) {
     val source = container.source
     val context = LocalContext.current
-    val history by container.history.items.collectAsState()
+    val historyAll by container.history.items.collectAsState()
+    val parentalOn by container.parental.enabled.collectAsState()
+    val parentalUnlocked by container.parental.sessionUnlocked.collectAsState()
+    // Kindersicherung: gesperrte Titel nicht im Verlauf/Weiterschauen zeigen
+    var actionsFor by remember { mutableStateOf<Pair<ContentItem, String>?>(null) }
+    val history = remember(historyAll, parentalOn, parentalUnlocked) { container.parental.visible(container.source?.profile?.id, historyAll) }
     val refreshing by container.refreshing.collectAsState()
     val refreshError by container.refreshError.collectAsState()
     val cached = source as? CachedSource
@@ -204,7 +209,8 @@ fun HomeScreen(
                 }
 
                 // Weiterschauen: angefangene Filme + zuletzt gesehene Folge jeder Serie
-                if (history.isNotEmpty() && source != null) {
+                val resumeVersion by container.resume.version.collectAsState()
+                if (history.isNotEmpty() && source != null && resumeVersion >= 0) {
                     val cont = history.mapNotNull { item ->
                         when (item.type) {
                             ContentType.MOVIE -> {
@@ -226,7 +232,7 @@ fun HomeScreen(
                             items(cont, key = { "c_" + it.first.key }) { (item, progress, sub) ->
                                 Column(
                                     Modifier.width(130.dp).clip(RoundedCornerShape(10.dp)).tvFocus(RoundedCornerShape(10.dp))
-                                        .combinedClickable(onLongClick = { com.poweriptv.app.ui.components.toggleFavorite(context, container, item) }) {
+                                        .combinedClickable(onLongClick = { actionsFor = item to "cont" }) {
                                             if (item.type == ContentType.MOVIE) {
                                                 // Fragt automatisch "Weiterschauen ab … / Von vorne"
                                                 startPlayback(context, container, listOf(PlayEntry(item.name, source.streamUrl(item), item, live = false)), 0)
@@ -289,7 +295,7 @@ fun HomeScreen(
                                             .width(if (poster) 110.dp else 150.dp)
                                             .clip(RoundedCornerShape(10.dp))
                                             .tvFocus(RoundedCornerShape(10.dp))
-                                            .combinedClickable(onLongClick = { com.poweriptv.app.ui.components.toggleFavorite(context, container, item) }) {
+                                            .combinedClickable(onLongClick = { actionsFor = item to "recent" }) {
                                                 when {
                                                     item.type == ContentType.LIVE || !source.supportsDetails -> {
                                                         // Live: alle zuletzt gesehenen Sender als Liste (Kanal vor/zurueck)
@@ -336,6 +342,20 @@ fun HomeScreen(
                 }
             }
         }
+    }
+    actionsFor?.let { (item, kind) ->
+        com.poweriptv.app.ui.components.ItemActionsDialog(
+            container, item,
+            onDismiss = { actionsFor = null },
+            removeLabel = if (kind == "cont") "Aus „Weiterschauen“ entfernen" else "Aus „Zuletzt gesehen“ entfernen",
+            onRemove = {
+                if (kind == "cont") {
+                    // Nur aus Weiterschauen nehmen – der Titel selbst bleibt erhalten
+                    if (item.type == ContentType.SERIES) container.resume.clearLastEpisode(item.key)
+                    else container.source?.let { container.resume.clear(it.streamUrl(item)) }
+                } else container.history.remove(item.key)
+            },
+        )
     }
 }
 

@@ -92,7 +92,7 @@ fun FavoritesScreen(container: AppContainer, onBack: () -> Unit, onOpenDetail: (
                     )
                 }
             }
-            val items = current?.items.orEmpty()
+            val items = container.parental.visible(container.source?.profile?.id, current?.items.orEmpty())
             if (items.isEmpty() || source == null) {
                 ErrorBox(
                     if (source == null) "Kein Zugang ausgewaehlt"

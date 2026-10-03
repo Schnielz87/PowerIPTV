@@ -1,5 +1,17 @@
 package com.poweriptv.app.ui.screens
 
+import androidx.compose.ui.text.font.FontWeight
+
+import androidx.compose.foundation.layout.width
+
+import androidx.compose.foundation.layout.Spacer
+
+import androidx.compose.foundation.shape.RoundedCornerShape
+
+import androidx.compose.ui.draw.clip
+
+import androidx.compose.foundation.background
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -66,6 +78,31 @@ fun ParentalScreen(container: AppContainer, onBack: () -> Unit) {
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Klarer Status: ist die Sperre wirklich scharf?
+            item {
+                val active = enabled && pc.hasPin()
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                        .background(if (active) androidx.compose.ui.graphics.Color(0xFF1B5E20) else androidx.compose.ui.graphics.Color(0xFF8E2A2A))
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(if (active) Icons.Filled.Lock else Icons.Filled.LockOpen, null, tint = androidx.compose.ui.graphics.Color.White)
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            if (active) "Kindersicherung ist AKTIV" else "Kindersicherung ist AUS – derzeit ist nichts gesperrt",
+                            color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            if (active) "Gesperrte Kategorien, Titel und Sender sind ueberall nur mit PIN sichtbar (auch in Verlauf, Favoriten, Suche und Weiterschauen)."
+                            else if (!pc.hasPin()) "Tippe auf \"PIN festlegen\" – danach ist die Sperre sofort aktiv."
+                            else "Schalte \"Kindersicherung aktiv\" ein.",
+                            color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            }
             item {
                 SettingsSection("PIN") {
                     Text(
@@ -105,7 +142,10 @@ fun ParentalScreen(container: AppContainer, onBack: () -> Unit) {
                         tint = if (manual || auto) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                         Text(c.name)
-                        if (auto) Text("automatisch gesperrt", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (auto) Text(
+                            if (enabled) "automatisch gesperrt" else "wird gesperrt, sobald die Kindersicherung aktiv ist",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                     Switch(checked = manual || auto, enabled = !auto, onCheckedChange = { pc.setLocked(source.profile.id, type, c.id, it) })
                 }

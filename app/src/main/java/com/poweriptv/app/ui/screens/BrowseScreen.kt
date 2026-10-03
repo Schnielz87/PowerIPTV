@@ -104,6 +104,9 @@ fun BrowseScreen(
     val source = container.source ?: run { ErrorBox("Kein Zugang ausgewaehlt"); return }
     val context = LocalContext.current
     val favorites by container.favorites.favorites.collectAsState()
+    // Langes Druecken: Menue (Favorit, Teilen)
+    var actionsFor by remember { mutableStateOf<ContentItem?>(null) }
+    actionsFor?.let { com.poweriptv.app.ui.components.ItemActionsDialog(container, it, onDismiss = { actionsFor = null }) }
     val history by container.history.items.collectAsState()
     val language by container.settings.categoryLanguage.collectAsState()
     val parentalOn by container.parental.enabled.collectAsState()
@@ -157,8 +160,8 @@ fun BrowseScreen(
     LaunchedEffect(selected, reload, if (selected == CAT_FAV) favorites else Unit, if (selected == CAT_RECENT) history else Unit) {
         val cat = selected ?: return@LaunchedEffect
         when (cat) {
-            CAT_FAV -> { items = favorites.filter { it.type == type }; return@LaunchedEffect }
-            CAT_RECENT -> { items = history.filter { it.type == type }; return@LaunchedEffect }
+            CAT_FAV -> { items = container.parental.visible(source.profile.id, favorites.filter { it.type == type }); return@LaunchedEffect }
+            CAT_RECENT -> { items = container.parental.visible(source.profile.id, history.filter { it.type == type }); return@LaunchedEffect }
         }
         items = null
         error = null
@@ -385,7 +388,7 @@ fun BrowseScreen(
                                     watched = item.type == ContentType.MOVIE && resumeVersion >= 0 && container.resume.isWatched(source.streamUrl(item)),
                                     progress = if (item.type == ContentType.MOVIE) container.resume.progress(source.streamUrl(item)) else null,
                                     favorite = favorites.any { it.key == item.key },
-                                    onLongClick = { com.poweriptv.app.ui.components.toggleFavorite(context, container, item) },
+                                    onLongClick = { actionsFor = item },
                                 )
                             }
                           }

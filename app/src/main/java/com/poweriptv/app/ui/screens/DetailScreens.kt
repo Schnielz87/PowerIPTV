@@ -256,6 +256,12 @@ fun MovieDetailScreen(container: AppContainer, onBack: () -> Unit) {
     val source = container.source
     if (item == null || source == null) { ErrorBox("Nichts ausgewaehlt"); return }
     val context = LocalContext.current
+    // Kindersicherung: gesperrter Titel -> erst PIN
+    var pinOk by remember { mutableStateOf(container.parental.isItemBlocked(source.profile.id, item).not()) }
+    if (!pinOk) {
+        com.poweriptv.app.parental.PinDialog(container.parental, message = "Dieser Inhalt ist durch die Kindersicherung gesperrt", onDismiss = onBack, onSuccess = { pinOk = true })
+        return
+    }
     var info by remember { mutableStateOf<MovieInfo?>(null) }
     var loading by remember { mutableStateOf(true) }
     var ageRating by remember { mutableStateOf<com.poweriptv.app.data.AgeRating?>(null) }
@@ -334,6 +340,12 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
     val source = container.source
     if (item == null || source == null) { ErrorBox("Nichts ausgewaehlt"); return }
     val context = LocalContext.current
+    // Kindersicherung: gesperrter Titel -> erst PIN
+    var pinOk by remember { mutableStateOf(container.parental.isItemBlocked(source.profile.id, item).not()) }
+    if (!pinOk) {
+        com.poweriptv.app.parental.PinDialog(container.parental, message = "Dieser Inhalt ist durch die Kindersicherung gesperrt", onDismiss = onBack, onSuccess = { pinOk = true })
+        return
+    }
     var info by remember { mutableStateOf<SeriesInfo?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }

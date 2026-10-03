@@ -70,7 +70,15 @@ class ResumeRepository(context: Context) {
 
     fun isWatched(url: String) = prefs.getBoolean("w|$url", false)
 
+    /** Serie aus "Weiterschauen" nehmen (Fortschritt der Folgen bleibt). */
+    fun clearLastEpisode(seriesKey: String) {
+        prefs.edit().remove("series|$seriesKey").apply()
+        _version.value++
+    }
+
     fun clear(url: String) {
+        if (!prefs.contains(url)) return
         prefs.edit().remove(url).remove("$url|d").apply()
+        _version.value++
     }
 }

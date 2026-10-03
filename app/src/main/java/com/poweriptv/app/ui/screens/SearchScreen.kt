@@ -58,6 +58,9 @@ fun SearchScreen(container: AppContainer, onBack: () -> Unit, onOpenDetail: (Con
     val source = container.source ?: run { ErrorBox("Kein Zugang ausgewaehlt"); return }
     val context = LocalContext.current
     val favorites by container.favorites.favorites.collectAsState()
+    // Langes Druecken: Menue (Favorit, Teilen)
+    var actionsFor by remember { mutableStateOf<ContentItem?>(null) }
+    actionsFor?.let { com.poweriptv.app.ui.components.ItemActionsDialog(container, it, onDismiss = { actionsFor = null }) }
     var query by rememberSaveable { mutableStateOf("") }
     var applied by remember { mutableStateOf("") }
     val pools = remember { mutableStateMapOf<ContentType, List<ContentItem>>() }
@@ -149,7 +152,7 @@ fun SearchScreen(container: AppContainer, onBack: () -> Unit, onOpenDetail: (Con
                                             watched = item.type == ContentType.MOVIE && container.source?.let { container.resume.isWatched(it.streamUrl(item)) } == true,
                                             progress = if (item.type == ContentType.MOVIE) container.source?.let { container.resume.progress(it.streamUrl(item)) } else null,
                                             favorite = favorites.any { it.key == item.key },
-                                            onLongClick = { com.poweriptv.app.ui.components.toggleFavorite(context, container, item) },
+                                            onLongClick = { actionsFor = item },
                                         )
                                     }
                                 }
