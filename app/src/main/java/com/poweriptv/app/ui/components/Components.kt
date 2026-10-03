@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.poweriptv.app.ui.components
 
 import android.content.Context
@@ -24,6 +26,8 @@ import androidx.compose.material.icons.filled.GppBad
 import androidx.compose.material.icons.filled.GppGood
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
@@ -157,12 +161,15 @@ fun PosterCard(
     /** Bereits gesehen (gruener Haken) bzw. angefangen (Fortschrittsbalken). */
     watched: Boolean = false,
     progress: Float? = null,
+    /** Favorit (Herz) und langes Druecken (z.B. Favorit umschalten). */
+    favorite: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
 ) {
     Column(
         modifier
             .clip(RoundedCornerShape(10.dp))
             .tvFocus(RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(4.dp)
     ) {
         Box(
@@ -183,6 +190,7 @@ fun PosterCard(
                 )
             }
             WatchedOverlay(watched, progress)
+            if (favorite) FavoriteBadge()
         }
         Text(
             title,
@@ -314,4 +322,23 @@ fun androidx.compose.foundation.layout.BoxScope.WatchedOverlay(watched: Boolean,
             trackColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f),
         )
     }
+}
+
+/** Kleines Herz oben links (Favorit). */
+@Composable
+fun androidx.compose.foundation.layout.BoxScope.FavoriteBadge() {
+    Box(
+        Modifier.align(Alignment.TopStart).padding(5.dp).size(22.dp)
+            .clip(androidx.compose.foundation.shape.CircleShape).background(androidx.compose.ui.graphics.Color(0xCC000000)),
+        contentAlignment = Alignment.Center,
+    ) { Icon(androidx.compose.material.icons.Icons.Filled.Favorite, "Favorit", tint = androidx.compose.ui.graphics.Color(0xFFFF5370), modifier = Modifier.size(14.dp)) }
+}
+
+/** Favorit umschalten – ueberall gleich, mit kurzer Rueckmeldung. */
+fun toggleFavorite(context: Context, container: AppContainer, item: com.poweriptv.app.data.ContentItem) {
+    container.favorites.toggle(item)
+    val now = container.favorites.isFavorite(item)
+    android.widget.Toast.makeText(
+        context, if (now) "♥ ${item.name} zu Favoriten hinzugefuegt" else "${item.name} aus Favoriten entfernt", android.widget.Toast.LENGTH_SHORT,
+    ).show()
 }

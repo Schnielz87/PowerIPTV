@@ -176,9 +176,14 @@ fun RecentScreen(
     removeItem?.let { item ->
         AlertDialog(
             onDismissRequest = { removeItem = null },
-            title = { Text("Aus dem Verlauf entfernen?") },
-            text = { Text(item.name) },
-            confirmButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50)), onClick = { container.history.remove(item.key); removeItem = null }) { Text("Entfernen") } },
+            title = { Text(item.name) },
+            text = {
+                // Favorit umschalten oder aus dem Verlauf entfernen
+                TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50)), onClick = {
+                    com.poweriptv.app.ui.components.toggleFavorite(context, container, item); removeItem = null
+                }) { Text(if (container.favorites.isFavorite(item)) "♥ Aus Favoriten entfernen" else "♥ Zu Favoriten hinzufuegen") }
+            },
+            confirmButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50)), onClick = { container.history.remove(item.key); removeItem = null }) { Text("Aus Verlauf entfernen") } },
             dismissButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50)), onClick = { removeItem = null }) { Text("Abbrechen") } },
         )
     }

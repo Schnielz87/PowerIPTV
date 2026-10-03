@@ -23,6 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Pause
@@ -342,6 +344,13 @@ class VlcPlayerActivity : ComponentActivity() {
                     }
                     IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { zapBack() }) {
                         Icon(Icons.Filled.SwapHoriz, "Letzter Sender", tint = Color.White)
+                    }
+                }
+                if (current()?.item != null) {
+                    val favs by container.favorites.favorites.collectAsState()
+                    val isFav = favs.any { it.key == current()?.item!!.key }
+                    IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { com.poweriptv.app.ui.components.toggleFavorite(this@VlcPlayerActivity, container, current()?.item!!) }) {
+                        Icon(if (isFav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, "Favorit", tint = if (isFav) Color(0xFFFF5370) else Color.White)
                     }
                 }
                 CastButton(container, current(), current()?.item?.logo, tint = Color.White, onCasting = { mediaPlayer.pause() })

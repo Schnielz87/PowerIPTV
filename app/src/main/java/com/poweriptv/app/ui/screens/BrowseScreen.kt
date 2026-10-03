@@ -384,6 +384,8 @@ fun BrowseScreen(
                                 }, subtitle = listOfNotNull(item.year?.toString(), item.ratingValue?.let { "★ %.1f".format(it) }).joinToString("  "),
                                     watched = item.type == ContentType.MOVIE && resumeVersion >= 0 && container.resume.isWatched(source.streamUrl(item)),
                                     progress = if (item.type == ContentType.MOVIE) container.resume.progress(source.streamUrl(item)) else null,
+                                    favorite = favorites.any { it.key == item.key },
+                                    onLongClick = { com.poweriptv.app.ui.components.toggleFavorite(context, container, item) },
                                 )
                             }
                           }

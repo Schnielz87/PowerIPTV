@@ -1,9 +1,13 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.poweriptv.app.ui.screens
 
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -129,8 +133,11 @@ fun EpgGridScreen(container: AppContainer, onBack: () -> Unit) {
             .onSuccess { cats ->
                 categories = cats
                 if (group == null) {
-                    group = cats.firstOrNull { !container.parental.requiresPin(source.profile.id, ContentType.LIVE, it) }?.id
-                        ?: FAV_GROUP
+                    // Erste Kategorie der gewaehlten Sprache bevorzugen
+                    val lang = container.settings.categoryLanguage.value
+                    val ok = { c: Category -> !container.parental.requiresPin(source.profile.id, ContentType.LIVE, c) }
+                    group = cats.firstOrNull { ok(it) && (lang.isEmpty() || com.poweriptv.app.ui.components.categoryLanguage(it.name) == lang) }?.id
+                        ?: cats.firstOrNull(ok)?.id ?: FAV_GROUP
                 }
             }
             .onFailure { error = it.message }
@@ -164,11 +171,38 @@ fun EpgGridScreen(container: AppContainer, onBack: () -> Unit) {
         Column(Modifier.fillMaxSize().padding(padding)) {
             // Kanalgruppen
             val lockIcon: @Composable () -> Unit = { Icon(Icons.Filled.Lock, null, Modifier.size(16.dp)) }
+            // Sprachfilter wie bei Live TV / Filme / Serien (gleiche Einstellung)
+            val language by container.settings.categoryLanguage.collectAsState()
+            val languages = remember(categories) { com.poweriptv.app.ui.components.detectLanguages(categories) }
+            val activeLang = language.takeIf { it in languages } ?: ""
+            val shownCats = if (activeLang.isEmpty()) categories
+                else categories.filter { com.poweriptv.app.ui.components.categoryLanguage(it.name) == activeLang }
+            var langMenu by remember { mutableStateOf(false) }
             LazyRow(contentPadding = PaddingValues(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (languages.size >= 2) item {
+                    Box {
+                        FilterChip(
+                            modifier = Modifier.tvFocus(RoundedCornerShape(8.dp), 1.06f),
+                            selected = activeLang.isNotEmpty(),
+                            onClick = { langMenu = true },
+                            label = { Text("🌐 " + activeLang.ifEmpty { "Alle Sprachen" } + " ▾") },
+                        )
+                        androidx.compose.material3.DropdownMenu(expanded = langMenu, onDismissRequest = { langMenu = false }) {
+                            androidx.compose.material3.DropdownMenuItem(text = { Text("Alle Sprachen") }, onClick = { container.settings.setCategoryLanguage(""); langMenu = false })
+                            languages.forEach { l ->
+                                androidx.compose.material3.DropdownMenuItem(text = { Text(l) }, onClick = {
+                                    container.settings.setCategoryLanguage(l); langMenu = false
+                                    // erste Kategorie dieser Sprache anzeigen
+                                    categories.firstOrNull { com.poweriptv.app.ui.components.categoryLanguage(it.name) == l }?.let { group = it.id }
+                                })
+                            }
+                        }
+                    }
+                }
                 item {
                     FilterChip(modifier = Modifier.tvFocus(RoundedCornerShape(8.dp), 1.06f), selected = group == FAV_GROUP, onClick = { group = FAV_GROUP }, label = { Text("★ Favoriten") })
                 }
-                items(categories, key = { it.id }) { c ->
+                items(shownCats, key = { it.id }) { c ->
                     val locked = container.parental.isConfiguredLocked(source.profile.id, ContentType.LIVE, c) &&
                         container.parental.enabled.value
                     FilterChip(
@@ -240,6 +274,8 @@ fun EpgGridScreen(container: AppContainer, onBack: () -> Unit) {
                                     startPlayback(context, container, entries, list.indexOf(ch))
                                 },
                                 onProgrammeClick = { p -> selected = ch to p },
+                                isFavorite = favorites.any { it.key == ch.key },
+                                onChannelLongClick = { com.poweriptv.app.ui.components.toggleFavorite(context, container, ch) },
                             )
                         }
                     }
@@ -267,6 +303,8 @@ private fun EpgRow(
     hScroll: androidx.compose.foundation.ScrollState,
     onChannelClick: () -> Unit,
     onProgrammeClick: (Programme) -> Unit,
+    isFavorite: Boolean = false,
+    onChannelLongClick: () -> Unit = {},
 ) {
     val epgState by container.epg.state.collectAsState()
     val timeline = remember(channel.key, epgState) { container.epg.timeline(channel, windowStart, windowEnd) }
@@ -280,7 +318,8 @@ private fun EpgRow(
                 .padding(end = 2.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .tvFocus(RoundedCornerShape(8.dp), 1f)
-                .clickable(onClick = onChannelClick)
+                // Lange druecken: Sender als Favorit markieren
+                .combinedClickable(onClick = onChannelClick, onLongClick = onChannelLongClick)
                 .background(MaterialTheme.colorScheme.surface)
                 .padding(6.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -289,7 +328,8 @@ private fun EpgRow(
                 if (!channel.logo.isNullOrBlank()) AsyncImage(channel.logo, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
             }
             Spacer(Modifier.width(6.dp))
-            Text(channel.name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+            Text(channel.name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+            if (isFavorite) Icon(Icons.Filled.Favorite, "Favorit", tint = androidx.compose.ui.graphics.Color(0xFFFF5370), modifier = Modifier.size(14.dp))
         }
         Row(Modifier.horizontalScroll(hScroll)) {
             timeline.forEach { p ->

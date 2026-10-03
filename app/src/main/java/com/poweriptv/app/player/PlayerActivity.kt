@@ -85,6 +85,8 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.common.Tracks
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.FormatListBulleted
 import com.poweriptv.app.data.VideoScale
@@ -480,6 +482,13 @@ class PlayerActivity : ComponentActivity() {
                     }
                     IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { zapBack() }) {
                         Icon(Icons.Filled.SwapHoriz, "Letzter Sender", tint = Color.White)
+                    }
+                }
+                if (entry?.item != null) {
+                    val favs by container.favorites.favorites.collectAsState()
+                    val isFav = favs.any { it.key == entry?.item!!.key }
+                    IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { com.poweriptv.app.ui.components.toggleFavorite(this@PlayerActivity, container, entry?.item!!) }) {
+                        Icon(if (isFav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, "Favorit", tint = if (isFav) Color(0xFFFF5370) else Color.White)
                     }
                 }
                 CastButton(container, entry, entry?.item?.logo, tint = Color.White, onCasting = {

@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.67 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.68 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -148,7 +148,7 @@ c.push(bullet([b('VLC-Modus: '), t('Sender mit älterem Videoformat (z.B. RTL, P
 
 // 9
 c.push(h1('9. Programmführer (EPG) & Erinnerungen'));
-c.push(p('Die Kachel „Programm“ zeigt ein Zeitraster aller Sender. Eine Sendung antippen öffnet die Optionen:'));
+c.push(p('Die Kachel „Programm“ zeigt ein Zeitraster aller Sender. Über „🌐 Sprache“ ganz links lassen sich die Kategorien nach Sprache filtern (gleiche Einstellung wie bei Live TV, Filmen und Serien). Einen Sender lange drücken = Favorit. Eine Sendung antippen öffnet die Optionen:'));
 c.push(bullet('Live ansehen bzw. von Beginn an (Timeshift)'));
 c.push(bullet('Nachträglich ansehen (Catch-up)'));
 c.push(bullet([b('Erinnern: '), t('5 Minuten vor Beginn kommt eine Benachrichtigung; „Jetzt ansehen“ startet den Sender direkt.')]));
@@ -156,7 +156,7 @@ c.push(bullet('Aufnahme planen'));
 
 // 10
 c.push(h1('10. Favoriten, Listen, Downloads'));
-c.push(bullet([b('Favoriten: '), t('Herz-Symbol auf der Detailseite oder im Player.')]));
+c.push(bullet([b('Favoriten: '), t('Überall möglich: Herz auf der Detailseite und im Player (oben), oder lange drücken (TV: OK halten) auf ein Poster, einen Sender, im Programmführer, in der Suche, bei „Weiterschauen“/„Zuletzt gesehen“. Favoriten tragen ein rotes Herz.')]));
 c.push(bullet([b('Eigene Listen: '), t('„Liste“ auf der Detailseite, z.B. „Filmabend“ oder „Kinder“.')]));
 c.push(bullet([b('Downloads: '), t('„Offline“ lädt Filme und Folgen herunter (mehrere Verbindungen parallel, wenn der Zugang es erlaubt).')]));
 

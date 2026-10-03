@@ -148,6 +148,8 @@ fun SearchScreen(container: AppContainer, onBack: () -> Unit, onOpenDetail: (Con
                                             subtitle = listOfNotNull(item.year?.toString(), item.ratingValue?.let { "★ %.1f".format(it) }).joinToString("  "),
                                             watched = item.type == ContentType.MOVIE && container.source?.let { container.resume.isWatched(it.streamUrl(item)) } == true,
                                             progress = if (item.type == ContentType.MOVIE) container.source?.let { container.resume.progress(it.streamUrl(item)) } else null,
+                                            favorite = favorites.any { it.key == item.key },
+                                            onLongClick = { com.poweriptv.app.ui.components.toggleFavorite(context, container, item) },
                                         )
                                     }
                                 }

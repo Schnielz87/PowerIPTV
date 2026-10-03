@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.poweriptv.app.ui.screens
 
 import android.content.Intent
@@ -10,6 +12,7 @@ import androidx.compose.ui.res.painterResource
 import com.poweriptv.app.R
 import com.poweriptv.app.ui.theme.BrandCyan
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -223,7 +226,7 @@ fun HomeScreen(
                             items(cont, key = { "c_" + it.first.key }) { (item, progress, sub) ->
                                 Column(
                                     Modifier.width(130.dp).clip(RoundedCornerShape(10.dp)).tvFocus(RoundedCornerShape(10.dp))
-                                        .clickable {
+                                        .combinedClickable(onLongClick = { com.poweriptv.app.ui.components.toggleFavorite(context, container, item) }) {
                                             if (item.type == ContentType.MOVIE) {
                                                 // Fragt automatisch "Weiterschauen ab … / Von vorne"
                                                 startPlayback(context, container, listOf(PlayEntry(item.name, source.streamUrl(item), item, live = false)), 0)
@@ -286,7 +289,7 @@ fun HomeScreen(
                                             .width(if (poster) 110.dp else 150.dp)
                                             .clip(RoundedCornerShape(10.dp))
                                             .tvFocus(RoundedCornerShape(10.dp))
-                                            .clickable {
+                                            .combinedClickable(onLongClick = { com.poweriptv.app.ui.components.toggleFavorite(context, container, item) }) {
                                                 when {
                                                     item.type == ContentType.LIVE || !source.supportsDetails -> {
                                                         // Live: alle zuletzt gesehenen Sender als Liste (Kanal vor/zurueck)
