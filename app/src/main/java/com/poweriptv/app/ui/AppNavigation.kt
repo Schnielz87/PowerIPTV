@@ -86,7 +86,8 @@ fun AppNavigation(container: AppContainer, onConnectVpn: () -> Unit) {
                 onOpen = { nav.navigate(Routes.browse(it)) },
                 onFavorites = { nav.navigate(Routes.FAVORITES) },
                 onSettings = { nav.navigate(Routes.SETTINGS) },
-                onUpdate = { nav.navigate(Routes.UPDATE) },
+                // Kachel „Update“: sofort automatisch aktualisieren (Seite zeigt den Fortschritt)
+                onUpdate = { container.updates.updateNow(); nav.navigate(Routes.UPDATE) },
                 onVpn = { nav.navigate(Routes.VPN) },
                 onDownloads = { nav.navigate(Routes.DOWNLOADS) },
                 onEpg = { nav.navigate(Routes.EPG) },

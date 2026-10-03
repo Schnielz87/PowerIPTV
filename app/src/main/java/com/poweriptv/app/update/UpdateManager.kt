@@ -62,7 +62,13 @@ class UpdateManager(private val context: Context, http: () -> OkHttpClient, json
         }
     }
 
-    fun check(silent: Boolean = false) {
+    /** Ein Klick: pruefen und – falls neuer – sofort laden und installieren. */
+    fun updateNow() {
+        if (_available.value != null) { downloadAndInstall(); return }
+        check(silent = false, installIfNew = true)
+    }
+
+    fun check(silent: Boolean = false, installIfNew: Boolean = false) {
         if (_checking.value) return
         _checking.value = true
         if (!silent) _status.value = "Suche nach Updates …"
@@ -72,6 +78,7 @@ class UpdateManager(private val context: Context, http: () -> OkHttpClient, json
                     prefs.edit().putLong("last", System.currentTimeMillis()).apply()
                     _available.value = r.takeIf { it.build > currentBuild && apkUrl(it) != null }
                     _status.value = if (_available.value != null) "Neue Version ${r.tag} verfügbar" else "Du hast die neueste Version ($currentVersion)"
+                    if (installIfNew && _available.value != null) { _checking.value = false; downloadAndInstall() }
                 }
                 .onFailure { if (!silent) _status.value = it.message ?: "Update-Prüfung fehlgeschlagen" }
             _checking.value = false

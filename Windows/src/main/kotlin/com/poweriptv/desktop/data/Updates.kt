@@ -53,7 +53,13 @@ class DesktopUpdates(private val scope: CoroutineScope, currentVersion: String) 
         }
     }
 
-    fun check(silent: Boolean = false) {
+    /** Ein Klick: pruefen und – falls neuer – sofort laden und installieren (wie Android). */
+    fun updateNow() {
+        if (_available.value != null) { downloadAndInstall(); return }
+        check(silent = false, installIfNew = true)
+    }
+
+    fun check(silent: Boolean = false, installIfNew: Boolean = false) {
         if (_checking.value) return
         _checking.value = true
         if (!silent) _status.value = "Suche nach Updates …"
@@ -63,6 +69,7 @@ class DesktopUpdates(private val scope: CoroutineScope, currentVersion: String) 
                     store.edit { putString("last", System.currentTimeMillis().toString()) }
                     _available.value = r.takeIf { it.build > currentBuild && setupUrl(it) != null }
                     _status.value = if (_available.value != null) "Neue Version ${r.tag} verfügbar" else "Du hast die neueste Version ($currentVersion)"
+                    if (installIfNew && _available.value != null) { _checking.value = false; downloadAndInstall() }
                 }
                 .onFailure { if (!silent) _status.value = it.message ?: "Update-Prüfung fehlgeschlagen" }
             _checking.value = false

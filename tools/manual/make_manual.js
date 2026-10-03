@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.77 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.78 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -73,8 +73,7 @@ c.push(step('In Downloader den Link zur APK aus den Releases eingeben, laden und
 c.push(tip('Updates werden einfach über die vorhandene App installiert – Profile und Einstellungen bleiben erhalten.'));
 c.push(h2('Updates direkt in der App'));
 c.push(p('Portiva prüft alle 24 Stunden selbst bei GitHub, ob es eine neue Version gibt (ohne Play Store, ohne GitHub-Konto). Gibt es eine, erscheint ein Hinweis auf der Startseite und die Kachel „Update verfügbar!“.'));
-c.push(step('Kachel „Update“ (ganz unten bei den kleinen Kacheln) öffnen.', 'n5'));
-c.push(step('„Jetzt herunterladen & installieren“ antippen.', 'n5'));
+c.push(step('Kachel „Update“ (unten neben „Einstellungen“) antippen – Portiva sucht sofort nach der neuesten Version, lädt sie herunter und startet die Installation automatisch.', 'n5'));
 c.push(step('Beim ersten Mal fragt Android, ob Portiva Apps installieren darf → erlauben, zurück und erneut antippen.', 'n5'));
 c.push(step('Den Android-Installer mit „Aktualisieren“ bestätigen – Zugänge, Favoriten und Einstellungen bleiben erhalten.', 'n5'));
 c.push(p('Unter „Update“ lässt sich die automatische Prüfung abschalten und jederzeit manuell „Nach Updates suchen“. Unter Windows lädt Portiva das neue Setup, schließt sich kurz und der Installer aktualisiert die App.'));
@@ -253,7 +252,7 @@ c.push(bullet([b('Player-Extras: '), t('Favorit-Herz, Aufnahme (R), zurück zum 
 c.push(bullet([b('Sichern & Wiederherstellen: '), t('Einstellungen → Sichern & Wiederherstellen. Gleiches Dateiformat wie die Handy-App: eine Handy-Sicherung kann am PC eingespielt werden (Zugänge, Favoriten & Listen, Verlauf, Weiterschauen, Kindersicherung, Kategorien, Schlüssel) – und umgekehrt.')]));
 c.push(bullet([b('FSK: '), t('mit TMDB-Schlüssel (Einstellungen → Altersfreigabe) die offizielle deutsche Freigabe, sonst die Angabe des Anbieters.')]));
 c.push(bullet([b('Zugänge: '), t('bearbeiten (Stift) und löschen wie am Handy; Passwörter mit dem Windows-Datenschutz verschlüsselt.')]));
-c.push(bullet([b('Update: '), t('Kachel „Update“ – wie am Handy: prüft alle 24 Stunden bei GitHub, lädt das neue Setup und installiert es (Portiva schließt sich dafür kurz).')]));
+c.push(bullet([b('Update: '), t('Kachel „Update“ neben „Einstellungen“ – ein Klick: sucht bei GitHub, lädt das neue Setup und installiert es (Portiva schließt sich dafür kurz). Zusätzlich automatische Prüfung alle 24 Stunden.')]));
 
 const doc = new Document({
   creator: 'Portiva', title: 'PowerIPTV – Bedienungsanleitung',

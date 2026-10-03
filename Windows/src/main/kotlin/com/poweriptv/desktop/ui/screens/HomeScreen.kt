@@ -270,7 +270,7 @@ private fun ToolTiles(app: AppState) {
         Tile("Benutzer wechseln", Icons.Filled.People) { app.navigate(Screen.Profiles) },
         Tile("Kindersicherung", Icons.Filled.Lock) { app.navigate(Screen.Parental) },
         Tile("Einstellungen", Icons.Filled.Settings) { app.navigate(Screen.Settings) },
-        Tile(if (updateAvailable != null) "Update verfügbar!" else "Update", Icons.Filled.SystemUpdate) { app.navigate(Screen.Update) },
+        Tile(if (updateAvailable != null) "Update verfügbar!" else "Update", Icons.Filled.SystemUpdate) { app.updates.updateNow(); app.navigate(Screen.Update) },
     )
     androidx.compose.foundation.layout.FlowRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
