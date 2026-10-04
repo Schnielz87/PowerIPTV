@@ -168,6 +168,47 @@ jobs:
           name: Portiva-Tizen
           path: out/*
 
+  # Neue Amazon-Sticks mit Vega OS (kein Android: Fire TV Stick 4K Select, Fire TV Stick HD 2026, Fire TV Stick 4K 2026)
+  # Ordner "Fire TV Vega/": React-Native-Huelle + Hardware-Player, Oberflaeche aus "Tizen Samsung/".
+  firetv-vega:
+    runs-on: ubuntu-22.04
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Vega SDK installieren
+        run: |
+          curl -fsSL https://sdk-installer.vega.labcollab.net/get_vvm.sh -o "$RUNNER_TEMP/get_vvm.sh"
+          sha256sum "$RUNNER_TEMP/get_vvm.sh"
+          NONINTERACTIVE=true SKIP_VVD_INSTALL=true VEGA_SDK_VERSION=0.22.5850 bash "$RUNNER_TEMP/get_vvm.sh"
+
+      - name: Oberflaeche bauen (gleicher Code wie Samsung TV)
+        working-directory: Tizen Samsung
+        run: npm ci
+
+      - name: Fire-TV-Paket (.vpkg) bauen
+        working-directory: Fire TV Vega
+        run: |
+          source ~/vega/env
+          npm install --ignore-scripts --no-audit --no-fund
+          sed -i "s/^version = .*/version = \"1.1.${BUILD_NUMBER}\"/" manifest.toml
+          npm run build:app
+          P=$(ls build/armv7-release/*.vpkg | head -1)
+          ls -la "$P"
+          vega exec vpt validate "$P"
+          mkdir -p ../out
+          cp "$P" "../out/Portiva-FireTV-Vega-v1.1.${BUILD_NUMBER}.vpkg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Portiva-FireTV-Vega
+          path: out/*
+
   # iPhone/iPad (Ordner iOS/): SwiftUI + VLC (MobileVLCKit), unsignierte .ipa zum Aufspielen mit Sideloadly/AltStore
   ios:
     runs-on: macos-15
@@ -211,7 +252,7 @@ jobs:
           path: out/*
 
   release:
-    needs: [build, windows, tizen, ios]
+    needs: [build, windows, tizen, ios, firetv-vega]
     # Die APK erscheint auch dann, wenn der Windows-Build einmal fehlschlaegt
     if: ${{ always() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
@@ -239,6 +280,12 @@ jobs:
           name: Portiva-iOS
           path: out
 
+      - uses: actions/download-artifact@v4
+        if: ${{ needs.firetv-vega.result == 'success' }}
+        with:
+          name: Portiva-FireTV-Vega
+          path: out
+
       # Jede erfolgreiche Version erscheint unter "Releases" – dort einfach die passende Datei antippen.
       - name: Release veroeffentlichen
         uses: softprops/action-gh-release@v2
@@ -254,7 +301,8 @@ jobs:
             📲 **Handy/Tablet:** Unten bei *Assets* auf `PowerIPTV-v1.1.${{ github.run_number }}.apk` tippen,
             herunterladen und installieren („Installation aus unbekannten Quellen“ erlauben).
 
-            📺 **Fire TV / Android TV:** Dieselbe APK – die App erkennt den Fernseher automatisch.
+            📺 **Fire TV / Android TV (mit Fire OS = Android):** Dieselbe APK – die App erkennt den Fernseher automatisch.
+            Gilt fuer Fire TV Stick (Lite/3. Gen.), Fire TV Stick 4K, 4K Max, 4K Plus, Fire TV Cube und Android-TV-Geraete.
             (`PowerIPTV.apk` ist identisch, nur mit festem Dateinamen fuer einen gleichbleibenden Download-Link.)
 
             💻 **Windows-PC:** `Portiva-Windows-Setup-v1.1.${{ github.run_number }}.exe` herunterladen und ausfuehren
@@ -265,6 +313,12 @@ jobs:
             mit dem eigenen Samsung-Zertifikat signieren und per Entwicklermodus installieren
             (`tizen package -t wgt -s PortivaTV -- PowerIPTV-Tizen` → `tizen install -n Portiva.wgt -t <TV>`).
             Genaue Schritte: Bedienungsanleitung, Kapitel „Samsung Smart TV“.
+
+            🆕 **NEUE Amazon Fire TV Sticks mit Vega OS** (kein Android – die APK laeuft dort NICHT):
+            Fire TV Stick 4K Select, Fire TV Stick HD (2026), Fire TV Stick 4K (2026) und alle kommenden Sticks →
+            `Portiva-FireTV-Vega-v1.1.${{ github.run_number }}.vpkg`. Installation nur per Amazon-Entwicklermodus vom PC aus
+            (`vega device -d <Seriennummer> install-app --packagePath Portiva-FireTV-Vega-….vpkg`).
+            Genaue Schritte: Bedienungsanleitung, Kapitel „Fire TV mit Vega OS“. Welcher Stick? Einstellungen → Mein Fire TV → Info.
 
             📱 **iPhone/iPad:** `Portiva-iOS-v1.1.${{ github.run_number }}.ipa` am PC/Mac mit Sideloadly (oder AltStore) und deiner Apple-ID aufspielen.
             Genaue Schritte: Bedienungsanleitung, Kapitel „iPhone & iPad“.

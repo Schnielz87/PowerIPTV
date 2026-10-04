@@ -1,6 +1,15 @@
 // Netzwerk ueber XMLHttpRequest (in Tizen-Web-Apps mit <access origin="*"> ohne CORS-Beschraenkung).
+// Fire TV (Vega OS): ueber die App, weil die WebView fremde Server nicht direkt abfragen darf.
+import { isVega, request } from './vega';
 
 export function getText(url, timeoutMs = 30000) {
+  if (isVega()) {
+    return request('GET', url, null, {}, timeoutMs).then((r) => {
+      if (!r) throw new Error('Keine Verbindung zum Server');
+      if (r.status >= 200 && r.status < 300) return r.text;
+      throw new Error(`Server antwortet mit HTTP ${r.status}`);
+    });
+  }
   return new Promise((resolve, reject) => {
     const x = new XMLHttpRequest();
     x.open('GET', url, true);
@@ -28,6 +37,12 @@ export function query(params) {
 
 /** POST mit JSON (fuer KI-Empfehlungen). Liefert { status, body }. */
 export function postJson(url, body, headers = {}, timeoutMs = 60000) {
+  if (isVega()) {
+    return request('POST', url, JSON.stringify(body), Object.assign({ 'Content-Type': 'application/json' }, headers), timeoutMs).then((r) => {
+      if (!r) throw new Error('Keine Verbindung zum Server');
+      return { status: r.status, body: r.text };
+    });
+  }
   return new Promise((resolve, reject) => {
     const x = new XMLHttpRequest();
     x.open('POST', url, true);

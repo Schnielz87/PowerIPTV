@@ -1,4 +1,5 @@
 // Portiva Link auf dem Fernseher: Zugang als QR zeigen, Zugang vom Handy empfangen, Wiedergabe an ein Geraet senden.
+import { isVega } from '../vega';
 import { h, toast } from '../util';
 import { dialog, choose, go, activateProfile } from '../app';
 import { profiles } from '../store';
@@ -73,7 +74,7 @@ export async function sendToDevice(play, onSent) {
   choose('An Gerät senden', list.map((d) => ({
     label: d.name,
     onSelect: async () => {
-      const err = await sendPlay(d, Object.assign({ from: 'Samsung TV' }, play));
+      const err = await sendPlay(d, Object.assign({ from: isVega() ? 'Fire TV' : 'Samsung TV' }, play));
       if (err) toast(err); else { toast(`Läuft jetzt auf „${d.name}“`); onSent(d.name); }
     },
   })));

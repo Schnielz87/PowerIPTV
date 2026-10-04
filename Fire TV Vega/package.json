@@ -1,0 +1,35 @@
+{
+  "name": "portiva-firetv-vega",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Portiva – PowerIPTV für Fire TV mit Vega OS (Fire TV Stick 4K Select, Fire TV Stick HD 2026, Fire TV Stick 4K 2026)",
+  "scripts": {
+    "build:web": "node \"../Tizen Samsung/build.js\" --vega assets/web",
+    "build:app": "npm run build:web && bash scripts/build-vega.sh"
+  },
+  "dependencies": {
+    "@amazon-devices/keplerscript-turbomodule-api": "1.2.5",
+    "@amazon-devices/react-native-kepler": "2.1.0",
+    "@amazon-devices/react-native-w3cmedia": "2.3.2",
+    "@amazon-devices/webview": "3.5.11",
+    "@babel/runtime": "7.28.4",
+    "react": "18.2.0",
+    "react-native": "0.72.0"
+  },
+  "devDependencies": {
+    "@amazon-devices/kepler-cli-platform": "0.22.12",
+    "@react-native-community/cli": "11.3.2",
+    "@react-native/metro-config": "0.72.12",
+    "@tsconfig/react-native": "3.0.5",
+    "@types/react": "18.3.24",
+    "metro-react-native-babel-preset": "0.77.0",
+    "typescript": "5.4.5"
+  },
+  "kepler": {
+    "projectType": "application",
+    "appName": "Portiva",
+    "targets": ["tv"],
+    "os": ["vega"],
+    "api": 0.1
+  }
+}

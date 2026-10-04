@@ -43,5 +43,8 @@ export function registerKeys() {
   for (const n of Object.keys(map)) if (supported[n] !== undefined) KEY[map[n]] = supported[n];
 }
 
+/** Fire TV-Fernbedienung (Vega OS): Medientasten haben eigene Codes. */
+export const VEGA_KEYS = { 179: 'PLAY_PAUSE', 227: 'RW', 228: 'FF' };
+
 export const isBack = (c) => c === KEY.BACK || c === KEY.ESC || c === KEY.BACKSPACE;
 export const isDigit = (c) => c >= 48 && c <= 57;

@@ -1,0 +1,48 @@
+schema-version = 1
+
+# Portiva – PowerIPTV fuer Fire TV mit Vega OS (neue Amazon-Sticks ohne Android).
+# Oberflaeche = gleiche TV-Oberflaeche wie Samsung (Tizen Samsung/), Video = Hardware-Player von Vega.
+[package]
+title = "Portiva"
+version = "1.1.0"
+id = "app.portiva.firetv"
+icon = "@image/icon.png"
+
+[components]
+[[components.interactive]]
+id = "app.portiva.firetv.main"
+runtime-module = "/com.amazon.kepler.keplerscript.runtime.loader_2@IKeplerScript_2_0"
+launch-type = "singleton"
+categories = ["com.amazon.category.main"]
+
+[wants]
+[[wants.service]]
+id = "com.amazon.webview.renderer_service"
+[[wants.service]]
+id = "com.amazon.inputmethod.service"
+[[wants.service]]
+id = "com.amazon.media.server"
+[[wants.service]]
+id = "com.amazon.mediametrics.service"
+[[wants.service]]
+id = "com.amazon.mediabuffer.service"
+[[wants.service]]
+id = "com.amazon.mediatransform.service"
+[[wants.service]]
+id = "com.amazon.audio.stream"
+[[wants.service]]
+id = "com.amazon.audio.control"
+[[wants.service]]
+id = "com.amazon.media.playersession.service"
+[[wants.service]]
+id = "com.amazon.kepler.ucc.publisher"
+[[wants.service]]
+id = "com.amazon.gipc.uuid.*"
+
+[offers]
+[[offers.service]]
+id = "com.amazon.gipc.uuid.*"
+
+# IPTV-Anbieter, Senderlogos und Poster kommen oft per unverschluesseltem HTTP von beliebigen Servern
+[network-traffic-policy.cleartext]
+allowed-domains = ["*"]

@@ -2,6 +2,8 @@
 // Im Browser (zum Testen) automatisch HTML5-Video. Gleiche Schutzmassnahmen wie in Android/Windows:
 // grosser Puffer, automatisches Neuverbinden, Haenger-Waechter, gesammeltes Spulen.
 
+import { isVega, VegaVideo } from './vega';
+
 const hasAvPlay = () => !!(window.webapis && window.webapis.avplay);
 
 const BUFFER_SECONDS = { normal: [3, 6], gross: [5, 10], sehr_gross: [8, 15] };
@@ -24,7 +26,8 @@ export class Player {
     this.aspect = 'auto';
     this.watchdogTimer = null;
     this.av = hasAvPlay() ? window.webapis.avplay : null;
-    this.video = document.getElementById('html-player');
+    // Fire TV (Vega OS): Hardware-Player der App unter der durchsichtigen Oberflaeche
+    this.video = isVega() ? new VegaVideo() : document.getElementById('html-player');
     if (!this.av) {
       // Kein Samsung-Fernseher (z.B. Test im Browser): AVPlay-Ebene ausblenden, HTML5-Video nutzen
       const o = document.getElementById('av-player');
@@ -224,7 +227,10 @@ export class Player {
   }
 
   selectAudio(index) {
-    try { if (this.av) this.av.setSelectTrack('AUDIO', index); } catch (e) { /* nicht moeglich */ }
+    try {
+      if (this.av) this.av.setSelectTrack('AUDIO', index);
+      else if (this.video && this.video.selectAudioTrack) this.video.selectAudioTrack(index);
+    } catch (e) { /* nicht moeglich */ }
   }
 
   /** index < 0 = Untertitel aus. */
@@ -254,6 +260,7 @@ export class Player {
       }
     } else if (this.video) {
       this.video.style.objectFit = m === 'stretch' ? 'fill' : m === 'fill' ? 'cover' : 'contain';
+      if (this.video.applyFit) this.video.applyFit();
     }
   }
 

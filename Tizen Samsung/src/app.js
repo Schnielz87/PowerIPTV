@@ -1,7 +1,8 @@
 // Seitenverwaltung: Stapel von Seiten, Zurueck-Taste, Dialoge, gemeinsamer Zustand.
 import { h, clear, toast } from './util';
 import { pushScope, popScope, replaceScope, focusFirst, getFocus, setFocus, move, activate, focusable } from './focus';
-import { KEY, isBack } from './keys';
+import { KEY, isBack, VEGA_KEYS } from './keys';
+import { isVega } from './vega';
 import { settings, saveSettings, profiles, Library, parental } from './store';
 import { createSource } from './sources';
 import { Player } from './player';
@@ -164,13 +165,15 @@ function confirmExit() {
 
 export function exitApp() {
   try { app.player.stop(); } catch (e) { /* egal */ }
+  if (isVega()) { window.ReactNativeWebView.postMessage(JSON.stringify({ t: 'exit' })); return; }
   try { window.tizen.application.getCurrentApplication().exit(); } catch (e) { window.close(); }
 }
 
 // ---------------- Tasten ----------------
 
 function onKey(e) {
-  const code = e.keyCode;
+  // Fire TV (Vega OS): Medientasten auf die Samsung-Codes abbilden
+  const code = VEGA_KEYS[e.keyCode] ? KEY[VEGA_KEYS[e.keyCode]] : e.keyCode;
   const active = document.activeElement;
   // Texteingabe: Bildschirmtastatur offen -> nur Fertig/Abbrechen/Zurueck auswerten
   if (active && active.tagName === 'INPUT') {

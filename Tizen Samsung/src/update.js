@@ -1,6 +1,7 @@
 // Update-Pruefung ueber GitHub (wie Android/Windows). Installiert werden kann eine Tizen-App nur vom PC aus.
 import { getJson } from './net';
 import { storage } from './util';
+import { isVega } from './vega';
 
 export const REPO = 'Schnielz87/PowerIPTV';
 export const VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.1.0';
@@ -14,7 +15,8 @@ export const updates = {
     state.lastCheck = Date.now();
     storage.set('update.last', state.lastCheck);
     const tag = (r && r.tag_name) || '';
-    const asset = (r.assets || []).find((a) => /\.wgt$/i.test(a.name)) || (r.assets || []).find((a) => /tizen/i.test(a.name));
+    const asset = isVega() ? (r.assets || []).find((a) => /\.vpkg$/i.test(a.name))
+      : (r.assets || []).find((a) => /\.wgt$/i.test(a.name)) || (r.assets || []).find((a) => /tizen/i.test(a.name));
     state.available = newer(tag, VERSION) ? { tag, notes: r.body || '', pageUrl: r.html_url, asset: asset ? asset.browser_download_url : null } : null;
     storage.set('update.available', state.available);
     return state.available;

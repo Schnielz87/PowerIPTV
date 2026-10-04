@@ -1,4 +1,5 @@
 // Einstellungen wie Android (soweit auf dem Fernseher sinnvoll) + Kindersicherung.
+import { platformName } from '../vega';
 import { h, toast, storage } from '../util';
 import { app, go, dialog, askPin } from '../app';
 import { settings, saveSettings, parental, categoryPrefs } from '../store';
@@ -47,7 +48,7 @@ export default function settingsScreen() {
   add(row('KI-Empfehlungen', 'ChatGPT-API-Schlüssel', storage.get('ai.key', '') ? 'eingerichtet' : 'nicht eingerichtet', () => editAiKey()));
 
   g('Über Portiva');
-  add(row('Version', 'Samsung Smart TV (Tizen)', VERSION, null));
+  add(row('Version', platformName(), VERSION, null));
   add(row('Update', updates.available ? `Neue Version ${updates.available.tag} verfügbar` : 'Nach neuer Version suchen', '', () => go('update')));
 
   return { el };

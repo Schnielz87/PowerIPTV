@@ -3,11 +3,12 @@
 import { h, clear, dateDE, clock } from '../util';
 import { VERSION, updates, REPO } from '../update';
 import { topbar, row, toggleRow, loading } from './common';
+import { isVega, platformName } from '../vega';
 
 export default function update() {
   const status = h('div');
   const inner = h('div.list-inner', null,
-    row('Installiert', 'Portiva für Samsung Smart TV', VERSION, null),
+    row('Installiert', 'Portiva für ' + platformName(), VERSION, null),
     row('Nach Updates suchen', updates.lastCheck ? `Zuletzt geprüft: ${dateDE(updates.lastCheck)} ${clock(updates.lastCheck)}` : 'Noch nie geprüft', '', () => check()),
     toggleRow('Automatisch prüfen (alle 24 Stunden)', 'Bei einer neuen Version leuchtet die Kachel „Update“ auf der Startseite', () => updates.auto, (v) => { updates.auto = v; }),
     status,
@@ -19,7 +20,13 @@ export default function update() {
     const a = updates.available;
     if (!a) { if (updates.lastCheck) status.appendChild(h('p.dialog-text.success', null, '✓ Du hast die neueste Version.')); return; }
     status.appendChild(h('div.group-title', null, `Neue Version ${a.tag} verfügbar`));
-    status.appendChild(h('p.dialog-text', null,
+    if (isVega()) status.appendChild(h('p.dialog-text', null,
+      'Amazon erlaubt Apps außerhalb des Appstores nicht, sich selbst zu aktualisieren. So geht das Update (Zugänge, Favoriten und Verlauf bleiben erhalten):\n' +
+      `1. Am PC github.com/${REPO}/releases/latest öffnen und „Portiva-FireTV-Vega…vpkg“ herunterladen.\n` +
+      '2. Wie bei der Erstinstallation aufspielen:\n' +
+      '    vega device -d <Seriennummer> install-app --packagePath Portiva-FireTV-Vega.vpkg\n' +
+      '(Genaue Schritte: Bedienungsanleitung, Kapitel „Fire TV mit Vega OS“.)'));
+    else status.appendChild(h('p.dialog-text', null,
       'Samsung erlaubt Apps außerhalb des Samsung-Stores nicht, sich selbst zu aktualisieren. So geht das Update (Zugänge, Favoriten und Verlauf bleiben erhalten):\n' +
       `1. Am PC github.com/${REPO}/releases/latest öffnen und „PowerIPTV-Tizen…“ herunterladen.\n` +
       '2. Wie bei der Erstinstallation mit dem eigenen Zertifikat signieren und installieren:\n' +

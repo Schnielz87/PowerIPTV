@@ -5,6 +5,16 @@ mit **eingebautem VPN**, **Offline-Downloads** und **eigenen Favoritenlisten**.
 
 📖 **Bedienungsanleitung (Word):** [docs/PowerIPTV-Anleitung.docx](docs/PowerIPTV-Anleitung.docx)
 
+## Ordner / Varianten
+
+| Ordner | Geraete | Datei im Release |
+|---|---|---|
+| `Android/` | Handy, Tablet, Android TV, **Fire TV mit Fire OS** (Fire TV Stick Lite/3. Gen., 4K, 4K Max, 4K Plus, Cube) | `PowerIPTV-v1.1.x.apk` |
+| `Windows/` | Windows-PC | `Portiva-Windows-Setup-v1.1.x.exe` |
+| `Tizen Samsung/` | Samsung Smart TV (Tizen) | `PowerIPTV-Tizen-v1.1.x.zip` |
+| `iOS/` | iPhone, iPad | `Portiva-iOS-v1.1.x.ipa` |
+| `Fire TV Vega/` | 🆕 **NEUE Amazon Fire TV Sticks mit Vega OS** (Fire TV Stick 4K Select, Fire TV Stick HD 2026, Fire TV Stick 4K 2026) – dort laeuft keine APK | `Portiva-FireTV-Vega-v1.1.x.vpkg` |
+
 ## Funktionen
 
 | Bereich | Details |

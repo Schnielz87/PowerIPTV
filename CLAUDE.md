@@ -10,9 +10,12 @@
   UND Samsung-TV-App (`Tizen Samsung/`, JavaScript, Chromium 56: nur Flexbox, Build mit esbuild ->
   `node build.js`; Funktionen, die der Fernseher nicht kann – Aufnahmen, Downloads, VPN, Multi-Screen – entfallen dort)
   UND iOS-App (`iOS/`, SwiftUI + MobileVLCKit, Projekt via XcodeGen `project.yml` + `Podfile`, Build nur im CI auf macOS).
+  UND Fire-TV-Vega-App (`Fire TV Vega/`, neue Amazon-Sticks mit Vega OS ohne Android): React-Native-Huelle mit
+  Hardware-Player; die Oberflaeche ist der Code aus `Tizen Samsung/` (`node build.js --vega DIR`), Netzwerk/Video
+  laufen dort ueber die Bruecke `Tizen Samsung/src/vega.js` – Aenderungen an der Samsung-Oberflaeche gelten damit auch fuer Vega.
 - Gemeinsamer Player: VLC (Android, Windows, iOS); Samsung TV nutzt zwangsweise AVPlay.
   Gemeinsame Logik moeglichst als geteilte Datei ablegen (siehe `include(...)` in `Windows/build.gradle.kts`).
-- Repo-Aufbau: je Variante ein eigener Ordner – `Android/`, `iOS/`, `Tizen Samsung/`, `Windows/`.
+- Repo-Aufbau: je Variante ein eigener Ordner – `Android/`, `iOS/`, `Tizen Samsung/`, `Windows/`, `Fire TV Vega/`.
   Windows nutzt die gemeinsamen Kotlin-Dateien direkt aus `Android/app/src/main/java`.
 - Android lokal: `cd Android && ./gradlew assembleRelease`.
 - Windows-App lokal pruefen: `cd Windows && gradle compileKotlin` (Starten geht hier nicht, Google-Maven ist gesperrt).

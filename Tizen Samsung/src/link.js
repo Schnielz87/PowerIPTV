@@ -1,4 +1,5 @@
 // Portiva Link (gleiches Protokoll wie Android/Windows, siehe app/.../link/PortivaLink.kt).
+import { isVega, request } from './vega';
 // Der Fernseher darf selbst keinen Netzwerkdienst anbieten. Deshalb:
 //  - Zugang empfangen: der Fernseher zeigt einen Code (Port 0) und holt den Zugang beim Handy ab.
 //  - Wiedergabe senden: der Fernseher sucht Portiva-Geraete im Heimnetz und schickt dorthin.
@@ -64,6 +65,7 @@ export function localIp() {
 }
 
 function xhr(method, url, body, timeout) {
+  if (isVega()) return request(method, url, body ? JSON.stringify(body) : null, body ? { 'Content-Type': 'application/json' } : {}, timeout);
   return new Promise((resolve) => {
     const x = new XMLHttpRequest();
     x.open(method, url, true);

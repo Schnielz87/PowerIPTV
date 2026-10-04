@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.92 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.93 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -62,12 +62,13 @@ table; c.push(table(['Bereich', 'Funktionen'], [
 
 // 2
 c.push(h1('2. Installation & Updates'));
-c.push(p('Alle Dateien liegen im Release bereit. Der Quellcode ist auf GitHub nach Geräten getrennt: Ordner „Android“, „iOS“, „Tizen Samsung“ und „Windows“.'));
+c.push(p('Alle Dateien liegen im Release bereit. Der Quellcode ist auf GitHub nach Geräten getrennt: Ordner „Android“, „iOS“, „Tizen Samsung“, „Windows“ und „Fire TV Vega“ (neue Amazon-Sticks mit Vega OS).'));
 c.push(h2('Handy und Tablet'));
 c.push(step('Auf GitHub unter „Releases“ die neueste Version öffnen.', 'n1'));
 c.push(step('Die APK-Datei herunterladen und antippen.', 'n1'));
 c.push(step('Falls gefragt: „Installation aus unbekannten Quellen“ für den Browser erlauben.', 'n1'));
 c.push(h2('Fire TV / Android TV'));
+c.push(tip('Gilt für alle Fire TV mit Fire OS (Android): Fire TV Stick (Lite/3. Gen.), Fire TV Stick 4K, 4K Max, 4K Plus, Fire TV Cube. Die NEUEN Sticks mit Vega OS (Fire TV Stick 4K Select, Fire TV Stick HD 2026, Fire TV Stick 4K 2026) können keine APK installieren – dafür gibt es die eigene Fire-TV-Vega-Version (Kapitel 18). Welcher Stick? Einstellungen → Mein Fire TV → Info.'));
 c.push(step('App „Downloader“ aus dem Amazon App Store installieren.', 'n2'));
 c.push(step('Einstellungen → Mein Fire TV → Entwickleroptionen → „Apps unbekannter Herkunft“ für Downloader aktivieren.', 'n2'));
 c.push(step('In Downloader den Link zur APK aus den Releases eingeben, laden und installieren.', 'n2'));
@@ -336,6 +337,28 @@ c.push(step('Am iPhone: Einstellungen → Datenschutz & Sicherheit → Entwickle
 c.push(step('Portiva öffnen. Beim ersten Start fragt iOS nach „Lokales Netzwerk“ – erlauben (für QR-Übertragung und „An Gerät senden“).', 'n13'));
 c.push(p('Zugang am schnellsten: Benutzer wechseln → „+“ → „QR-Code scannen“ und am anderen Gerät beim Zugang auf das QR-Symbol tippen.'));
 
+// 18
+c.push(h1('18. PowerIPTV für die neuen Fire TV Sticks (Vega OS)'));
+c.push(p('Amazon hat bei den neuen Sticks Android durch das eigene Betriebssystem „Vega OS“ ersetzt. Betroffen sind der Fire TV Stick 4K Select, der Fire TV Stick HD (2026), der Fire TV Stick 4K (2026) und alle kommenden Sticks. Dort laufen keine APKs und es gibt kein „Apps unbekannter Herkunft“ mehr. Deshalb gibt es eine eigene Version: „Portiva-FireTV-Vega-v1.1.X.vpkg“ (auf GitHub im Ordner „Fire TV Vega“, im Release mit „🆕 NEUE Amazon Fire TV Sticks“ gekennzeichnet).'));
+c.push(tip('Welcher Stick? Einstellungen → Mein Fire TV → Info. Steht dort „Fire OS“, nimm die normale APK (Kapitel 2). Steht dort „Vega OS“, nimm diese Version.'));
+c.push(p('Die Oberfläche ist dieselbe wie beim Samsung-Fernseher (Fernbedienung, Live-TV-Infoleiste, EPG, Favoriten, Portiva Link). Das Bild kommt vom Hardware-Player des Sticks. Aufnahmen, Downloads, VPN und Mehrfachbildschirm gibt es dort nicht.'));
+c.push(h2('Einmalig: Amazon-Entwicklerkonto & Vega-Werkzeug'));
+c.push(step('Kostenloses Amazon-Entwicklerkonto auf developer.amazon.com anlegen und das Appstore-Entwicklerprofil vollständig ausfüllen (ohne Bank-/Steuerdaten). Ohne vollständiges Profil klappt der Entwicklermodus nicht.', 'n14'));
+c.push(step('Am PC (Windows mit WSL/Ubuntu, Linux oder Mac) das Vega-Werkzeug installieren: curl -fsSL https://sdk-installer.vega.labcollab.net/get_vvm.sh | bash und danach source ~/vega/env.', 'n14'));
+c.push(step('Anmelden: vega devmode login → den angezeigten Code auf amazon.com/code bestätigen.', 'n14'));
+c.push(h2('Entwicklermodus am Stick einschalten'));
+c.push(step('Am Stick: Einstellungen → Mein Fire TV → Info → 7-mal auf den Gerätenamen drücken („Du bist jetzt Entwickler“).', 'n15'));
+c.push(step('Zurück → Entwickleroptionen → Entwicklermodus → Weiter. Der Fernseher zeigt einen 6-stelligen Code (gilt ca. 5 Minuten).', 'n15'));
+c.push(step('Am PC: vega devmode enable-device --code <Code>. Der Stick startet neu.', 'n15'));
+c.push(step('Entwickleroptionen → Verbindungsart „Netzwerk“ wählen (oder per USB-Kabel verbinden). Prüfen mit: vega device list (zeigt die Seriennummer).', 'n15'));
+c.push(h2('Portiva installieren & aktualisieren'));
+c.push(step('Auf GitHub unter „Releases“ die Datei „Portiva-FireTV-Vega-v1.1.X.vpkg“ herunterladen.', 'n16'));
+c.push(step('Installieren: vega device -d <Seriennummer> install-app --packagePath Portiva-FireTV-Vega-v1.1.X.vpkg', 'n16'));
+c.push(step('Starten: über die Kachel „Portiva“ bei den Apps (ggf. nach einem Neustart) oder vega device -d <Seriennummer> launch-app --appName app.portiva.firetv.main', 'n16'));
+c.push(step('Zugang am bequemsten per „Vom Handy empfangen“ einrichten (Kapitel 16).', 'n16'));
+c.push(tip('Updates genauso installieren – Zugänge und Favoriten bleiben erhalten. Die App zeigt unter „Update“, wenn es eine neue Version gibt.'));
+c.push(tip('Hinweis: Diese Version ist neu und noch nicht auf jedem Stick erprobt. Klappt ein Sender oder Film nicht, im Anbieter-Portal bzw. in den Einstellungen das Live-Format „HLS (m3u8)“ wählen; MKV-Filme mit DTS-Ton spielen die neuen Sticks evtl. ohne Ton ab.'));
+
 const doc = new Document({
   creator: 'Portiva', title: 'PowerIPTV – Bedienungsanleitung',
   styles: {
@@ -347,7 +370,7 @@ const doc = new Document({
   },
   numbering: { config: [
     { reference: 'bul', levels: [{ level: 0, format: LevelFormat.BULLET, text: '•', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] },
-    ...['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'n10', 'n11', 'n12', 'n13', 'num'].map(r => ({ reference: r, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] })),
+    ...['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'n10', 'n11', 'n12', 'n13', 'n14', 'n15', 'n16', 'num'].map(r => ({ reference: r, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] })),
   ] },
   features: { updateFields: true },
   sections: [{

@@ -1,6 +1,7 @@
 // Einstieg der Tizen-App: Polyfills, Fernbedienung, Bildschirme registrieren, Startbild.
 import './polyfills';
 import { registerKeys } from './keys';
+import { isVega } from './vega';
 import { app, init, go, activateProfile, firstProfile } from './app';
 import { startReminders } from './reminders';
 import splash from './ui/splash';
@@ -23,6 +24,8 @@ Object.assign(app.screens, {
 
 function start() {
   registerKeys();
+  // Fire TV (Vega OS): feste 1920x1080-Oberflaeche auf die echte Bildschirmgroesse skalieren
+  if (isVega() && window.innerWidth && window.innerWidth !== 1920) document.documentElement.style.zoom = String(window.innerWidth / 1920);
   init(document.getElementById('app'));
   go('splash', {
     done: () => {
