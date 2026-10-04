@@ -197,8 +197,12 @@ jobs:
           source ~/vega/env
           npm install --ignore-scripts --no-audit --no-fund
           sed -i "s/^version = .*/version = \"1.1.${BUILD_NUMBER}\"/" manifest.toml
-          npm run build:app
-          P=$(ls build/armv7-release/*.vpkg | head -1)
+          npm run build:web
+          # Die Vega-Werkzeuge vertragen keine Leerzeichen im Pfad -> in einer Kopie ohne Leerzeichen bauen
+          W="$RUNNER_TEMP/portiva-firetv-vega"
+          rm -rf "$W" && cp -r . "$W"
+          (cd "$W" && bash scripts/build-vega.sh)
+          P=$(ls "$W"/build/armv7-release/*.vpkg | head -1)
           ls -la "$P"
           vega exec vpt validate "$P"
           mkdir -p ../out

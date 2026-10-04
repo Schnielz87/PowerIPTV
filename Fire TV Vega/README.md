@@ -16,7 +16,7 @@ Welcher Stick? *Einstellungen → Mein Fire TV → Info*.
 ## Bauen
 
 Im CI automatisch (Job `firetv-vega`) → Release-Datei `Portiva-FireTV-Vega-v1.1.x.vpkg`.
-Lokal (Linux/Mac/WSL mit Vega SDK): `source ~/vega/env && npm install && npm run build:app`.
+Lokal (Linux/Mac/WSL mit Vega SDK): `source ~/vega/env && npm install && npm run build:web`, dann den Ordner an einen Pfad **ohne Leerzeichen** kopieren und dort `bash scripts/build-vega.sh` (die Vega-Werkzeuge vertragen keine Leerzeichen).
 
 ## Installieren
 
