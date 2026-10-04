@@ -128,7 +128,7 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             SettingsSection("Sicherheit") {
-                Row(
+                if (com.poweriptv.app.BuildConfigInfo.VPN_AVAILABLE) Row(
                     Modifier.fillMaxWidth().tvFocus().clickable(onClick = onVpn).padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

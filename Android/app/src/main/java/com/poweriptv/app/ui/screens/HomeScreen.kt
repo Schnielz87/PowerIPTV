@@ -162,7 +162,7 @@ fun HomeScreen(
                         if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                         else Icon(Icons.Filled.Sync, "Playlist aktualisieren")
                     }
-                    VpnBadge(container, onVpn)
+                    if (com.poweriptv.app.BuildConfigInfo.VPN_AVAILABLE) VpnBadge(container, onVpn)
                 }
             }
         },
@@ -214,7 +214,8 @@ fun HomeScreen(
                     }
                 }
 
-                val tiles: List<Triple<String, ImageVector, () -> Unit>> = listOf(
+                // Play-Variante: kein VPN (Play-Richtlinien) und Updates ueber den Play Store
+                val tiles: List<Triple<String, ImageVector, () -> Unit>> = listOfNotNull(
                     Triple("Suche", Icons.Filled.Search, onSearch),
                     Triple("Playlist aktualisieren", Icons.Filled.Sync, { container.refreshPlaylist(force = true) }),
                     Triple("TV-Guide (EPG)", Icons.Filled.CalendarViewWeek, onEpg),
@@ -225,10 +226,11 @@ fun HomeScreen(
                     Triple("KI-Empfehlungen", Icons.Filled.AutoAwesome, onRecommendations),
                     Triple("Favoriten & Listen", Icons.Filled.Favorite, onFavorites),
                     Triple("Downloads", Icons.Filled.DownloadForOffline, onDownloads),
-                    Triple("VPN & Sicherheit", Icons.Filled.Shield, onVpn),
+                    Triple("VPN & Sicherheit", Icons.Filled.Shield, onVpn).takeIf { com.poweriptv.app.BuildConfigInfo.VPN_AVAILABLE },
                     Triple("Benutzer wechseln", Icons.Filled.People, onSwitchProfile),
                     Triple("Einstellungen", Icons.Filled.Settings, onSettings),
-                    Triple(if (updateAvailable != null) "Update verfügbar!" else "Update", Icons.Filled.SystemUpdate, onUpdate),
+                    Triple(if (updateAvailable != null) "Update verfügbar!" else "Update", Icons.Filled.SystemUpdate, onUpdate)
+                        .takeIf { com.poweriptv.app.BuildConfigInfo.SELF_UPDATE },
                 )
                 val perRow = if (wide) 3 else 2
                 tiles.chunked(perRow).forEach { row ->

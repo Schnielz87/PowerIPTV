@@ -64,8 +64,9 @@ class SettingsRepository(context: Context) {
     private val _aiBaseUrl = str(K_AI_URL, DEFAULT_AI_URL)
 
     /** Kill-Switch: Kein Datenverkehr der App ohne aktives VPN. */
-    val vpnRequired: StateFlow<Boolean> = _vpnRequired
-    val vpnAutoConnect: StateFlow<Boolean> = _vpnAutoConnect
+    // Play-Variante ohne VPN: Kill-Switch/Auto-Verbinden nie aktiv (auch nicht nach Backup-Wiederherstellung)
+    val vpnRequired: StateFlow<Boolean> = if (com.poweriptv.app.BuildConfigInfo.VPN_AVAILABLE) _vpnRequired else MutableStateFlow(false)
+    val vpnAutoConnect: StateFlow<Boolean> = if (com.poweriptv.app.BuildConfigInfo.VPN_AVAILABLE) _vpnAutoConnect else MutableStateFlow(false)
     /** Nur PowerIPTV durch den Tunnel leiten (Split-Tunneling). */
     val vpnAppOnly: StateFlow<Boolean> = _vpnAppOnly
     /** Auch ein VPN einer anderen App (z.B. NordVPN, Surfshark) als Schutz akzeptieren. */

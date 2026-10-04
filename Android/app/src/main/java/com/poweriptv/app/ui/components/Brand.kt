@@ -187,7 +187,7 @@ fun SplashScreen(onFinished: () -> Unit, playSound: Boolean = true) {
             Spacer(Modifier.height(24.dp))
             SplashWordmark()
             Spacer(Modifier.height(8.dp))
-            Text("Live TV · Filme · Serien – sicher per VPN", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            Text(if (com.poweriptv.app.BuildConfigInfo.VPN_AVAILABLE) "Live TV · Filme · Serien – sicher per VPN" else "Live TV · Filme · Serien", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
     }
 }

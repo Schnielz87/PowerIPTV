@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Google-Play-Variante: Updates laufen ueber den Play Store (keine eigene APK-Installation)
+     und ohne geraeteweiten VPN-Tunnel (Play-Richtlinie: VpnService nur fuer reine VPN-Apps). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove" />
+
+    <application>
+        <service
+            android:name="com.wireguard.android.backend.GoBackend$VpnService"
+            tools:node="remove" />
+    </application>
+</manifest>

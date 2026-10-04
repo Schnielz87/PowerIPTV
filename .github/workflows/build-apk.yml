@@ -43,19 +43,59 @@ jobs:
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleRelease
+          # github = APK fuer die Releases (mit Update-Funktion), play = App-Bundle (.aab) fuer Google Play
+          ./gradlew --no-daemon assembleGithubRelease bundlePlayRelease
 
       - name: APK umbenennen
         run: |
-          mkdir -p out
-          cp Android/app/build/outputs/apk/release/app-release.apk "out/PowerIPTV-v1.1.${BUILD_NUMBER}.apk"
+          mkdir -p out play
+          cp Android/app/build/outputs/apk/github/release/app-github-release.apk "out/PowerIPTV-v1.1.${BUILD_NUMBER}.apk"
           # Fester Dateiname -> gleichbleibender Link .../releases/latest/download/PowerIPTV.apk (z.B. fuer Fire TV "Downloader")
-          cp Android/app/build/outputs/apk/release/app-release.apk "out/PowerIPTV.apk"
+          cp Android/app/build/outputs/apk/github/release/app-github-release.apk "out/PowerIPTV.apk"
+          cp Android/app/build/outputs/bundle/playRelease/app-play-release.aab "play/PowerIPTV-Play-v1.1.${BUILD_NUMBER}.aab"
 
       - uses: actions/upload-artifact@v4
         with:
           name: PowerIPTV-APK
           path: out/*.apk
+
+      # App-Bundle fuer Google Play (zum manuellen Hochladen in der Play Console oder fuer den Job "play")
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PowerIPTV-Play-Bundle
+          path: play/*.aab
+
+  # Automatisch an Google Play senden – nur wenn das Secret PLAY_SERVICE_ACCOUNT_JSON gesetzt ist
+  # (Anleitung: Android/Play-Store-Anleitung.docx). Spur/Status ueber Repository-Variablen PLAY_TRACK / PLAY_STATUS.
+  # Laeuft getrennt vom Release: ein Play-Fehler blockiert die GitHub-Downloads nicht.
+  play:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - name: Ist Google Play eingerichtet?
+        id: check
+        run: |
+          if [ -n "$PLAY_JSON" ]; then echo "enabled=true" >> "$GITHUB_OUTPUT"; else echo "Kein Secret PLAY_SERVICE_ACCOUNT_JSON – Upload zu Google Play wird uebersprungen."; fi
+
+      - uses: actions/download-artifact@v4
+        if: steps.check.outputs.enabled == 'true'
+        with:
+          name: PowerIPTV-Play-Bundle
+          path: play
+
+      - name: An Google Play senden
+        if: steps.check.outputs.enabled == 'true'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.poweriptv.app
+          releaseFiles: play/*.aab
+          releaseName: "1.1.${{ github.run_number }}"
+          track: ${{ vars.PLAY_TRACK || 'internal' }}
+          status: ${{ vars.PLAY_STATUS || 'draft' }}
 
   # Windows-App (Ordner Windows/): Installer (.exe/.msi) + portable ZIP, VLC wird mitgeliefert
   windows:

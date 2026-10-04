@@ -323,7 +323,7 @@ class AppContainer(private val app: Application) {
             if (!m.getBoolean("vlc_reset_v2", false)) { settings.clearVlcStreams(); m.edit().putBoolean("vlc_reset_v2", true).apply() }
         }
         activate(profiles.get(settings.lastProfileId.value))
-        updates.startAutoCheck()
+        if (BuildConfigInfo.SELF_UPDATE) updates.startAutoCheck()  // Play-Variante: Updates ueber den Play Store
         // Playlist + TV-Guide alle 24 h automatisch aktualisieren – auch wenn die App laenger offen ist
         scope.launch {
             while (true) {

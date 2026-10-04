@@ -84,7 +84,7 @@ fun ProfilesScreen(
         topBar = {
             BrandTopBar(actions = {
                 IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = onDownloads) { Icon(Icons.Filled.DownloadForOffline, "Downloads") }
-                VpnBadge(container, onVpn)
+                if (com.poweriptv.app.BuildConfigInfo.VPN_AVAILABLE) VpnBadge(container, onVpn)
             })
         },
         floatingActionButton = {
