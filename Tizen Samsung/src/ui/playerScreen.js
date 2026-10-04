@@ -71,7 +71,7 @@ export default function playerScreen(params) {
     if (!isLive()) btnRow.appendChild(button('⏪ 10 s', () => { seek(-10000); poke(); }));
     btnRow.appendChild(playBtn);
     if (!isLive()) btnRow.appendChild(button('10 s ⏩', () => { seek(10000); poke(); }));
-    if (isLive() || cur.catchup) btnRow.appendChild(button('☰ Sender', openChannelList));
+    if (cur.catchup) btnRow.appendChild(button('☰ Sender', openChannelList)); // Live: unten in der Infoleiste
     if (cur.item.type === T.LIVE) btnRow.appendChild(button('📅 Programm', openProgramme));
     if (isEpisode()) {
       btnRow.appendChild(button('Nächste Folge ⏭', () => playNextEpisode(true)));
@@ -90,6 +90,12 @@ export default function playerScreen(params) {
     clear(quickRow);
     const chip = (icon, label, value, fn) => button(h('span', null, icon + '  ' + label, value ? h('span.val', null, '  ' + value) : null), fn, '.chip-q');
     const asp = ASPECTS.find((a) => a[0] === p.aspect);
+    if (isLive()) {
+      // Live-TV (wie Android/Windows): Senderliste – Seitenverhaeltnis (Mehrfachbildschirm kann der Fernseher nicht)
+      quickRow.appendChild(chip('☰', 'Senderliste', '', openChannelList));
+      quickRow.appendChild(chip('▭', 'Seitenverhältnis', asp ? asp[1] : '', pickAspect));
+      return;
+    }
     quickRow.appendChild(chip('▭', 'Seitenverhältnis', asp ? asp[1] : '', pickAspect));
     if (!isLive()) quickRow.appendChild(chip('⏱', 'Geschwindigkeit', (p.rate || 1) + '×', pickSpeed));
     // Untertitel: nur ein/aus (Spuren unter "Einstellungen")
@@ -209,19 +215,26 @@ export default function playerScreen(params) {
   function loadEpg() {
     clearInterval(epgTimer);
     const item = cur.item;
+    // Live-Infoleiste wie Android: Senderlogo, "Jetzt" mit Fortschritt, "Weiter"
+    const render = (nowP, next) => {
+      const line = (x) => (x ? `${clock(x.start)} – ${clock(x.end)}  ${x.title}` : 'Kein Programm gefunden');
+      const frac = nowP ? Math.max(0, Math.min(1, (Date.now() - nowP.start) / (nowP.end - nowP.start))) : 0;
+      clear(epgEl);
+      epgEl.appendChild(h('div.p-live', null,
+        imgDiv('p-logo', item.logo),
+        h('div.p-live-text', null,
+          h('div', null, 'Jetzt: ' + line(nowP)),
+          h('div.p-bar', { style: { margin: '10px 0' } }, h('div.fill', { style: { width: (frac * 100) + '%' } })),
+          h('div.next', null, 'Weiter: ' + line(next)))));
+    };
+    render(null, null);
     const show = () => app.source.epg(item, false).then((l) => {
       if (cur.item !== item) return;
       const now = Date.now();
       const nowP = l.find((x) => x.start <= now && x.end > now);
-      const next = l.find((x) => x.start >= now);
-      clear(epgEl);
-      if (nowP) {
-        const frac = Math.min(1, (now - nowP.start) / (nowP.end - nowP.start));
-        epgEl.appendChild(h('div', null, `${clock(nowP.start)} – ${clock(nowP.end)}  ${nowP.title}`));
-        epgEl.appendChild(h('div.p-bar', { style: { margin: '10px 0 0' } }, h('div.fill', { style: { width: (frac * 100) + '%' } })));
-      }
-      if (next) epgEl.appendChild(h('div.next', null, `Danach ${clock(next.start)}  ${next.title}`));
-    });
+      const next = l.find((x) => x.start >= (nowP ? nowP.end : now));
+      render(nowP, next);
+    }).catch(() => {});
     show();
     epgTimer = setInterval(show, 60000);
   }

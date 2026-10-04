@@ -15,6 +15,8 @@ struct PlayerScreen: View {
     @State private var nextCountdown: Int?
     @State private var sleepUntil: Date?
     @State private var viewSize: CGSize = .zero
+    @State private var epg: [EpgEntry] = []
+    @State private var showChannels = false
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     init(entry: PlayEntry) { _entry = State(initialValue: entry) }
@@ -48,6 +50,8 @@ struct PlayerScreen: View {
         }
         .onDisappear { savePosition(); ctl.stop(); UIApplication.shared.isIdleTimerDisabled = false }
         .onReceive(tick) { _ in everySecond() }
+        .task(id: entry.url) { await loadEpg() }
+        .sheet(isPresented: $showChannels) { channelSheet }
         .onChange(of: ctl.ended) { if $0 { onEnded() } }
         .sheet(isPresented: $showSend) { SendToDeviceSheet(entry: entry, position: ctl.time, duration: ctl.length) { name in
             showSend = false; savePosition(); app.show("Läuft jetzt auf „\(name)“"); close()
@@ -98,7 +102,8 @@ struct PlayerScreen: View {
                 }
                 .padding(.horizontal, 28)
                 Spacer()
-                // unten: Zeitstrahl + Knopfleiste
+                // unten – Live-TV: Sender-Infos + Senderliste/Seitenverhaeltnis; sonst Zeitstrahl + Knopfleiste
+                if entry.live { liveInfo } else {
                 VStack(spacing: 8) {
                     if !entry.live && ctl.length > 0 {
                         HStack {
@@ -133,8 +138,90 @@ struct PlayerScreen: View {
                     }
                 }
                 .padding(.horizontal, 20).padding(.bottom, 12)
+                }
             }
         }
+    }
+
+    private var aspectMenu: some View {
+        Menu {
+            ForEach(AspectMode.allCases) { a in
+                Button { ctl.setAspect(a, viewSize: viewSize); app.settings.aspect = a.rawValue; app.show("Seitenverhältnis: \(a.label)") } label: {
+                    if ctl.aspect == a { Label(a.label, systemImage: "checkmark") } else { Text(a.label) }
+                }
+            }
+        } label: { chip("aspectratio", "Seitenverhältnis", ctl.aspect.label) }
+    }
+
+    /** Live-TV-Infoleiste (wie Android): Senderlogo, Jetzt mit Fortschritt, Weiter; darunter Senderliste – Seitenverhaeltnis. */
+    private var liveInfo: some View {
+        let now = Date().timeIntervalSince1970 * 1000
+        let cur = epg.first { $0.start <= now && $0.end > now }
+        let next = epg.first { $0.start >= (cur?.end ?? now) }
+        func line(_ e: EpgEntry?) -> String { e.map { "\(Rules.clock($0.start)) – \(Rules.clock($0.end))  \($0.title)" } ?? "Kein Programm gefunden" }
+        let progress = cur.map { min(1, max(0, (now - $0.start) / max(1, $0.end - $0.start))) } ?? 0
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8).fill(Color(red: 0.1, green: 0.12, blue: 0.16))
+                    if let logo = entry.item?.logo, !logo.isEmpty { NetImage(url: logo, contentMode: .fit).padding(4) }
+                    else { Image(systemName: "tv").foregroundColor(.white) }
+                }
+                .frame(width: 72, height: 48).clipShape(RoundedRectangle(cornerRadius: 8))
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Jetzt: " + line(cur)).foregroundColor(.white).lineLimit(1)
+                    GeometryReader { g in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.white.opacity(0.3))
+                            Capsule().fill(Brand.cyan).frame(width: g.size.width * progress)
+                        }
+                    }.frame(height: 4)
+                    Text("Weiter: " + line(next)).foregroundColor(.white.opacity(0.8)).lineLimit(1)
+                }
+            }
+            HStack(spacing: 12) {
+                Spacer()
+                if app.playQueue.count > 1 {
+                    Button { showChannels = true; touch() } label: { chip("list.bullet.rectangle", "Senderliste", "") }
+                }
+                aspectMenu
+                Spacer()
+            }
+        }
+        .font(.subheadline)
+        .padding(.horizontal, 20).padding(.bottom, 12)
+    }
+
+    /** Senderliste zum Umschalten (aktuelle Liste des Players). */
+    private var channelSheet: some View {
+        NavigationStack {
+            ScrollViewReader { proxy in
+                List(app.playQueue) { e in
+                    Button {
+                        showChannels = false
+                        if e.url != entry.url { entry = e; ctl.play(e); withAnimation { overlay = true }; touch() }
+                    } label: {
+                        HStack(spacing: 12) {
+                            NetImage(url: e.item?.logo, contentMode: .fit).frame(width: 56, height: 36)
+                            Text(e.title).foregroundColor(e.url == entry.url ? Brand.cyan : .white).lineLimit(1)
+                        }
+                    }
+                    .id(e.url)
+                }
+                .onAppear { proxy.scrollTo(entry.url, anchor: .center) }
+            }
+            .navigationTitle("Senderliste").navigationBarTitleDisplayMode(.inline)
+            .toolbar { Button { showChannels = false } label: { Image(systemName: "xmark.circle.fill") } }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func loadEpg() async {
+        epg = []
+        guard entry.live, let item = entry.item, let src = app.source else { return }
+        let url = entry.url
+        let l = await src.epg(item, full: false)
+        if entry.url == url { epg = l }
     }
 
     private var settingsPanel: some View {
@@ -302,6 +389,7 @@ struct PlayerScreen: View {
         guard let i = q.firstIndex(where: { $0.url == entry.url }), q.count > 1 else { return }
         entry = q[(i + d + q.count) % q.count]
         ctl.play(entry)
+        withAnimation { overlay = true } // beim Umschalten immer die Sender-Infos zeigen
         touch()
     }
 

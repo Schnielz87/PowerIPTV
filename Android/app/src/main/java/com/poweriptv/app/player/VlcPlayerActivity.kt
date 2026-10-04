@@ -114,6 +114,8 @@ class VlcPlayerActivity : ComponentActivity() {
     private var castDialogOpen by mutableStateOf(false)
     /** Live: Senderliste im Bild und zuletzt gesehener Sender (Zurueck-Zappen). */
     private var showChannels by mutableStateOf(false)
+    /** Jetzt/Weiter des laufenden Senders (Live-Infoleiste unten). */
+    private var epg by mutableStateOf<List<com.poweriptv.app.data.EpgEntry>>(emptyList())
     private var lastChannel = -1
     /** Serien: Countdown "Naechste Folge" (Sekunden) bzw. vom Nutzer abgebrochen. */
     private var nextCountdown by mutableStateOf<Int?>(null)
@@ -305,9 +307,19 @@ class VlcPlayerActivity : ComponentActivity() {
                     if (showOverlay) {
                         Overlay()
                         // Wie gewuenscht: links Helligkeit, rechts Lautstaerke (Handy/Tablet)
-                        if (!container.isTvDevice) PlayerSideLevels(this@VlcPlayerActivity, Modifier.padding(top = 72.dp, bottom = 130.dp))
                         val liveNow = current()?.live == true
-                        androidx.compose.foundation.layout.Column(
+                        val liveBar = liveNow && !watchingRecording
+                        if (!container.isTvDevice) PlayerSideLevels(this@VlcPlayerActivity, Modifier.padding(top = 72.dp, bottom = if (liveBar) 190.dp else 130.dp))
+                        // Live-TV: unten Sender-Infos (Logo, Jetzt/Weiter) + Senderliste – Seitenverhaeltnis – Mehrfachbildschirm
+                        if (liveBar) LiveInfoBar(
+                            logo = current()?.item?.logo,
+                            epg = epg,
+                            formatLabel = scale.short,
+                            onChannels = { showChannels = true },
+                            onFormat = { dialogSection = PlayerSection.FORMAT; showFormatDialog = true; lastInteraction = System.currentTimeMillis() },
+                            onMultiScreen = { startActivity(android.content.Intent(this@VlcPlayerActivity, MultiViewActivity::class.java)) },
+                            modifier = Modifier.align(Alignment.BottomCenter),
+                        ) else androidx.compose.foundation.layout.Column(
                             Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
@@ -396,7 +408,7 @@ class VlcPlayerActivity : ComponentActivity() {
                     Text(title, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (live) {
-                    IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { showChannels = true }) {
+                    if (watchingRecording) IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { showChannels = true }) {
                         Icon(Icons.Filled.FormatListBulleted, "Senderliste", tint = Color.White)
                     }
                     IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { zapBack() }) {
@@ -636,6 +648,20 @@ class VlcPlayerActivity : ComponentActivity() {
         title = entry.title
         error = null
         buffering = true
+        // Live-TV: beim Umschalten immer kurz die Sender-Infos zeigen und Jetzt/Weiter laden
+        epg = emptyList()
+        if (entry.live) {
+            showOverlay = true; lastInteraction = System.currentTimeMillis()
+            entry.item?.let { item ->
+                lifecycleScope.launch {
+                    val now = System.currentTimeMillis()
+                    val fromXmltv = container.epg.programmesFor(item).filter { it.end > now }.take(2)
+                        .map { com.poweriptv.app.data.EpgEntry(it.title, it.description, it.start, it.end) }
+                    val list = fromXmltv.ifEmpty { runCatching { container.source?.shortEpg(item).orEmpty() }.getOrDefault(emptyList()) }
+                    if (current()?.url == entry.url) epg = list
+                }
+            }
+        }
         userPaused = false; stallSince = 0L
         // Serien-Komfort zuruecksetzen und Folge als "zuletzt gesehen" merken
         nextCancelled = false; nextCountdown = null; introSkipped = false; showSkipIntro = false

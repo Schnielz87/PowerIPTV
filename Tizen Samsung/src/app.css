@@ -289,3 +289,8 @@ input:focus { border-color: #2EE59D; background: #172438; }
 .legend b.r { background: #E53935; } .legend b.g { background: #43A047; } .legend b.y { background: #FDD835; } .legend b.bl { background: #1E88E5; }
 .rec-row { min-height: 110px; }
 body.video-mode #toast { bottom: auto; top: 150px; }
+/* Live-Infoleiste unten: Logo + Jetzt/Weiter (wie Android) */
+.p-live { display: flex; flex-direction: row; align-items: center; }
+.p-logo { width: 130px; height: 86px; border-radius: 10px; background-color: #1B1F2A; background-size: contain; background-position: center; background-repeat: no-repeat; margin-right: 26px; flex-shrink: 0; }
+.p-live-text { flex: 1; min-width: 0; }
+.p-live-text > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

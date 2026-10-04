@@ -127,6 +127,8 @@ fun MultiViewScreen(app: AppState) {
         recent.remove(index); recent.add(0, index)
         updateRunning()
     }
+    // Aus dem Live-Player geoeffnet: laufenden Sender ins erste Fenster
+    LaunchedEffect(Unit) { app.multiViewStart?.let { assign(0, it) }; app.multiViewStart = null }
 
     val controlsVisible = now - lastMove < 4000 || slots.none { it != null }
     Box(

@@ -320,6 +320,7 @@ class PlayerActivity : ComponentActivity() {
                                 setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { v ->
                                     showOverlay = v == View.VISIBLE
                                     findViewById<View>(androidx.media3.ui.R.id.exo_settings)?.visibility = View.GONE
+                                    applyLiveChrome()
                                 })
                                 controllerShowTimeoutMs = 0 // Ausblenden steuert die App selbst (s. hideOverlay)
                                 // 10-s-Pfeile nur bei Filmen/Serien (Live-TV ist nicht spulbar)
@@ -384,7 +385,21 @@ class PlayerActivity : ComponentActivity() {
                         }
                     }
                     if (showOverlay) TopOverlay()
-                    if (showOverlay) {
+                    val liveBar = liveInfoMode()
+                    LaunchedEffect(liveBar) { applyLiveChrome() }
+                    if (showOverlay && liveBar) {
+                        // Live-TV: links Helligkeit, rechts Lautstaerke, unten Sender-Infos + Senderliste/Format/Mehrfachbildschirm
+                        if (!container.isTvDevice) PlayerSideLevels(this@PlayerActivity, Modifier.padding(top = 72.dp, bottom = 190.dp))
+                        LiveInfoBar(
+                            logo = current()?.item?.logo,
+                            epg = epg,
+                            formatLabel = videoScale.short,
+                            onChannels = { showChannels = true },
+                            onFormat = { dialogSection = PlayerSection.FORMAT; showFormatDialog = true; lastInteraction = System.currentTimeMillis() },
+                            onMultiScreen = { startActivity(android.content.Intent(this@PlayerActivity, MultiViewActivity::class.java)) },
+                            modifier = Modifier.align(Alignment.BottomCenter),
+                        )
+                    } else if (showOverlay) {
                         // Wie gewuenscht: links Helligkeit, rechts Lautstaerke (Handy/Tablet) ...
                         if (!container.isTvDevice) PlayerSideLevels(this@PlayerActivity, Modifier.padding(top = 72.dp, bottom = 120.dp))
                         // ... und unten Seitenverhaeltnis – Geschwindigkeit – Untertitel
@@ -562,7 +577,7 @@ class PlayerActivity : ComponentActivity() {
                     OutlinedButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { goLive() }) { Text("LIVE", color = Danger, fontWeight = FontWeight.Bold) }
                 }
                 if (entry?.live == true) {
-                    IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { showChannels = true }) {
+                    if (!liveInfoMode()) IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { showChannels = true }) {
                         Icon(Icons.Filled.FormatListBulleted, "Senderliste", tint = Color.White)
                     }
                     IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { zapBack() }) {
@@ -602,7 +617,7 @@ class PlayerActivity : ComponentActivity() {
                 }
             }
             val fmt = DateFormat.getTimeInstance(DateFormat.SHORT)
-            epg.take(2).forEachIndexed { i, e ->
+            if (!liveInfoMode()) epg.take(2).forEachIndexed { i, e ->
                 Text(
                     (if (i == 0) "Jetzt: " else "Danach: ") + "${fmt.format(Date(e.start))} ${e.title}",
                     color = Color.White.copy(alpha = if (i == 0) 0.95f else 0.7f),
@@ -611,6 +626,16 @@ class PlayerActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    /** Live-Sender (ohne Zeitversatz/Aufnahme): unten Sender-Infoleiste statt Zeitleiste. */
+    private fun liveInfoMode() = current()?.live == true && !timeshiftActive && !watchingRecording
+
+    /** Zeitleiste von media3 bei Live-TV ausblenden – dort sitzt jetzt die Sender-Infoleiste. */
+    private fun applyLiveChrome() {
+        val v = if (liveInfoMode()) View.GONE else View.VISIBLE
+        playerView?.findViewById<View>(androidx.media3.ui.R.id.exo_bottom_bar)?.visibility = v
+        playerView?.findViewById<View>(androidx.media3.ui.R.id.exo_progress)?.visibility = v
     }
 
     private fun formatDelay(ms: Long): String {
@@ -998,6 +1023,8 @@ class PlayerActivity : ComponentActivity() {
         if (prev != container.playIndex && queue.getOrNull(prev)?.live == true) lastChannel = prev
         val entry = queue[container.playIndex]
         title = entry.title
+        // Live-TV: beim Umschalten immer kurz die Sender-Infos zeigen
+        if (entry.live) { lastInteraction = System.currentTimeMillis(); playerView?.showController() }
         error = null
         finishIntroLearning()
         startIntroLearning(entry)

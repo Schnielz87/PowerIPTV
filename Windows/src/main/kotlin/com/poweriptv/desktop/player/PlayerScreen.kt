@@ -55,6 +55,9 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Subtitles
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.LiveTv
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -107,6 +110,7 @@ import androidx.compose.ui.unit.sp
 import com.poweriptv.app.data.ContentType
 import com.poweriptv.app.data.Episode
 import com.poweriptv.desktop.AppState
+import com.poweriptv.desktop.Screen
 import com.poweriptv.desktop.PlayRequest
 import com.poweriptv.desktop.data.LibraryStore
 import com.poweriptv.desktop.data.WatchEntry
@@ -155,6 +159,13 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var menuOpen by remember { mutableStateOf(false) }
     var showChannels by remember { mutableStateOf(false) }
+    // Kurz-EPG vom Anbieter, falls kein XMLTV fuer den Sender da ist
+    var shortEpg by remember(req.item.key) { mutableStateOf<List<com.poweriptv.app.data.EpgEntry>>(emptyList()) }
+    LaunchedEffect(req.item.key) {
+        if (req.isLive && app.epg.current(req.item) == null) {
+            shortEpg = withContext(Dispatchers.IO) { runCatching { app.source?.shortEpg(req.item).orEmpty() }.getOrDefault(emptyList()) }
+        }
+    }
     var episodes by remember(req.item.key) { mutableStateOf(req.episodes) }
     var nextDismissed by remember(req.url) { mutableStateOf(false) }
     var dragging by remember { mutableStateOf<Float?>(null) }
@@ -395,12 +406,8 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                             }
                             Text(req.title, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        val epgLine = if (isLive) {
-                            val cur = app.epg.current(req.item, now)
-                            val nxt = app.epg.next(req.item, now)
-                            listOfNotNull(cur?.let { "Jetzt: ${it.title}" }, nxt?.let { "Danach: ${it.title}" }).joinToString("   ·   ").ifBlank { null }
-                        } else null
-                        (req.subtitle ?: epgLine)?.let { Text(it, color = Color.White.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        // Live: Jetzt/Weiter steht jetzt unten in der Sender-Infoleiste
+                        req.subtitle?.let { Text(it, color = Color.White.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     }
                     formatBadge(ctl.videoHeight)?.let {
                         Text(it, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.18f)).padding(horizontal = 8.dp, vertical = 3.dp))
@@ -422,7 +429,6 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                     LinkSendMenu(app, req, ctl, onOpenChange = { menuOpen = it; poke() }) { toast = it }
                     SettingsMenu(ctl, aspect, isLive, onAspect = { app.playerAspect = it }, onOpenChange = { menuOpen = it; poke() },
                         sleepMinutes = app.sleepUntil.takeIf { it > 0 }?.let { ((it - now) / 60_000L + 1).toInt() }, onSleep = ::setSleep)
-                    if (isLive && req.channels.isNotEmpty()) RoundIcon(Icons.Filled.FormatListBulleted, "Senderliste (L)") { showChannels = !showChannels }
                     RoundIcon(if (app.isFullscreen) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen, "Vollbild (F)") { app.toggleFullscreen() }
                 }
 
@@ -456,8 +462,15 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                     ) { v -> ctl.setVolumeTo((v * 150).toInt()); poke() }
                 }
 
-                // unten
-                Column(
+                // unten – Live-TV: Sender-Infos (Logo, Jetzt/Weiter) + Senderliste – Seitenverhaeltnis – Mehrfachbildschirm
+                if (isLive) LiveInfoBar(
+                    app, req, aspect, now, shortEpg,
+                    onChannels = if (req.channels.isNotEmpty()) ({ showChannels = !showChannels; poke() }) else null,
+                    onAspect = { app.playerAspect = it },
+                    onOpenChange = { menuOpen = it; poke() },
+                    onMultiScreen = { app.multiViewStart = req.item; close(); app.navigate(Screen.MultiView) },
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                ) else Column(
                     Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                         .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))))
                         .padding(horizontal = 22.dp, vertical = 14.dp),
@@ -597,6 +610,73 @@ private fun SettingsMenu(
             MenuHeader(Icons.Filled.Bedtime, "Sleep-Timer" + (sleepMinutes?.let { " (noch $it Min.)" } ?: ""))
             CheckItem("Aus", sleepMinutes == null) { onSleep(0) }
             listOf(15, 30, 45, 60, 90, 120).forEach { m -> CheckItem("$m Minuten", false) { onSleep(m) } }
+        }
+    }
+}
+
+/** Live-TV-Infoleiste unten (wie Android): Senderlogo, Jetzt mit Fortschritt, Weiter, darunter Senderliste – Seitenverhaeltnis – Mehrfachbildschirm. */
+@Composable
+private fun LiveInfoBar(
+    app: AppState, req: PlayRequest, aspect: String, now: Long, shortEpg: List<com.poweriptv.app.data.EpgEntry>,
+    onChannels: (() -> Unit)?, onAspect: (String) -> Unit, onOpenChange: (Boolean) -> Unit, onMultiScreen: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val xCur = app.epg.current(req.item, now)
+    val cur: Triple<Long, Long, String>? = xCur?.let { Triple(it.start, it.end, it.title) }
+        ?: shortEpg.firstOrNull { now >= it.start && now < it.end }?.let { Triple(it.start, it.end, it.title) }
+    val nxt: Triple<Long, Long, String>? = (if (xCur != null) app.epg.next(req.item, now)?.let { Triple(it.start, it.end, it.title) } else null)
+        ?: shortEpg.firstOrNull { it.start >= (cur?.second ?: now) }?.let { Triple(it.start, it.end, it.title) }
+    val fmt = java.text.SimpleDateFormat("HH:mm")
+    fun line(p: Triple<Long, Long, String>?) = p?.let { "${fmt.format(java.util.Date(it.first))} – ${fmt.format(java.util.Date(it.second))}  ${it.third}" } ?: "Kein Programm gefunden"
+    Column(
+        modifier.fillMaxWidth()
+            .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))))
+            .padding(horizontal = 22.dp, vertical = 14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(width = 84.dp, height = 56.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF1B1F2A)), contentAlignment = Alignment.Center) {
+                NetImage(req.item.logo, Modifier.fillMaxSize().padding(4.dp), contentScale = androidx.compose.ui.layout.ContentScale.Fit) {
+                    Icon(Icons.Filled.LiveTv, null, tint = Color.White)
+                }
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Jetzt: " + line(cur), fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val progress = cur?.let { ((now - it.first).toFloat() / (it.second - it.first).coerceAtLeast(1)).coerceIn(0f, 1f) } ?: 0f
+                Box(Modifier.padding(vertical = 6.dp).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.3f))) {
+                    Box(Modifier.fillMaxHeight().fillMaxWidth(progress).background(BrandCyan))
+                }
+                Text("Weiter: " + line(nxt), color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        @Composable
+        fun Chip(icon: ImageVector, label: String, value: String = "", onClick: () -> Unit) {
+            Row(
+                Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.45f)).handCursor()
+                    .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(icon, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(label, color = Color.White, fontSize = 14.sp)
+                if (value.isNotBlank()) Text("  $value", color = Color.White.copy(alpha = 0.65f), fontSize = 12.sp)
+            }
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(top = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (onChannels != null) Chip(Icons.Filled.VideoLibrary, "Senderliste", onClick = onChannels)
+            var open by remember { mutableStateOf(false) }
+            androidx.compose.runtime.DisposableEffect(open) { onOpenChange(open); onDispose { if (open) onOpenChange(false) } }
+            Box {
+                Chip(Icons.Filled.AspectRatio, "Seitenverhältnis", AspectModes.firstOrNull { it.first == aspect }?.second.orEmpty()) { open = true }
+                DropdownMenu(open, onDismissRequest = { open = false }) {
+                    AspectModes.forEach { (k, l) -> CheckItem(l, aspect == k) { onAspect(k); open = false } }
+                }
+            }
+            Chip(Icons.Filled.GridView, "Mehrfachbildschirm", onClick = onMultiScreen)
         }
     }
 }

@@ -131,6 +131,8 @@ class AppState(val window: WindowState) {
     /** Sleep-Timer (Ende der Wiedergabe, 0 = aus) und zuletzt gesehener Sender (Zap zurueck). */
     var sleepUntil by mutableStateOf(0L)
     var lastChannel: ContentItem? = null
+    /** Mehrfachbildschirm aus dem Player: dieser Sender kommt ins erste Fenster. */
+    var multiViewStart: ContentItem? = null
     var refreshing by mutableStateOf(false); private set
     var refreshError by mutableStateOf<String?>(null); private set
     /** Wird bei jeder Aktualisierung erhoeht, damit Listen neu laden. */

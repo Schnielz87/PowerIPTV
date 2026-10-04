@@ -25,6 +25,9 @@ import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.LiveTv
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
@@ -312,6 +315,76 @@ fun PlayerQuickBar(
         Chip(Icons.Filled.AspectRatio, "Seitenverhältnis", formatLabel, PlayerSection.FORMAT)
         if (speedLabel != null) Chip(Icons.Filled.Speed, "Geschwindigkeit", speedLabel, PlayerSection.SPEED)
         Chip(Icons.Filled.ClosedCaption, "Untertitel", subtitleLabel, PlayerSection.SUBTITLES)
+    }
+}
+
+/**
+ * Live-TV-Infoleiste unten (wie gewuenscht): Senderlogo, "Jetzt" mit Fortschritt, "Weiter",
+ * darunter Senderliste – Seitenverhaeltnis – Mehrfachbildschirm.
+ */
+@Composable
+fun LiveInfoBar(
+    logo: String?,
+    epg: List<com.poweriptv.app.data.EpgEntry>,
+    formatLabel: String,
+    onChannels: () -> Unit,
+    onFormat: () -> Unit,
+    onMultiScreen: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    // Fortschritt der laufenden Sendung jede halbe Minute auffrischen
+    var now by androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) { while (true) { delay(30_000); now = System.currentTimeMillis() } }
+    val fmt = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT)
+    val cur = epg.firstOrNull { it.start <= now && it.end > now } ?: epg.firstOrNull()?.takeIf { it.start <= now }
+    val next = epg.firstOrNull { it.start >= (cur?.end ?: now) && it !== cur }
+    fun line(e: com.poweriptv.app.data.EpgEntry?) =
+        e?.let { "${fmt.format(java.util.Date(it.start))} – ${fmt.format(java.util.Date(it.end))}  ${it.title}" } ?: "Kein Programm gefunden"
+    Column(
+        modifier.fillMaxWidth().background(
+            androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, Color(0xCC000000)))
+        ).padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(width = 72.dp, height = 48.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF1B1F2A)),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (!logo.isNullOrBlank()) coil.compose.AsyncImage(logo, null, modifier = Modifier.fillMaxSize().padding(4.dp))
+                else androidx.compose.material3.Icon(Icons.Filled.LiveTv, null, tint = Color.White)
+            }
+            androidx.compose.foundation.layout.Spacer(Modifier.size(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Jetzt: " + line(cur), color = Color.White, fontSize = 16.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                val progress = cur?.let { ((now - it.start).toFloat() / (it.end - it.start).coerceAtLeast(1)).coerceIn(0f, 1f) } ?: 0f
+                Box(Modifier.padding(vertical = 6.dp).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.3f))) {
+                    Box(Modifier.fillMaxHeight().fillMaxWidth(progress).background(com.poweriptv.app.ui.theme.BrandCyan))
+                }
+                Text("Weiter: " + line(next), color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            }
+        }
+        @Composable
+        fun Chip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String, onClick: () -> Unit) {
+            Row(
+                Modifier.clip(RoundedCornerShape(50)).tvFocus(RoundedCornerShape(50), 1.06f).clickable(onClick = onClick)
+                    .background(Color(0x66000000)).padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                androidx.compose.material3.Icon(icon, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                androidx.compose.foundation.layout.Spacer(Modifier.size(8.dp))
+                Text(label, color = Color.White, fontSize = 15.sp, maxLines = 1)
+                if (value.isNotBlank()) Text("  $value", color = Color.White.copy(alpha = 0.65f), fontSize = 13.sp, maxLines = 1)
+            }
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(top = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Chip(Icons.Filled.VideoLibrary, "Senderliste", "", onChannels)
+            Chip(Icons.Filled.AspectRatio, "Seitenverhältnis", formatLabel, onFormat)
+            if (onMultiScreen != null) Chip(Icons.Filled.GridView, "Mehrfachbildschirm", "", onMultiScreen)
+        }
     }
 }
 
