@@ -16,14 +16,14 @@ Wichtiges Motiv eher am Rand – die Mitte wird fuer Icon und Schrift abgedunkel
 Bildschirm (Handy hoch/quer, TV) links/rechts oder oben/unten etwas beschnitten.
 Keine Icons oder Schrift ins Bild einbauen – die kommen von der App.
 
-**Aktuell verwendet:** Ausschnitte (obere Bildhaelfte, ohne Icon/Schrift) aus dem Portiva-Entwurf
-mit echten Senderlogos und Film-/Serien-Covern. Hinweis: Logos und Cover sind Marken bzw.
-urheberrechtlich geschuetzte Werke Dritter – fuer eine oeffentliche Verbreitung der App die
-stilisierte Variante verwenden (siehe unten).
+**Aktuell verwendet (alle Varianten: Android, Windows, Samsung/Fire TV Vega):** die selbst erzeugte, rein stilisierte
+Version aus `collage.html` – komplett ohne Text, ohne Senderlogos/-namen, ohne Film-/Serientitel und ohne Personen
+(nur Farben, Formen und neutrale Symbole). Damit gibt es keine Marken- oder Urheberrechtsprobleme.
+Bitte keine echten Logos, Plakate oder Screenshots einsetzen.
 
-**Alternative: stilisierte Version ohne echte Logos/Plakate neu erzeugen:**
+**Neu erzeugen:**
 ```
 cd tools/collages
 NODE_PATH=$(npm root -g) node generate.js   # rendert collage.html per Chromium/Playwright
-python3 generate_webp.py                   # -> WebP in drawable-nodpi
+python3 generate_webp.py                   # -> WebP in Android/, Windows/ und Tizen Samsung/
 ```
