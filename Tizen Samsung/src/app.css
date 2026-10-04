@@ -294,3 +294,5 @@ body.video-mode #toast { bottom: auto; top: 150px; }
 .p-logo { width: 150px; height: 100px; border-radius: 10px; background-color: #1B1F2A; background-size: contain; background-position: center; background-repeat: no-repeat; margin-right: 26px; flex-shrink: 0; }
 .p-live-text { flex: 1; min-width: 0; }
 .p-live-text > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-chhead { display: flex; flex-direction: row; align-items: center; margin-bottom: 16px; }
+.p-chhead h3 { flex: 1 1 auto; margin-bottom: 0; }

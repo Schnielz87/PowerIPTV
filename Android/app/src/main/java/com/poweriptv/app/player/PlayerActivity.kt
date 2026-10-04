@@ -272,6 +272,8 @@ class PlayerActivity : ComponentActivity() {
             }
 
             override fun onRenderedFirstFrame() { firstFrameAt = System.currentTimeMillis() }
+            override fun onIsPlayingChanged(isPlaying: Boolean) = updatePip()
+            override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) = updatePip()
 
             override fun onTracksChanged(tracks: Tracks) {
                 panelTick++ // Einstellungsleiste/Untertitel-Knopf zeigen die neue Auswahl
@@ -390,10 +392,10 @@ class PlayerActivity : ComponentActivity() {
                             if (idle && !busy) hideOverlay()
                         }
                     }
-                    if (showOverlay) TopOverlay()
+                    if (showOverlay && !inPip) TopOverlay()
                     val liveBar = liveInfoMode()
                     LaunchedEffect(liveBar) { applyLiveChrome() }
-                    if (showOverlay && liveBar) {
+                    if (showOverlay && liveBar && !inPip) {
                         // Live-TV: links Helligkeit, rechts Lautstaerke (nicht bei offener Senderliste),
                         // unten Sender-Infos + Mehrfachbildschirm/Format/Senderliste
                         if (!container.isTvDevice && !showChannels) PlayerSideLevels(this@PlayerActivity, Modifier.padding(top = 72.dp, bottom = 16.dp))
@@ -406,10 +408,8 @@ class PlayerActivity : ComponentActivity() {
                             onMultiScreen = { startActivity(android.content.Intent(this@PlayerActivity, MultiViewActivity::class.java)) },
                             modifier = Modifier.align(Alignment.BottomCenter),
                             sideInset = if (container.isTvDevice) 0.dp else 80.dp,
-                            onRefreshEpg = { refreshEpg(force = true) },
-                            epgLoading = epgLoading,
                         )
-                    } else if (showOverlay) {
+                    } else if (showOverlay && !inPip) {
                         // Wie gewuenscht: links Helligkeit, rechts Lautstaerke (Handy/Tablet) ...
                         if (!container.isTvDevice && !showChannels) PlayerSideLevels(this@PlayerActivity, Modifier.padding(top = 72.dp, bottom = 120.dp))
                         // ... und unten Seitenverhaeltnis – Geschwindigkeit – Untertitel
@@ -482,6 +482,8 @@ class PlayerActivity : ComponentActivity() {
                         container, container.playQueue, container.playIndex,
                         onSelect = { showChannels = false; if (it != container.playIndex) play(it) },
                         onDismiss = { showChannels = false },
+                        onRefreshEpg = { refreshEpg(force = true) },
+                        epgLoading = epgLoading,
                     )
                     FormatBadge(formatBadge) { formatBadge = null }
                     nextCountdown?.let { sec -> NextEpisodeCard(nextTitle(), sec, onPlay = { next() }, onCancel = { cancelNext() }) }
@@ -1322,13 +1324,22 @@ class PlayerActivity : ComponentActivity() {
         return super.dispatchKeyEvent(event)
     }
 
+    /** Laeuft gerade das Mini-Fenster (Bild-in-Bild)? Dann keine Bedienelemente zeigen. */
+    private var inPip by mutableStateOf(false)
+
+    /** Bild-in-Bild-Einstellungen aktualisieren (Seitenverhaeltnis, automatisch beim Verlassen nur waehrend der Wiedergabe). */
+    private fun updatePip() {
+        val v = player.videoSize
+        Pip.update(this, isTv, v.width, v.height, autoEnter = player.playWhenReady && error == null)
+    }
+
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        // Bild-in-Bild nur auf Handy/Tablet (Fire TV unterstuetzt es fuer Fremd-Apps nicht)
-        if (!isTv && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && player.isPlaying) {
-            runCatching {
-                enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(Rational(16, 9)).build())
-            }
+        // Home-Taste/-Geste ("Kreis"): Video im Mini-Fenster weiter (Handy/Tablet; Fire TV kann das fuer Fremd-Apps nicht).
+        // Ab Android 12 macht das autoEnter selbst – sonst hier von Hand.
+        if (player.playWhenReady && error == null && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            val v = player.videoSize
+            Pip.enter(this, isTv, v.width, v.height)
         }
     }
 
@@ -1344,6 +1355,15 @@ class PlayerActivity : ComponentActivity() {
      */
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        inPip = isInPictureInPictureMode
+        if (isInPictureInPictureMode) {
+            // Im Mini-Fenster nur das Bild zeigen
+            showOverlay = false; showChannels = false; showFormatDialog = false
+            playerView?.hideController()
+            playerView?.useController = false
+        } else {
+            playerView?.useController = true
+        }
         if (!isInPictureInPictureMode && !lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
             closePlayer()
         }

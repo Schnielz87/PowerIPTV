@@ -173,11 +173,12 @@ class VlcPlayerActivity : ComponentActivity() {
                 MediaPlayer.Event.Buffering -> buffering = event.buffering < 100f
                 MediaPlayer.Event.Playing -> {
                     playing = true; buffering = false; error = null
+                    runOnUiThread { updatePip() }
                     if (mediaPlayer.length > 0) applyResume()
                     // Nach dem Spulen im Ein-Verbindungs-Modus: vorher gewaehlte Tonspur wieder setzen
                     scrubAudioTrack?.let { t -> scrubAudioTrack = null; runOnUiThread { runCatching { mediaPlayer.setAudioTrack(t) } } }
                 }
-                MediaPlayer.Event.Paused, MediaPlayer.Event.Stopped -> playing = false
+                MediaPlayer.Event.Paused, MediaPlayer.Event.Stopped -> { playing = false; runOnUiThread { updatePip() } }
                 MediaPlayer.Event.EncounteredError -> runOnUiThread {
                     // Film bricht ab, waehrend die Spul-Vorschau lief -> Anbieter erlaubt keine 2. Verbindung
                     if (scrubPreview?.recentlyUsed() == true && scrubPreview?.exclusive == false && container.settings.scrubPreviewEnum() == ScrubPreviewMode.AUTO) {
@@ -299,7 +300,7 @@ class VlcPlayerActivity : ComponentActivity() {
                         onStarted = { switchToRecordingSoon() },
                         onDismiss = { showRecordDialog = false },
                     )
-                    if (showOverlay) {
+                    if (showOverlay && !inPip) {
                         Overlay()
                         // Wie gewuenscht: links Helligkeit, rechts Lautstaerke (Handy/Tablet)
                         val liveNow = current()?.live == true
@@ -317,8 +318,6 @@ class VlcPlayerActivity : ComponentActivity() {
                             onMultiScreen = { startActivity(android.content.Intent(this@VlcPlayerActivity, MultiViewActivity::class.java)) },
                             modifier = Modifier.align(Alignment.BottomCenter),
                             sideInset = if (container.isTvDevice) 0.dp else 80.dp,
-                            onRefreshEpg = { refreshEpg(force = true) },
-                            epgLoading = epgLoading,
                         ) else androidx.compose.foundation.layout.Column(
                             Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -341,6 +340,8 @@ class VlcPlayerActivity : ComponentActivity() {
                         container, container.playQueue, container.playIndex,
                         onSelect = { showChannels = false; if (it != container.playIndex) play(it) },
                         onDismiss = { showChannels = false },
+                        onRefreshEpg = { refreshEpg(force = true) },
+                        epgLoading = epgLoading,
                     )
                     // Thumbnail-Scrubbing: Vorschau an der Spulposition
                     val drag = dragging
@@ -958,7 +959,36 @@ class VlcPlayerActivity : ComponentActivity() {
     private fun closePlayer() {
         saveResume()
         runCatching { mediaPlayer.stop() }
-        finish()
+        if (inPip) finishAndRemoveTask() else finish()
+    }
+
+    // ---------- Bild-in-Bild (Mini-Fenster beim Verlassen der App) ----------
+    private var inPip by mutableStateOf(false)
+
+    private fun videoSize(): Pair<Int, Int> = runCatching {
+        val t = mediaPlayer.currentVideoTrack
+        if (t == null) 0 to 0 else t.width to t.height
+    }.getOrDefault(0 to 0)
+
+    private fun updatePip() {
+        val (w, h) = videoSize()
+        Pip.update(this, container.isTvDevice, w, h, autoEnter = !userPaused && error == null && current() != null)
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (!userPaused && error == null && current() != null && android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) {
+            val (w, h) = videoSize()
+            Pip.enter(this, container.isTvDevice, w, h)
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        inPip = isInPictureInPictureMode
+        if (isInPictureInPictureMode) { showOverlay = false; showChannels = false; showFormatDialog = false }
+        // Mini-Fenster mit X geschlossen -> Wiedergabe beenden
+        if (!isInPictureInPictureMode && !lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) closePlayer()
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -1012,8 +1042,8 @@ class VlcPlayerActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         saveResume()
-        // Kein Bild-in-Bild im VLC-Modus -> beim Verlassen pausieren
-        runCatching { mediaPlayer.pause() }
+        // Im Mini-Fenster weiterlaufen lassen, sonst beim Verlassen pausieren
+        if (!inPip) runCatching { mediaPlayer.pause() }
     }
 
     override fun onDestroy() {

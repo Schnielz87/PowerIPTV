@@ -96,6 +96,7 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
             android:screenOrientation="sensorLandscape"
+            android:supportsPictureInPicture="true"
             android:theme="@style/Theme.PowerIPTV.Fullscreen" />
 
         <!-- Multi-Screen -->

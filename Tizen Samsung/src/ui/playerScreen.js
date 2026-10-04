@@ -94,7 +94,6 @@ export default function playerScreen(params) {
       // Live-TV (wie Android/Windows): Seitenverhaeltnis – Senderliste (Mehrfachbildschirm kann der Fernseher nicht)
       quickRow.appendChild(chip('▭', 'Seitenverhältnis', asp ? asp[1] : '', pickAspect));
       quickRow.appendChild(chip('☰', 'Senderliste', '', openChannelList));
-      quickRow.appendChild(chip('⟳', 'EPG aktualisieren', '', refreshEpg));
       return;
     }
     quickRow.appendChild(chip('▭', 'Seitenverhältnis', asp ? asp[1] : '', pickAspect));
@@ -214,13 +213,6 @@ export default function playerScreen(params) {
 
   // ---------------- EPG ----------------
   let epgShow = null;
-  /** "EPG aktualisieren" (wie im TV-Guide): Jetzt/Weiter sofort neu vom Anbieter holen. */
-  function refreshEpg() {
-    if (!epgShow) return;
-    toast('EPG wird aktualisiert …');
-    epgShow(true);
-  }
-
   function loadEpg() {
     clearInterval(epgTimer);
     const item = cur.item;
@@ -432,26 +424,35 @@ export default function playerScreen(params) {
     const box = h('div.scroll-y');
     let active = null;
     const epgCache = {};
+    const loaders = {};
     l.forEach((it) => {
       const nowEl = h('div.now');
       const row = focusable(h('div.epg-ch' + (it.id === cur.item.id ? '.active' : ''), null,
         imgDiv('logo', it.logo),
         h('div', { style: { flex: '1 1 auto', minWidth: 0 } }, h('div.n', null, (it.number ? it.number + '  ' : '') + it.name), nowEl)),
       () => { closePanel(); cur = { item: it, episode: null, catchup: null }; start(); });
-      row._onFocus = () => {
-        if (epgCache[it.id] !== undefined) return;
+      const load = () => {
         epgCache[it.id] = null;
-        app.source.epg(it, false).then((pl) => {
+        return app.source.epg(it, false).then((pl) => {
           const now = Date.now();
           const c = pl.find((x) => x.start <= now && x.end > now);
           epgCache[it.id] = c;
-          if (c) nowEl.textContent = `${clock(c.start)} ${c.title}`;
+          nowEl.textContent = c ? `${clock(c.start)} ${c.title}` : '';
         });
       };
+      loaders[it.id] = load;
+      row._onFocus = () => { if (epgCache[it.id] === undefined) load(); };
       if (it.id === cur.item.id) { active = row; row.classList.add('autofocus'); }
       box.appendChild(row);
     });
-    panel = h('div.p-chlist', null, h('h3', null, 'Sender'), box);
+    // EPG aktualisieren (wie im TV-Guide): bereits angezeigte Sender + Infoleiste neu laden
+    const refreshBtn = button('⟳ EPG aktualisieren', () => {
+      toast('EPG wird aktualisiert …');
+      const ids = Object.keys(epgCache);
+      Promise.all(ids.map((id) => loaders[id] ? loaders[id]() : null)).then(() => toast('EPG aktualisiert'));
+      if (epgShow) epgShow(false);
+    }, '.chip-q');
+    panel = h('div.p-chlist', null, h('div.p-chhead', null, h('h3', null, 'Senderliste'), refreshBtn), box);
     el.appendChild(panel);
     showOverlay(false);
     pushScope(panel);

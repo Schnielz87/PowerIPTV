@@ -57,6 +57,8 @@ import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.layout.offset
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.VideoLibrary
@@ -484,16 +486,6 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                     onOpenChange = { menuOpen = it; poke() },
                     onMultiScreen = { app.multiViewStart = req.item; close(); app.navigate(Screen.MultiView) },
                     modifier = Modifier.align(Alignment.BottomCenter),
-                    epgLoading = epgLoading,
-                    onRefreshEpg = {
-                        poke()
-                        if (!epgLoading) epgScope.launch {
-                            epgLoading = true; toast = "EPG wird aktualisiert …"
-                            reloadEpg(force = true)
-                            epgLoading = false
-                            toast = if (app.epg.current(req.item) == null && shortEpg.isEmpty()) "Für diesen Sender liefert der Anbieter kein Programm" else "EPG aktualisiert"
-                        }
-                    },
                 ) else Column(
                     Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                         .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))))
@@ -578,19 +570,47 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
             LaunchedEffect(idx) { state.scrollToItem((idx - 3).coerceAtLeast(0)) }
             // Links am Griff breiter ziehen -> Programm-Uebersicht (Jetzt mit Fortschritt, Danach)
             var extra by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+            // Zuschieben: so weit ist die Liste nach rechts aus dem Bild geschoben (Pixel)
+            var slide by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
             val density = androidx.compose.ui.platform.LocalDensity.current
             val shortEpgs = remember { androidx.compose.runtime.mutableStateMapOf<String, List<com.poweriptv.app.data.EpgEntry>>() }
+            /** EPG aktualisieren (wie im TV-Guide): Programmfuehrer neu laden, Kurz-EPG neu holen. */
+            fun refreshEpgList() {
+                poke()
+                if (epgLoading) return
+                epgScope.launch {
+                    epgLoading = true; toast = "EPG wird aktualisiert …"
+                    reloadEpg(force = true)
+                    shortEpgs.clear()
+                    epgLoading = false
+                    toast = "EPG aktualisiert"
+                }
+            }
             androidx.compose.foundation.layout.BoxWithConstraints(Modifier.align(Alignment.CenterEnd).fillMaxHeight()) {
                 val maxExtra = with(density) { (maxWidth * 0.95f - 380.dp).coerceAtLeast(0.dp).toPx() }
                 val panelWidth = 380.dp + with(density) { extra.coerceIn(0f, maxExtra).toDp() }
                 val wide = panelWidth >= 500.dp
-                Row(Modifier.align(Alignment.CenterEnd).fillMaxHeight()) {
+                val basePx = with(density) { (380.dp + 22.dp).toPx() }
+                Row(Modifier.align(Alignment.CenterEnd).fillMaxHeight().offset { androidx.compose.ui.unit.IntOffset(slide.toInt(), 0) }) {
                     Box(
                         Modifier.width(22.dp).fillMaxHeight()
                             .pointerHoverIcon(PointerIcon(java.awt.Cursor(java.awt.Cursor.W_RESIZE_CURSOR)))
-                            .pointerInput(maxExtra) {
-                                detectHorizontalDragGestures { change, dx ->
-                                    change.consume(); extra = (extra - dx).coerceIn(0f, maxExtra); poke()
+                            .pointerInput(maxExtra, basePx) {
+                                // nach links = breiter; nach rechts = schmaler und ganz zuschieben (schliesst die Liste)
+                                detectHorizontalDragGestures(
+                                    onDragEnd = { if (slide > basePx * 0.3f) { slide = 0f; showChannels = false } else slide = 0f },
+                                    onDragCancel = { slide = 0f },
+                                ) { change, dx ->
+                                    change.consume(); poke()
+                                    if (dx > 0) {
+                                        val shrink = minOf(dx, extra)
+                                        extra -= shrink
+                                        slide = (slide + dx - shrink).coerceIn(0f, basePx)
+                                    } else {
+                                        val back = minOf(-dx, slide)
+                                        slide -= back
+                                        extra = (extra + (-dx - back)).coerceIn(0f, maxExtra)
+                                    }
                                 }
                             },
                         contentAlignment = Alignment.Center,
@@ -598,7 +618,21 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                     Column(
                         Modifier.width(panelWidth).fillMaxHeight().background(Surface.copy(alpha = 0.95f)).padding(12.dp),
                     ) {
-                        Text("Sender", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(6.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Senderliste", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(6.dp).weight(1f))
+                            // EPG aktualisieren (wie im TV-Guide)
+                            Box(
+                                Modifier.size(40.dp).clip(CircleShape).handCursor().clickable(enabled = !epgLoading) { refreshEpgList() },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (epgLoading) CircularProgressIndicator(Modifier.size(22.dp), color = Color.White, strokeWidth = 2.dp)
+                                else Icon(Icons.Filled.Refresh, "EPG aktualisieren", tint = Color.White)
+                            }
+                            Box(
+                                Modifier.size(40.dp).clip(CircleShape).handCursor().clickable { showChannels = false },
+                                contentAlignment = Alignment.Center,
+                            ) { Icon(Icons.Filled.Close, "Senderliste schließen", tint = Color.White) }
+                        }
                         LazyColumn(state = state, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             itemsIndexed(list, key = { _, it -> it.key }) { _, ch ->
                                 if (!wide) ChannelCard(ch, onClick = { app.play(ch, channels = list) }, selected = ch.key == req.item.key)

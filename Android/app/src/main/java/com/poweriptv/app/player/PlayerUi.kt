@@ -29,6 +29,8 @@ import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.layout.offset
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
@@ -244,29 +246,53 @@ fun ChannelListPanel(
     current: Int,
     onSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
+    /** "EPG aktualisieren" oben in der Liste (Programm neu vom Anbieter laden). */
+    onRefreshEpg: (() -> Unit)? = null,
+    epgLoading: Boolean = false,
 ) {
     val listState = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = (current - 3).coerceAtLeast(0))
     val focus = remember { FocusRequester() }
-    val now = remember { System.currentTimeMillis() }
+    // Nach "EPG aktualisieren" neu berechnen (Uhrzeit + Kurz-EPG neu holen)
+    val now = remember(epgLoading) { System.currentTimeMillis() }
+    // Zuschieben: so weit ist die Liste nach rechts aus dem Bild geschoben (Pixel)
+    var slide by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     val density = androidx.compose.ui.platform.LocalDensity.current
     // Zusaetzliche Breite durch Ziehen am Griff (0 = normale Liste)
     var extra by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     // Kurz-EPG je Sender (nur in der breiten Ansicht nachgeladen, falls kein XMLTV-Programm da ist)
     val shortEpg = remember { androidx.compose.runtime.mutableStateMapOf<String, List<com.poweriptv.app.data.EpgEntry>>() }
+    LaunchedEffect(epgLoading) { if (!epgLoading) shortEpg.clear() }
     val fmt = remember { java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT) }
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().background(Color(0x55000000)).clickable(onClick = onDismiss)) {
         val baseWidth = minOf(380.dp, maxWidth * 0.42f)
         val maxExtra = with(density) { (maxWidth * 0.95f - baseWidth).coerceAtLeast(0.dp).toPx() }
         val panelWidth = baseWidth + with(density) { extra.coerceIn(0f, maxExtra).toDp() }
         val wide = panelWidth >= baseWidth + 120.dp
-        Row(Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(panelWidth + 22.dp)) {
-            // Griff zum Ziehen (nach links = breiter, nach rechts = schmaler)
+        val basePx = with(density) { (baseWidth + 22.dp).toPx() }
+        Row(
+            Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(panelWidth + 22.dp)
+                .offset { androidx.compose.ui.unit.IntOffset(slide.toInt(), 0) },
+        ) {
+            // Griff zum Ziehen: nach links = breiter (Programm-Uebersicht), nach rechts = schmaler und ganz zuschieben
             Box(
                 Modifier.fillMaxHeight().width(22.dp).clickable(enabled = false) {}
-                    .pointerInput(maxExtra) {
-                        detectHorizontalDragGestures { change, dx ->
+                    .pointerInput(maxExtra, basePx) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = { if (slide > basePx * 0.3f) onDismiss() else slide = 0f },
+                            onDragCancel = { slide = 0f },
+                        ) { change, dx ->
                             change.consume()
-                            extra = (extra - dx).coerceIn(0f, maxExtra)
+                            if (dx > 0) {
+                                // nach rechts: erst schmaler, dann aus dem Bild schieben
+                                val shrink = minOf(dx, extra)
+                                extra -= shrink
+                                slide = (slide + dx - shrink).coerceIn(0f, basePx)
+                            } else {
+                                // nach links: erst wieder hereinholen, dann breiter
+                                val back = minOf(-dx, slide)
+                                slide -= back
+                                extra = (extra + (-dx - back)).coerceIn(0f, maxExtra)
+                            }
                         }
                     },
                 contentAlignment = Alignment.Center,
@@ -277,7 +303,24 @@ fun ChannelListPanel(
                 Modifier.fillMaxHeight().width(panelWidth)
                     .background(Color(0xF0101620)).clickable(enabled = false) {}.padding(vertical = 12.dp),
             ) {
-                Text("Senderliste", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Senderliste", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f).padding(vertical = 6.dp))
+                    // EPG aktualisieren (wie im TV-Guide)
+                    if (onRefreshEpg != null) Box(
+                        Modifier.size(42.dp).clip(androidx.compose.foundation.shape.CircleShape).tvFocus(androidx.compose.foundation.shape.CircleShape, 1.1f)
+                            .clickable(enabled = !epgLoading, onClick = onRefreshEpg),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (epgLoading) androidx.compose.material3.CircularProgressIndicator(Modifier.size(22.dp), color = Color.White, strokeWidth = 2.dp)
+                        else androidx.compose.material3.Icon(Icons.Filled.Refresh, "EPG aktualisieren", tint = Color.White, modifier = Modifier.size(24.dp))
+                    }
+                    // Liste schliessen (zuschieben)
+                    Box(
+                        Modifier.size(42.dp).clip(androidx.compose.foundation.shape.CircleShape).tvFocus(androidx.compose.foundation.shape.CircleShape, 1.1f)
+                            .clickable(onClick = onDismiss),
+                        contentAlignment = Alignment.Center,
+                    ) { androidx.compose.material3.Icon(Icons.Filled.Close, "Senderliste schließen", tint = Color.White, modifier = Modifier.size(24.dp)) }
+                }
                 androidx.compose.foundation.lazy.LazyColumn(state = listState) {
                     items(entries.size) { i ->
                         val e = entries[i]

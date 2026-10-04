@@ -20,6 +20,8 @@ struct PlayerScreen: View {
     @State private var showChannels = false
     @State private var listExtra: CGFloat = 0          // Senderliste breiter gezogen
     @State private var listDragBase: CGFloat?
+    @State private var listSlide: CGFloat = 0           // Senderliste nach rechts zugeschoben
+    @State private var epgRev = 0                       // nach "EPG aktualisieren" Programm neu laden
     @State private var listEpg: [String: [EpgEntry]] = [:] // Programm je Sender (breite Senderliste)
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -185,14 +187,6 @@ struct PlayerScreen: View {
                     }.frame(height: 5)
                     Text("Weiter: " + line(next)).font(.callout).foregroundColor(.white.opacity(0.8)).lineLimit(1)
                 }
-                // "EPG aktualisieren" (wie im TV-Guide)
-                Button { Task { await refreshEpg() } } label: {
-                    ZStack {
-                        Circle().fill(Color.black.opacity(0.45)).frame(width: 46, height: 46)
-                        if epgLoading { ProgressView().tint(.white) }
-                        else { Image(systemName: "arrow.clockwise").font(.title3.weight(.semibold)).foregroundColor(.white) }
-                    }
-                }.disabled(epgLoading)
             }
             HStack(spacing: 12) {
                 Spacer()
@@ -216,19 +210,31 @@ struct PlayerScreen: View {
         let wide = width >= base + 120
         return HStack(spacing: 0) {
             Color.black.opacity(0.35).ignoresSafeArea().onTapGesture { withAnimation { showChannels = false } }
-            // Griff: nach links = breiter, nach rechts = schmaler
+            HStack(spacing: 0) {
+            // Griff: nach links = breiter, nach rechts = schmaler und ganz zuschieben (schliesst die Liste)
             ZStack { Capsule().fill(Color.white.opacity(0.6)).frame(width: 6, height: 64) }
                 .frame(width: 22).frame(maxHeight: .infinity).contentShape(Rectangle())
                 .gesture(DragGesture()
                     .onChanged { v in
-                        if listDragBase == nil { listDragBase = listExtra }
-                        listExtra = min(max((listDragBase ?? 0) - v.translation.width, 0), maxExtra)
+                        if listDragBase == nil { listDragBase = listExtra - listSlide }
+                        let target = (listDragBase ?? 0) - v.translation.width
+                        if target < 0 { listExtra = 0; listSlide = min(-target, base + 22) }
+                        else { listSlide = 0; listExtra = min(target, maxExtra) }
                     }
-                    .onEnded { _ in listDragBase = nil })
+                    .onEnded { _ in
+                        listDragBase = nil
+                        if listSlide > (base + 22) * 0.3 { withAnimation { showChannels = false }; listSlide = 0 }
+                        else { withAnimation { listSlide = 0 } }
+                    })
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Text("Senderliste").font(.headline).foregroundColor(.white)
                     Spacer()
+                    // EPG aktualisieren (wie im TV-Guide)
+                    Button { Task { await refreshEpg() } } label: {
+                        if epgLoading { ProgressView().tint(.white) }
+                        else { Image(systemName: "arrow.clockwise").font(.title3.weight(.semibold)).foregroundColor(.white) }
+                    }.disabled(epgLoading).padding(.trailing, 10)
                     Button { withAnimation { showChannels = false } } label: { Image(systemName: "xmark.circle.fill").font(.title3).foregroundColor(.white) }
                 }
                 .padding(.horizontal, 16).padding(.vertical, 12)
@@ -261,6 +267,8 @@ struct PlayerScreen: View {
             }
             .frame(width: width).frame(maxHeight: .infinity)
             .background(Color(red: 0.06, green: 0.09, blue: 0.13).opacity(0.95).ignoresSafeArea())
+            }
+            .offset(x: listSlide)
         }
     }
 
@@ -299,7 +307,7 @@ struct PlayerScreen: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .task(id: e.url) {
+        .task(id: "\(e.url)#\(epgRev)") {
             guard listEpg[e.url] == nil, let item = e.item, let src = app.source else { return }
             listEpg[e.url] = await src.epg(item, full: false)
         }
@@ -312,6 +320,7 @@ struct PlayerScreen: View {
         let url = entry.url
         let l = await src.epg(item, full: false)
         if entry.url == url { epg = l }
+        listEpg = [:]; epgRev += 1   // Programm der Senderliste neu laden
         epgLoading = false
         app.show(l.isEmpty ? "Für diesen Sender liefert der Anbieter kein Programm" : "EPG aktualisiert")
     }
