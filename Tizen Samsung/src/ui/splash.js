@@ -5,8 +5,8 @@ import { settings } from '../store';
 export default function splash({ done }) {
   const el = h('div.page.splash', null,
     h('img', { src: 'assets/logo.png' }),
-    h('div.name', null, 'PORTIVA'),
-    h('div.sub', null, 'PowerIPTV'),
+    h('div.name', null, h('span.power', null, 'Power'), h('span', null, 'IPTV')),
+    h('div.sub', null, 'by Portiva', h('sup', null, '©')),
   );
   let finished = false;
   const finish = () => { if (!finished) { finished = true; done(); } };

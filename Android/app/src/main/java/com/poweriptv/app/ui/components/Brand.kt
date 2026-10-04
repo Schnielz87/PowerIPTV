@@ -90,6 +90,36 @@ fun BrandWordmark(large: Boolean = false, centered: Boolean = false) {
     }
 }
 
+/** Startbild: gross und leuchtend "PowerIPTV" (zweifarbig), darunter klein "by Portiva©". */
+@Composable
+fun SplashWordmark() {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            buildAnnotatedString {
+                withStyle(SpanStyle(color = BrandCyan)) { append("Power") }
+                withStyle(SpanStyle(color = Color.White)) { append("IPTV") }
+            },
+            fontWeight = FontWeight.Black,
+            fontSize = 44.sp,
+            letterSpacing = 2.sp,
+            lineHeight = 48.sp,
+            style = androidx.compose.ui.text.TextStyle(
+                shadow = androidx.compose.ui.graphics.Shadow(BrandCyan.copy(alpha = 0.75f), androidx.compose.ui.geometry.Offset(0f, 0f), 28f),
+            ),
+        )
+        Text(
+            buildAnnotatedString {
+                append("by Portiva")
+                withStyle(SpanStyle(fontSize = 11.sp, baselineShift = androidx.compose.ui.text.style.BaselineShift.Superscript)) { append("©") }
+            },
+            color = Color.White.copy(alpha = 0.85f),
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 18.sp,
+            letterSpacing = 1.sp,
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BrandTopBar(
@@ -155,7 +185,7 @@ fun SplashScreen(onFinished: () -> Unit, playSound: Boolean = true) {
         ) {
             PortivaLogo(Modifier.size(140.dp))
             Spacer(Modifier.height(24.dp))
-            BrandWordmark(large = true, centered = true)
+            SplashWordmark()
             Spacer(Modifier.height(8.dp))
             Text("Live TV · Filme · Serien – sicher per VPN", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }

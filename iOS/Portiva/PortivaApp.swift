@@ -25,8 +25,18 @@ struct SplashView: View {
             RadialGradient(colors: [Color(red: 0.06, green: 0.16, blue: 0.3), Brand.background], center: .center, startRadius: 10, endRadius: 600).ignoresSafeArea()
             VStack(spacing: 18) {
                 Image("Logo").resizable().scaledToFit().frame(width: 150, height: 150).scaleEffect(scale)
-                Text("PORTIVA").font(.system(size: 40, weight: .black)).tracking(3).foregroundColor(.white)
-                Text("PowerIPTV").font(.title3.weight(.semibold)).foregroundColor(Brand.cyan)
+                // Gross und leuchtend "PowerIPTV" (zweifarbig), darunter klein "by Portiva©"
+                HStack(spacing: 0) {
+                    Text("Power").foregroundColor(Brand.cyan)
+                    Text("IPTV").foregroundColor(.white)
+                }
+                .font(.system(size: 40, weight: .black)).tracking(2)
+                .shadow(color: Brand.cyan.opacity(0.75), radius: 12)
+                HStack(alignment: .top, spacing: 1) {
+                    Text("by Portiva").font(.title3.weight(.semibold))
+                    Text("©").font(.footnote.weight(.semibold))
+                }
+                .foregroundColor(.white.opacity(0.85))
             }
         }
         .onAppear { withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) { scale = 1 } }

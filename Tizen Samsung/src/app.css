@@ -278,8 +278,10 @@ input:focus { border-color: #2EE59D; background: #172438; }
 #toast.show { opacity: 1; }
 .splash { display: flex; align-items: center; justify-content: center; flex-direction: column; background: radial-gradient(circle at center, #123D6E 0%, #060B16 60%); }
 .splash img { width: 300px; height: 300px; animation: pop 1.2s ease-out; }
-.splash .name { font-size: 64px; font-weight: 800; margin-top: 30px; letter-spacing: 2px; }
-.splash .sub { font-size: 30px; color: #5EC4F2; margin-top: 8px; }
+.splash .name { font-size: 64px; font-weight: 900; margin-top: 30px; letter-spacing: 2px; color: #FFFFFF; text-shadow: 0 0 18px rgba(94, 196, 242, 0.75), 0 0 40px rgba(94, 196, 242, 0.45); }
+.splash .name .power { color: #5EC4F2; }
+.splash .sub { font-size: 28px; font-weight: 600; color: rgba(255, 255, 255, 0.85); margin-top: 8px; letter-spacing: 1px; }
+.splash .sub sup { font-size: 16px; margin-left: 2px; }
 @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
 .form { width: 1100px; padding: 0 80px; }

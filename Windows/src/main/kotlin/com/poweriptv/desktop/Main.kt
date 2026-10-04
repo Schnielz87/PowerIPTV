@@ -34,7 +34,7 @@ import androidx.compose.ui.window.rememberWindowState
 import com.poweriptv.desktop.player.PlayerScreen
 import com.poweriptv.desktop.player.Vlc
 import com.poweriptv.desktop.ui.Background
-import com.poweriptv.desktop.ui.BrandWordmark
+import com.poweriptv.desktop.ui.SplashWordmark
 import com.poweriptv.desktop.ui.NavRail
 import com.poweriptv.desktop.ui.PortivaLogo
 import com.poweriptv.desktop.ui.PowerTheme
@@ -189,7 +189,7 @@ private fun SplashScreen(playSound: Boolean, onFinished: () -> Unit) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.alpha(alpha.value).scale(scale.value)) {
             PortivaLogo(Modifier.size(150.dp))
             Spacer(Modifier.height(18.dp))
-            BrandWordmark(large = true, centered = true)
+            SplashWordmark()
         }
     }
 }

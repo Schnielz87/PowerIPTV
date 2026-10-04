@@ -182,7 +182,7 @@ class PortivaHome(Screen):
         self.onClose.append(self._p_closed)
         self.source = None
         self.pos = 0  # 0..2 grosse Kacheln, 3.. kleine Kacheln
-        self["title"] = Label("Portiva – PowerIPTV")
+        self["title"] = Label("PowerIPTV  by Portiva©")
         self["sub"] = Label("")
         self["status"] = Label("")
         self["hint"] = Label("OK öffnen  ·  Pfeiltasten wählen  ·  ROT Benutzer  ·  GRÜN Einstellungen  ·  BLAU Suche  ·  Version " + VERSION)
@@ -228,7 +228,7 @@ class PortivaHome(Screen):
             self.session.openWithCallback(self.after_first, AddChooser)
             return
         self.source = make_source(p)
-        self["title"].setText("Portiva – PowerIPTV  ·  " + p.get("name", ""))
+        self["title"].setText("PowerIPTV  by Portiva©  ·  " + p.get("name", ""))
         self["sub"].setText("Verbinde …")
         run_async(self, self.source.account_text, lambda t: self["sub"].setText(t or ""), lambda m: self["sub"].setText("Verbindung fehlgeschlagen: " + m))
         src, profile_id = self.source, pid()
