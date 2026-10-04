@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CastConnected
 import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.ConnectedTv
@@ -492,7 +493,7 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                         }
                         Spacer(Modifier.weight(1f))
                         // Wie gewuenscht: unten Seitenverhaeltnis – Geschwindigkeit – Untertitel
-                        QuickBar(ctl, aspect, isLive, onAspect = { app.playerAspect = it }, onOpenChange = { menuOpen = it; poke() })
+                        QuickBar(ctl, aspect, isLive, onAspect = { app.playerAspect = it }, onOpenChange = { menuOpen = it; poke() }, onInfo = { toast = it })
                         Spacer(Modifier.weight(1f))
                         if (next != null) {
                             OutlinedButton(onClick = { playNext() }, modifier = Modifier.handCursor()) {
@@ -581,9 +582,17 @@ private fun SettingsMenu(
     Box {
         RoundIcon(Icons.Filled.Settings, "Einstellungen") { open = true; onOpenChange(true) }
         DropdownMenu(open, onDismissRequest = { open = false; onOpenChange(false) }) {
+            MenuHeader(Icons.Filled.Movie, "Videospur")
+            CheckItem("Aus (nur Ton)", ctl.videoTrack < 0 && ctl.videoTracks.isNotEmpty()) { ctl.selectVideo(-1) }
+            ctl.videoTracks.forEach { t -> CheckItem(t.name, ctl.videoTrack == t.id) { ctl.selectVideo(t.id) } }
+            HorizontalDivider()
             MenuHeader(Icons.AutoMirrored.Filled.VolumeUp, "Tonspur")
             if (ctl.audioTracks.isEmpty()) DropdownMenuItem(text = { Text("Standard") }, onClick = {}, enabled = false)
             ctl.audioTracks.forEach { t -> CheckItem(t.name, ctl.audioTrack == t.id) { ctl.selectAudio(t.id) } }
+            HorizontalDivider()
+            MenuHeader(Icons.Filled.Subtitles, "Untertitelspur")
+            CheckItem("Aus", ctl.subtitleTrack < 0) { ctl.selectSubtitle(-1) }
+            ctl.subtitleTracks.forEach { t -> CheckItem(t.name, ctl.subtitleTrack == t.id) { ctl.selectSubtitle(t.id) } }
             HorizontalDivider()
             MenuHeader(Icons.Filled.Bedtime, "Sleep-Timer" + (sleepMinutes?.let { " (noch $it Min.)" } ?: ""))
             CheckItem("Aus", sleepMinutes == null) { onSleep(0) }
@@ -594,7 +603,7 @@ private fun SettingsMenu(
 
 /** Knopfleiste unten (wie Android): Seitenverhaeltnis – Geschwindigkeit – Untertitel, je mit eigenem Menue. */
 @Composable
-private fun QuickBar(ctl: PlayerController, aspect: String, isLive: Boolean, onAspect: (String) -> Unit, onOpenChange: (Boolean) -> Unit) {
+private fun QuickBar(ctl: PlayerController, aspect: String, isLive: Boolean, onAspect: (String) -> Unit, onOpenChange: (Boolean) -> Unit, onInfo: (String) -> Unit = {}) {
     @Composable
     fun Chip(icon: ImageVector, label: String, value: String, menu: @Composable (close: () -> Unit) -> Unit) {
         var open by remember { mutableStateOf(false) }
@@ -620,10 +629,16 @@ private fun QuickBar(ctl: PlayerController, aspect: String, isLive: Boolean, onA
         if (!isLive) Chip(Icons.Filled.Speed, "Geschwindigkeit", if (ctl.rate == 1f) "1×" else "${ctl.rate}×") { close ->
             listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f).forEach { r -> CheckItem(if (r == 1f) "Normal (1×)" else "${r}×", ctl.rate == r) { ctl.changeRate(r); close() } }
         }
-        Chip(Icons.Filled.Subtitles, "Untertitel", ctl.subtitleTracks.firstOrNull { it.id == ctl.subtitleTrack }?.name ?: "Aus") { close ->
-            CheckItem("Aus", ctl.subtitleTrack < 0) { ctl.selectSubtitle(-1); close() }
-            if (ctl.subtitleTracks.isEmpty()) DropdownMenuItem(text = { Text("Keine Untertitel im Stream") }, onClick = {}, enabled = false)
-            ctl.subtitleTracks.forEach { t -> CheckItem(t.name, ctl.subtitleTrack == t.id) { ctl.selectSubtitle(t.id); close() } }
+        // Untertitel: nur ein/aus (Spuren im Zahnrad)
+        Row(
+            Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.45f)).handCursor()
+                .clickable { onInfo(ctl.toggleSubtitles()) }.padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Filled.Subtitles, null, tint = Color.White, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Untertitel", color = Color.White, fontSize = 14.sp)
+            Text(if (ctl.subtitleTrack >= 0) "  An" else "  Aus", color = Color.White.copy(alpha = 0.65f), fontSize = 12.sp)
         }
     }
 }

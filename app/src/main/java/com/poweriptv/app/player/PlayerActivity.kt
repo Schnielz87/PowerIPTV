@@ -128,6 +128,8 @@ class PlayerActivity : ComponentActivity() {
     private var showSendDialog by mutableStateOf(false)
     /** Welcher Teil der Einstellungen offen ist (Zahnrad = MAIN, Knoepfe unten = Bildformat/Tempo/Untertitel). */
     private var dialogSection by mutableStateOf(PlayerSection.MAIN)
+    /** Neu zeichnen der Einstellungsleiste nach einer Auswahl. */
+    private var panelTick by mutableStateOf(0)
     /** Uebertragen-Dialog offen -> Leiste nicht ausblenden (sonst schliesst sich der Dialog mitten in der Suche). */
     private var castDialogOpen by mutableStateOf(false)
     /** Live: Senderliste im Bild und zuletzt gesehener Sender (Zurueck-Zappen). */
@@ -270,6 +272,7 @@ class PlayerActivity : ComponentActivity() {
             }
 
             override fun onTracksChanged(tracks: Tracks) {
+                panelTick++ // Einstellungsleiste/Untertitel-Knopf zeigen die neue Auswahl
                 matchFrameRate()
                 // Videospur vorhanden, aber kein Decoder dafuer (z.B. MPEG-2) -> nur Ton, kein Bild
                 val video = tracks.groups.filter { it.type == C.TRACK_TYPE_VIDEO }
@@ -391,6 +394,7 @@ class PlayerActivity : ComponentActivity() {
                             speedLabel = if (live) null else player.playbackParameters.speed.let { if (it == 1f) "1×" else "${it.toString().removeSuffix(".0")}×" },
                             subtitleLabel = trackOptions(C.TRACK_TYPE_TEXT).firstOrNull { it.selected && it.key != OFF_KEY }?.label ?: "Aus",
                             onSection = { dialogSection = it; showFormatDialog = true; lastInteraction = System.currentTimeMillis() },
+                            onSubtitleToggle = { toggleSubtitles(); panelTick++; lastInteraction = System.currentTimeMillis() },
                             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp),
                         )
                     }
@@ -477,7 +481,24 @@ class PlayerActivity : ComponentActivity() {
                             onDismiss = { showSendDialog = false },
                         )
                     }
-                    if (showFormatDialog) PlayerSettingsDialog(
+                    // Zahnrad: Einstellungsleiste rechts (Video, Audio, Untertitel, Untertitel-Stil, Sleep-Timer)
+                    @Suppress("UNUSED_VARIABLE") val tick = panelTick // nach jeder Auswahl neu zeichnen
+                    if (showFormatDialog && dialogSection == PlayerSection.MAIN) PlayerSettingsPanel(
+                        video = trackOptions(C.TRACK_TYPE_VIDEO),
+                        audio = trackOptions(C.TRACK_TYPE_AUDIO),
+                        subtitles = trackOptions(C.TRACK_TYPE_TEXT),
+                        onVideo = { selectTrack(C.TRACK_TYPE_VIDEO, it); panelTick++ },
+                        onAudio = { selectTrack(C.TRACK_TYPE_AUDIO, it); panelTick++ },
+                        onSubtitle = { selectTrack(C.TRACK_TYPE_TEXT, it); panelTick++ },
+                        subtitleSize = container.settings.subtitleSize.value,
+                        onSubtitleSize = { container.settings.setSubtitleSize(it); applySubtitleStyle(); panelTick++ },
+                        subtitleBackground = container.settings.subtitleBackground.value,
+                        onSubtitleBackground = { container.settings.setSubtitleBackground(it); applySubtitleStyle(); panelTick++ },
+                        sleepMinutes = sleepMinutesLeft(),
+                        onSleep = { setSleep(it); panelTick++ },
+                        onDismiss = { showFormatDialog = false; lastInteraction = System.currentTimeMillis() },
+                    )
+                    else if (showFormatDialog) PlayerSettingsDialog(
                         audio = trackOptions(C.TRACK_TYPE_AUDIO),
                         subtitles = trackOptions(C.TRACK_TYPE_TEXT),
                         format = videoScale,
@@ -702,19 +723,44 @@ class PlayerActivity : ComponentActivity() {
                     }
                     continue
                 }
-                val parts = listOfNotNull(
-                    f.label?.takeIf { it.isNotBlank() },
-                    languageName(f.language).takeIf { f.label.isNullOrBlank() },
-                    f.channelCount.takeIf { type == C.TRACK_TYPE_AUDIO && it > 0 }?.let { if (it >= 6) "5.1" else if (it == 2) "Stereo" else "$it Kanaele" },
-                    f.sampleMimeType?.substringAfter('/')?.uppercase()?.takeIf { type == C.TRACK_TYPE_AUDIO },
-                )
+                // Ausfuehrliche Angaben wie im Vorbild: Sprache · Codec · Kanaele · kb/s · Hz bzw. Aufloesung
+                val codec = (f.codecs?.substringBefore('.')?.takeIf { it.isNotBlank() } ?: f.sampleMimeType?.substringAfter('/')?.removePrefix("vnd."))?.uppercase()
+                val kbps = f.bitrate.takeIf { it > 0 }?.let { "${it / 1000} kb/s" }
+                val parts = when (type) {
+                    C.TRACK_TYPE_VIDEO -> listOfNotNull(
+                        codec, kbps,
+                        if (f.width > 0 && f.height > 0) "${f.width} × ${f.height}" else null,
+                        f.frameRate.takeIf { it > 0 }?.let { "${"%.0f".format(it)} fps" },
+                    )
+                    C.TRACK_TYPE_AUDIO -> listOfNotNull(
+                        f.label?.takeIf { it.isNotBlank() } ?: languageName(f.language),
+                        codec,
+                        f.channelCount.takeIf { it > 0 }?.let { if (it >= 6) "5.1" else if (it == 2) "Stereo" else "$it Kanäle" },
+                        kbps,
+                        f.sampleRate.takeIf { it > 0 }?.let { "$it Hz" },
+                    )
+                    else -> listOfNotNull(f.label?.takeIf { it.isNotBlank() }, languageName(f.language).takeIf { f.label.isNullOrBlank() })
+                }
                 val sel = group.isTrackSelected(t)
                 anySelected = anySelected || sel
                 list += TrackOption("$g:$t", parts.joinToString(" · ").ifBlank { "Spur ${list.size + 1}" }, sel)
             }
         }
-        if (type == C.TRACK_TYPE_TEXT) list.add(0, TrackOption(OFF_KEY, "Aus", !anySelected))
+        // "Aus" wie "Disable" im Vorbild (Video aus = nur Ton, Ton aus = stumm)
+        if (type == C.TRACK_TYPE_TEXT || list.isNotEmpty()) list.add(0, TrackOption(OFF_KEY, "Aus", !anySelected))
         return list
+    }
+
+    /** Untertitel-Knopf unten: nur ein/aus (letzte bzw. deutsche bzw. erste Spur). */
+    private var lastSubtitleKey: String? = null
+    private fun toggleSubtitles() {
+        val opts = trackOptions(C.TRACK_TYPE_TEXT)
+        val on = opts.firstOrNull { it.selected && it.key != OFF_KEY }
+        if (on != null) { lastSubtitleKey = on.key; selectTrack(C.TRACK_TYPE_TEXT, opts.first { it.key == OFF_KEY }); return }
+        val tracks = opts.filter { it.key != OFF_KEY }
+        if (tracks.isEmpty()) { toast = "Dieser Stream hat keine Untertitel"; return }
+        val pick = tracks.firstOrNull { it.key == lastSubtitleKey } ?: tracks.firstOrNull { it.label.contains("Deutsch", true) } ?: tracks.first()
+        selectTrack(C.TRACK_TYPE_TEXT, pick)
     }
 
     private fun selectTrack(type: Int, option: TrackOption) {
@@ -725,13 +771,13 @@ class PlayerActivity : ComponentActivity() {
         val params = player.trackSelectionParameters.buildUpon()
         if (option.key == OFF_KEY) {
             params.setTrackTypeDisabled(type, true)
-            toast = "Untertitel aus"
+            toast = when (type) { C.TRACK_TYPE_VIDEO -> "Video aus (nur Ton)"; C.TRACK_TYPE_AUDIO -> "Ton aus"; else -> "Untertitel aus" }
         } else {
             val (g, t) = option.key.split(":").map { it.toInt() }
             val group = player.currentTracks.groups.getOrNull(g) ?: return
             params.setTrackTypeDisabled(type, false)
                 .setOverrideForType(androidx.media3.common.TrackSelectionOverride(group.mediaTrackGroup, t))
-            toast = (if (type == C.TRACK_TYPE_AUDIO) "Audio: " else "Untertitel: ") + option.label
+            toast = (when (type) { C.TRACK_TYPE_VIDEO -> "Video: "; C.TRACK_TYPE_AUDIO -> "Audio: "; else -> "Untertitel: " }) + option.label
         }
         player.trackSelectionParameters = params.build()
     }
@@ -1175,7 +1221,7 @@ class PlayerActivity : ComponentActivity() {
                 if (!controllerVisible) { playerView?.showController(); return true }
             // Menue-Taste: Einstellungen (Audio, Untertitel, Bildformat)
             KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SETTINGS -> { dialogSection = PlayerSection.MAIN; showFormatDialog = true; return true }
-            KeyEvent.KEYCODE_CAPTIONS -> { dialogSection = PlayerSection.SUBTITLES; showFormatDialog = true; return true }
+            KeyEvent.KEYCODE_CAPTIONS -> { toggleSubtitles(); panelTick++; return true }
             KeyEvent.KEYCODE_INFO, KeyEvent.KEYCODE_GUIDE, KeyEvent.KEYCODE_BUTTON_Y -> {
                 if (controllerVisible) playerView?.hideController() else playerView?.showController()
                 return true

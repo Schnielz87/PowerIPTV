@@ -108,6 +108,8 @@ class VlcPlayerActivity : ComponentActivity() {
     private var showSendDialog by mutableStateOf(false)
     /** Welcher Teil der Einstellungen offen ist (Zahnrad = MAIN, Knoepfe unten = Bildformat/Tempo/Untertitel). */
     private var dialogSection by mutableStateOf(PlayerSection.MAIN)
+    /** Neu zeichnen der Einstellungsleiste nach einer Auswahl. */
+    private var panelTick by mutableStateOf(0)
     /** Uebertragen-Dialog offen -> Leiste nicht ausblenden (sonst schliesst sich der Dialog mitten in der Suche). */
     private var castDialogOpen by mutableStateOf(false)
     /** Live: Senderliste im Bild und zuletzt gesehener Sender (Zurueck-Zappen). */
@@ -258,7 +260,21 @@ class VlcPlayerActivity : ComponentActivity() {
                             onDismiss = { showSendDialog = false },
                         )
                     }
-                    if (showFormatDialog) PlayerSettingsDialog(
+                    // Zahnrad: Einstellungsleiste rechts (Video, Audio, Untertitel, Untertitel-Stil, Sleep-Timer)
+                    @Suppress("UNUSED_VARIABLE") val tick = panelTick // nach jeder Auswahl neu zeichnen
+                    if (showFormatDialog && dialogSection == PlayerSection.MAIN) PlayerSettingsPanel(
+                        video = vlcTrackList(0), audio = vlcTrackList(1), subtitles = vlcTrackList(2),
+                        onVideo = { selectVlcTrack(0, it) }, onAudio = { selectVlcTrack(1, it) }, onSubtitle = { selectVlcTrack(2, it) },
+                        subtitleSize = container.settings.subtitleSize.value,
+                        // VLC uebernimmt Untertitel-Stil beim (Neu-)Start -> an gleicher Stelle neu starten
+                        onSubtitleSize = { container.settings.setSubtitleSize(it); showFormatDialog = false; play(container.playIndex) },
+                        subtitleBackground = container.settings.subtitleBackground.value,
+                        onSubtitleBackground = { container.settings.setSubtitleBackground(it); showFormatDialog = false; play(container.playIndex) },
+                        sleepMinutes = sleepMinutesLeft(),
+                        onSleep = { setSleep(it); panelTick++ },
+                        onDismiss = { showFormatDialog = false; lastInteraction = System.currentTimeMillis() },
+                    )
+                    else if (showFormatDialog) PlayerSettingsDialog(
                         audio = vlcTracks(audio = true),
                         subtitles = vlcTracks(audio = false),
                         format = scale,
@@ -301,8 +317,9 @@ class VlcPlayerActivity : ComponentActivity() {
                                 PlayerQuickBar(
                                     formatLabel = scale.short,
                                     speedLabel = if (liveNow) null else runCatching { mediaPlayer.rate }.getOrDefault(1f).let { if (it == 1f) "1×" else "${it.toString().removeSuffix(".0")}×" },
-                                    subtitleLabel = vlcTracks(false).firstOrNull { it.selected && it.key != OFF_KEY }?.label ?: "Aus",
+                                    subtitleLabel = panelTick.let { vlcTracks(false) }.firstOrNull { it.selected && it.key != OFF_KEY }?.label ?: "Aus",
                                     onSection = { dialogSection = it; showFormatDialog = true; lastInteraction = System.currentTimeMillis() },
+                                    onSubtitleToggle = { toggleSubtitles(); lastInteraction = System.currentTimeMillis() },
                                 )
                             }
                         }
@@ -726,14 +743,66 @@ class VlcPlayerActivity : ComponentActivity() {
     }
 
     /** Audio-/Untertitelspuren von VLC ("Disable" = Aus). */
-    private fun vlcTracks(audio: Boolean): List<TrackOption> {
-        val tracks = runCatching { if (audio) mediaPlayer.audioTracks else mediaPlayer.spuTracks }.getOrNull().orEmpty()
-        val current = runCatching { if (audio) mediaPlayer.audioTrack else mediaPlayer.spuTrack }.getOrDefault(-1)
+    private fun vlcTracks(audio: Boolean): List<TrackOption> = vlcTrackList(if (audio) 1 else 2)
+
+    /**
+     * Spuren von VLC mit ausfuehrlichen Angaben wie im Vorbild (Codec, kb/s, Aufloesung, Hz, Sprache).
+     * kind: 0 = Video, 1 = Audio, 2 = Untertitel. Erste Option "Aus" (Disable).
+     */
+    private fun vlcTrackList(kind: Int): List<TrackOption> {
+        val tracks = runCatching { when (kind) { 0 -> mediaPlayer.videoTracks; 1 -> mediaPlayer.audioTracks; else -> mediaPlayer.spuTracks } }.getOrNull().orEmpty()
+        val current = runCatching { when (kind) { 0 -> mediaPlayer.videoTrack; 1 -> mediaPlayer.audioTrack; else -> mediaPlayer.spuTrack } }.getOrDefault(-1)
+        val details: Map<Int, org.videolan.libvlc.interfaces.IMedia.Track> = runCatching {
+            val m = mediaPlayer.media ?: return@runCatching emptyMap()
+            (0 until m.trackCount).mapNotNull { m.getTrack(it) }.associateBy { it.id }
+        }.getOrDefault(emptyMap())
         val list = tracks.filter { it.id >= 0 }.mapIndexed { i, t ->
-            val name = t.name?.takeIf { it.isNotBlank() } ?: "Spur ${i + 1}"
-            TrackOption(t.id.toString(), name.replace("Track", "Spur"), t.id == current)
+            val d = details[t.id]
+            val name = t.name?.takeIf { it.isNotBlank() }?.replace("Track", "Spur")
+            val extra = when (d) {
+                is org.videolan.libvlc.interfaces.IMedia.VideoTrack -> listOfNotNull(
+                    d.codec?.trim()?.takeIf { it.isNotBlank() },
+                    d.bitrate.takeIf { it > 0 }?.let { "${it / 1000} kb/s" },
+                    if (d.width > 0 && d.height > 0) "${d.width} × ${d.height}" else null,
+                )
+                is org.videolan.libvlc.interfaces.IMedia.AudioTrack -> listOfNotNull(
+                    languageName(d.language),
+                    d.codec?.trim()?.takeIf { it.isNotBlank() },
+                    d.channels.takeIf { it > 0 }?.let { if (it >= 6) "5.1" else if (it == 2) "Stereo" else "$it Kanäle" },
+                    d.bitrate.takeIf { it > 0 }?.let { "${it / 1000} kb/s" },
+                    d.rate.takeIf { it > 0 }?.let { "$it Hz" },
+                )
+                null -> emptyList()
+                else -> listOfNotNull(languageName(d.language))
+            }
+            val label = (listOfNotNull(name.takeIf { extra.isEmpty() || kind == 2 }) + extra).distinct().joinToString(" · ").ifBlank { "Spur ${i + 1}" }
+            TrackOption(t.id.toString(), label, t.id == current)
         }
-        return if (audio) list else listOf(TrackOption(OFF_KEY, "Aus", current < 0)) + list
+        if (list.isEmpty() && kind != 2) return list
+        return listOf(TrackOption(OFF_KEY, "Aus", current < 0)) + list
+    }
+
+    /** Spur waehlen (-1 = aus). */
+    private fun selectVlcTrack(kind: Int, o: TrackOption) {
+        val id = if (o.key == OFF_KEY) -1 else o.key.toIntOrNull() ?: return
+        runCatching { when (kind) { 0 -> mediaPlayer.setVideoTrack(id); 1 -> mediaPlayer.setAudioTrack(id); else -> mediaPlayer.setSpuTrack(id) } }
+        toast = when (kind) {
+            0 -> if (id < 0) "Video aus (nur Ton)" else "Video: ${o.label}"
+            1 -> if (id < 0) "Ton aus" else "Audio: ${o.label}"
+            else -> if (id < 0) "Untertitel aus" else "Untertitel: ${o.label}"
+        }
+        panelTick++
+    }
+
+    /** Untertitel-Knopf unten: nur ein/aus. */
+    private var lastSpu = -1
+    private fun toggleSubtitles() {
+        val cur = runCatching { mediaPlayer.spuTrack }.getOrDefault(-1)
+        if (cur >= 0) { lastSpu = cur; runCatching { mediaPlayer.setSpuTrack(-1) }; toast = "Untertitel aus"; panelTick++; return }
+        val tracks = vlcTrackList(2).filter { it.key != OFF_KEY }
+        if (tracks.isEmpty()) { toast = "Dieser Stream hat keine Untertitel"; return }
+        val pick = tracks.firstOrNull { it.key == lastSpu.toString() } ?: tracks.firstOrNull { it.label.contains("Deutsch", true) || it.label.contains("German", true) } ?: tracks.first()
+        selectVlcTrack(2, pick)
     }
 
     /** Zum zuletzt gesehenen Sender springen. */
@@ -886,7 +955,7 @@ class VlcPlayerActivity : ComponentActivity() {
             KeyEvent.KEYCODE_PROG_BLUE, KeyEvent.KEYCODE_TV_ZOOM_MODE -> { cycleScale(); return true }
             // Menue-Taste: Einstellungen (Audio, Untertitel, Bildformat)
             KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SETTINGS -> { dialogSection = PlayerSection.MAIN; showFormatDialog = true; return true }
-            KeyEvent.KEYCODE_CAPTIONS -> { dialogSection = PlayerSection.SUBTITLES; showFormatDialog = true; return true }
+            KeyEvent.KEYCODE_CAPTIONS -> { toggleSubtitles(); return true }
             KeyEvent.KEYCODE_INFO, KeyEvent.KEYCODE_GUIDE -> { showOverlay = !showOverlay; return true }
             KeyEvent.KEYCODE_BUTTON_B -> { closePlayer(); return true }
             KeyEvent.KEYCODE_MEDIA_RECORD, KeyEvent.KEYCODE_PROG_RED -> if (live) { showRecordDialog = true; return true }

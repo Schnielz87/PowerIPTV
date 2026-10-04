@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -20,6 +21,11 @@ import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
@@ -282,12 +288,14 @@ fun PlayerQuickBar(
     subtitleLabel: String,
     onSection: (PlayerSection) -> Unit,
     modifier: Modifier = Modifier,
+    /** Untertitel-Knopf: nur ein/aus (Spuren + Einstellungen im Zahnrad). */
+    onSubtitleToggle: (() -> Unit)? = null,
 ) {
     @Composable
     fun Chip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String, section: PlayerSection) {
         Row(
             Modifier.clip(RoundedCornerShape(50)).tvFocus(RoundedCornerShape(50), 1.06f)
-                .clickable { onSection(section) }
+                .clickable { if (section == PlayerSection.SUBTITLES && onSubtitleToggle != null) onSubtitleToggle() else onSection(section) }
                 .background(Color(0x66000000))
                 .padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -396,4 +404,90 @@ private fun currentBrightness(activity: android.app.Activity): Float {
     return runCatching {
         android.provider.Settings.System.getInt(activity.contentResolver, android.provider.Settings.System.SCREEN_BRIGHTNESS) / 255f
     }.getOrDefault(0.5f).coerceIn(0f, 1f)
+}
+
+/**
+ * Zahnrad: Einstellungsleiste rechts (wie im Vorbild) mit Video-, Audio- und Untertitelspuren,
+ * Untertitel-Einstellungen und Sleep-Timer. Bleibt offen, bis man sie schliesst (Pfeil, daneben tippen, Zurueck).
+ */
+@Composable
+fun PlayerSettingsPanel(
+    video: List<TrackOption>,
+    audio: List<TrackOption>,
+    subtitles: List<TrackOption>,
+    onVideo: (TrackOption) -> Unit,
+    onAudio: (TrackOption) -> Unit,
+    onSubtitle: (TrackOption) -> Unit,
+    subtitleSize: String,
+    onSubtitleSize: (String) -> Unit,
+    subtitleBackground: Boolean,
+    onSubtitleBackground: (Boolean) -> Unit,
+    sleepMinutes: Int?,
+    onSleep: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val focus = remember { FocusRequester() }
+    androidx.activity.compose.BackHandler(onBack = onDismiss)
+    Row(Modifier.fillMaxSize()) {
+        // Links daneben tippen = schliessen
+        Box(Modifier.weight(1f).fillMaxHeight().clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) { onDismiss() })
+        Column(
+            Modifier.fillMaxHeight().widthIn(min = 320.dp, max = 460.dp).fillMaxWidth(0.42f)
+                .background(Color(0xF2080C14)),
+        ) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(46.dp).clip(androidx.compose.foundation.shape.CircleShape).tvFocus(androidx.compose.foundation.shape.CircleShape, 1.1f)
+                        .background(com.poweriptv.app.ui.theme.Accent2).clickable { onDismiss() },
+                    contentAlignment = Alignment.Center,
+                ) { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.ArrowBack, "Schliessen", tint = Color.White) }
+                androidx.compose.foundation.layout.Spacer(Modifier.size(14.dp))
+                Text("Einstellungen", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.35f)))
+            var focusAssigned = false
+            @Composable
+            fun Radio(o: TrackOption, onClick: () -> Unit) {
+                val req = if (!focusAssigned && o.selected) { focusAssigned = true; Modifier.focusRequester(focus) } else Modifier
+                Row(
+                    Modifier.fillMaxWidth().then(req).tvFocus(RoundedCornerShape(8.dp)).clickable { onClick() }.padding(start = 12.dp, end = 12.dp, top = 2.dp, bottom = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(selected = o.selected, onClick = onClick)
+                    Text(o.label, color = Color.White, fontSize = 15.sp)
+                }
+            }
+            @Composable
+            fun Section(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String) {
+                Row(Modifier.padding(start = 18.dp, top = 18.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Icon(icon, null, tint = Color.White, modifier = Modifier.size(28.dp))
+                    androidx.compose.foundation.layout.Spacer(Modifier.size(12.dp))
+                    Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            @Composable
+            fun Empty(t: String) = Text(t, color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp, modifier = Modifier.padding(start = 26.dp, bottom = 4.dp))
+
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+                Section(Icons.Filled.Movie, "Videospuren")
+                if (video.isEmpty()) Empty("Keine Angaben") else video.forEach { o -> Radio(o) { onVideo(o) } }
+                Section(Icons.Filled.MusicNote, "Audiospuren")
+                if (audio.isEmpty()) Empty("Keine Angaben") else audio.forEach { o -> Radio(o) { onAudio(o) } }
+                Section(Icons.Filled.ClosedCaption, "Untertitelspuren")
+                if (subtitles.none { it.key != OFF_KEY }) Empty("Keine Untertitel im Stream")
+                else subtitles.forEach { o -> Radio(o) { onSubtitle(o) } }
+                Section(Icons.Filled.Tune, "Untertiteleinstellungen")
+                Text("Schriftgröße", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp, modifier = Modifier.padding(start = 26.dp, top = 2.dp))
+                listOf("KLEIN" to "Klein", "NORMAL" to "Normal", "GROSS" to "Groß", "SEHR_GROSS" to "Sehr groß").forEach { (k, l) ->
+                    Radio(TrackOption(k, l, subtitleSize == k)) { onSubtitleSize(k) }
+                }
+                Radio(TrackOption("bg", "Dunkler Hintergrund", subtitleBackground)) { onSubtitleBackground(!subtitleBackground) }
+                Section(Icons.Filled.Bedtime, if (sleepMinutes != null) "Sleep-Timer (noch $sleepMinutes Min.)" else "Sleep-Timer")
+                listOf(0 to "Aus", 15 to "15 Minuten", 30 to "30 Minuten", 60 to "60 Minuten", 90 to "90 Minuten", 120 to "2 Stunden").forEach { (m, l) ->
+                    Radio(TrackOption("s$m", l, if (m == 0) sleepMinutes == null else false)) { onSleep(m) }
+                }
+            }
+        }
+    }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 }

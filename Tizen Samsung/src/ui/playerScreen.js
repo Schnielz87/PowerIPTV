@@ -77,9 +77,8 @@ export default function playerScreen(params) {
       btnRow.appendChild(button('Nächste Folge ⏭', () => playNextEpisode(true)));
       btnRow.appendChild(button('Folgen', openEpisodes));
     }
-    btnRow.appendChild(button('🔊 Ton', pickAudio));
+    btnRow.appendChild(button('⚙ Einstellungen', openSettings));
     btnRow.appendChild(button(lib.isFavorite(cur.item) ? '❤' : '♡', toggleFavorite));
-    btnRow.appendChild(button('⏾', pickSleep));
     // Portiva Link: auf TV-Stick, Tablet oder PC an derselben Stelle weiterschauen
     btnRow.appendChild(button('📲 Senden', () => sendToDevice({
       title: titleEl.textContent, url: urlFor(), live: isLive(),
@@ -93,9 +92,28 @@ export default function playerScreen(params) {
     const asp = ASPECTS.find((a) => a[0] === p.aspect);
     quickRow.appendChild(chip('▭', 'Seitenverhältnis', asp ? asp[1] : '', pickAspect));
     if (!isLive()) quickRow.appendChild(chip('⏱', 'Geschwindigkeit', (p.rate || 1) + '×', pickSpeed));
-    quickRow.appendChild(chip('💬', 'Untertitel', subtitleLabel, pickSubtitle));
+    // Untertitel: nur ein/aus (Spuren unter "Einstellungen")
+    quickRow.appendChild(chip('💬', 'Untertitel', subtitleLabel === 'Aus' ? 'Aus' : 'An', toggleSubtitles));
   }
   let subtitleLabel = 'Aus';
+  let lastSubtitle = null;
+
+  function toggleSubtitles() {
+    const t = p.tracks().text;
+    if (subtitleLabel !== 'Aus') { p.selectText(-1); saveSettings({ subtitlesOn: false }); subtitleLabel = 'Aus'; buildQuick(); toast('Untertitel aus'); return; }
+    if (!t.length) { toast('Dieser Stream hat keine Untertitel'); return; }
+    const pick = t.find((x) => lastSubtitle != null && x.index === lastSubtitle) || t.find((x) => /deutsch/i.test(x.label)) || t[0];
+    p.selectText(pick.index); lastSubtitle = pick.index; saveSettings({ subtitlesOn: true }); subtitleLabel = pick.label; buildQuick(); toast('Untertitel: ' + pick.label);
+  }
+
+  /** Einstellungen (wie Zahnrad in Android/Windows): Tonspur, Untertitelspur, Sleep-Timer. */
+  function openSettings() {
+    choose('Einstellungen', [
+      { label: '🔊 Audiospur', onSelect: pickAudio },
+      { label: '💬 Untertitelspur', onSelect: pickSubtitle },
+      { label: '⏾ Sleep-Timer', onSelect: pickSleep },
+    ]);
+  }
 
   function pickSpeed() {
     // AVPlay kann nur ganze Stufen (1×, 2×); im Browser auch Zwischenstufen
@@ -470,7 +488,7 @@ export default function playerScreen(params) {
     const t = p.tracks().text;
     if (!t.length) { toast('Keine Untertitel vorhanden'); return; }
     choose('Untertitel', [{ label: 'Aus', active: subtitleLabel === 'Aus', onSelect: () => { p.selectText(-1); saveSettings({ subtitlesOn: false }); subtitleLabel = 'Aus'; buildQuick(); } }]
-      .concat(t.map((s) => ({ label: s.label, active: s.active, onSelect: () => { p.selectText(s.index); saveSettings({ subtitlesOn: true }); subtitleLabel = s.label; buildQuick(); toast('Untertitel: ' + s.label); } }))));
+      .concat(t.map((s) => ({ label: s.label, active: s.active, onSelect: () => { p.selectText(s.index); lastSubtitle = s.index; saveSettings({ subtitlesOn: true }); subtitleLabel = s.label; buildQuick(); toast('Untertitel: ' + s.label); } }))));
   }
 
   const ASPECTS = [['auto', 'Original'], ['fill', 'Zoom (ausfüllen)'], ['stretch', 'Strecken']];
@@ -560,7 +578,7 @@ export default function playerScreen(params) {
         case KEY.CH_DOWN: case KEY.PAGE_DOWN: if (cur.item.type === T.LIVE) zap(-1); return true;
         case KEY.RED: toggleFavorite(); return true;
         case KEY.GREEN: pickAudio(); return true;
-        case KEY.YELLOW: pickSubtitle(); return true;
+        case KEY.YELLOW: toggleSubtitles(); return true;
         case KEY.BLUE: cycleAspect(); return true;
         case KEY.INFO: if (overlayVisible) hideOverlay(); else showOverlay(true); return true;
         case KEY.GUIDE: if (cur.item.type === T.LIVE) openProgramme(); else go('epg'); return true;

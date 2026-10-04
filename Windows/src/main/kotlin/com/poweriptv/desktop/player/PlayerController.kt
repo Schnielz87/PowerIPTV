@@ -63,6 +63,8 @@ class PlayerController(
     var muted by mutableStateOf(false); private set
     var rate by mutableStateOf(1f); private set
     var audioTracks by mutableStateOf<List<Track>>(emptyList()); private set
+    var videoTracks by mutableStateOf<List<Track>>(emptyList()); private set
+    var videoTrack by mutableStateOf(-1); private set
     var subtitleTracks by mutableStateOf<List<Track>>(emptyList()); private set
     var audioTrack by mutableIntStateOf(-1); private set
     var subtitleTrack by mutableIntStateOf(-1); private set
@@ -138,6 +140,8 @@ class PlayerController(
 
     private fun readTracks(p: MediaPlayer) {
         val audio = runCatching { p.audio().trackDescriptions().filter { it.id() >= 0 }.map { Track(it.id(), it.description() ?: "Tonspur ${it.id()}") } }.getOrDefault(emptyList())
+        val vids = runCatching { p.video().trackDescriptions().filter { it.id() >= 0 }.map { Track(it.id(), it.description() ?: "Video ${it.id()}") } }.getOrDefault(emptyList())
+        val v = runCatching { p.video().track() }.getOrDefault(-1)
         val subs = runCatching { p.subpictures().trackDescriptions().filter { it.id() >= 0 }.map { Track(it.id(), it.description() ?: "Untertitel ${it.id()}") } }.getOrDefault(emptyList())
         val a = runCatching { p.audio().track() }.getOrDefault(-1)
         val s = runCatching { p.subpictures().track() }.getOrDefault(-1)
@@ -153,6 +157,7 @@ class PlayerController(
             runCatching { p.audio().setTrack(restore) }
         } else if (restore != null && audio.isNotEmpty()) restoreAudio = null
         ui {
+            videoTracks = vids; videoTrack = v
             audioTracks = audio; subtitleTracks = subs; audioTrack = if (restore != null && audio.any { it.id == restore }) restore else a; subtitleTrack = s
             pixelAspect = sar.coerceIn(0.5f, 2f)
         }
@@ -357,6 +362,20 @@ class PlayerController(
             if (kotlin.math.abs(brightness - 1f) < 0.01f) p.video().setAdjustVideo(false)
             else { p.video().setAdjustVideo(true); p.video().setBrightness(brightness) }
         }
+    }
+
+    /** Videospur waehlen (-1 = aus, nur Ton). */
+    fun selectVideo(id: Int) { player?.video()?.setTrack(id); videoTrack = id }
+
+    /** Untertitel-Knopf unten: nur ein/aus (letzte bzw. deutsche bzw. erste Spur). */
+    private var lastSubtitle = -1
+    fun toggleSubtitles(): String {
+        if (subtitleTrack >= 0) { lastSubtitle = subtitleTrack; selectSubtitle(-1); return "Untertitel aus" }
+        if (subtitleTracks.isEmpty()) return "Dieser Stream hat keine Untertitel"
+        val t = subtitleTracks.firstOrNull { it.id == lastSubtitle }
+            ?: subtitleTracks.firstOrNull { it.name.contains("Deutsch", true) || it.name.contains("German", true) } ?: subtitleTracks.first()
+        selectSubtitle(t.id)
+        return "Untertitel: ${t.name}"
     }
 
     fun changeVolume(delta: Int) = setVolumeTo(volume + delta)
