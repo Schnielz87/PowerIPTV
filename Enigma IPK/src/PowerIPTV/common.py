@@ -8,10 +8,42 @@ import time
 from enigma import getDesktop, eTimer
 from twisted.internet import threads
 from Tools.Directories import resolveFilename, SCOPE_PLUGINS
+from Components.MenuList import MenuList
 
 PLUGIN_DIR = resolveFilename(SCOPE_PLUGINS, "Extensions/PowerIPTV/")
 FHD = getDesktop(0).size().width() >= 1920
 CACHE = "/tmp/PowerIPTV"
+
+
+def px(name):
+    """Skin-Grafik passend zur Aufloesung (skin/hd oder skin/fhd, erzeugt von tools/make_skin.py)."""
+    return PLUGIN_DIR + "skin/" + ("fhd/" if FHD else "hd/") + name
+
+
+class PList(MenuList):
+    """Liste mit etwas Abstand links (Platz fuer den Akzentstrich des Auswahlbalkens).
+    getCurrent() liefert die Eintraege unveraendert (ohne Abstand) zurueck."""
+    PAD = "   "
+
+    def __init__(self, entries, *args, **kwargs):
+        self.p_entries = list(entries)
+        MenuList.__init__(self, self._pad(entries), *args, **kwargs)
+
+    def _pad(self, entries):
+        return [(self.PAD + str(e[0]),) + tuple(e[1:]) for e in entries]
+
+    def setList(self, entries):
+        self.p_entries = list(entries)
+        MenuList.setList(self, self._pad(entries))
+
+    def getCurrent(self):
+        try:
+            i = self.getSelectionIndex()
+        except Exception:
+            return None
+        if not isinstance(i, int):
+            return None
+        return self.p_entries[i] if 0 <= i < len(self.p_entries) else None
 
 
 def scale(xml):

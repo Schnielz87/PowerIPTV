@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.111 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.112 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -377,6 +377,7 @@ c.push(bullet('Startseite wie bei den anderen Geräten: drei große Bild-Kacheln
 c.push(bullet('Kategorien: oben „♥ Favoriten“, „Zuletzt gesehen“ und „Alle“. Gelb = Sprache filtern (z. B. nur DE), Rot = Kategorie mit PIN sperren/entsperren (Kindersicherung), Grün = Live-Kategorie als Bouquet in die normale Senderliste des Receivers übernehmen.'));
 c.push(bullet('In den Listen: rechts Jetzt/Weiter (Sender) bzw. Handlung, Genre, Bewertung (Filme). Rot = Sortieren, Gelb = Favorit, Blau = Filtern, MENU = mehr (Film herunterladen auf Festplatte/USB, Programm), INFO = Programm des Senders.'));
 c.push(bullet('Live TV: Beim Umschalten erscheint unten die Info-Leiste mit Senderlogo, Name, Uhrzeit, „Jetzt“ mit Fortschrittsbalken und „Weiter“. Hoch/Runter bzw. CH+/CH- = Sender wechseln, Rot = letzter Sender, Gelb = Favorit, Blau = an ein anderes Portiva-Gerät senden.'));
+c.push(bullet('Neues Design: dunkle Glas-Optik mit Bild-Kacheln, leuchtendem Auswahlrahmen und Symbolen. In der Senderliste läuft nach kurzem Verweilen rechts oben eine Live-Vorschau des markierten Senders, darunter Jetzt/Danach mit Fortschrittsbalken. Filme und Serien zeigen das Cover. Die Vorschau lässt sich in den Einstellungen („Live-Vorschau in der Senderliste“) abschalten; beim Verlassen der Liste läuft wieder das vorherige Programm.'));
 c.push(bullet('OK im Live TV öffnet rechts die Senderliste; Grün „EPG aktualisieren“ lädt das Programm neu. EXIT schließt die Liste wieder.'));
 c.push(bullet('INFO im Live TV zeigt das ganze Programm des Senders. Sendungen mit ► kann man nachträglich ansehen (Catch-up), wenn der Anbieter ein Archiv hat.'));
 c.push(bullet('Filme und Folgen: Stelle wird gemerkt (Kachel „Weiterschauen“), die nächste Folge startet automatisch. Tonspur (AUDIO) und Untertitel (TEXT) wie beim Receiver gewohnt.'));

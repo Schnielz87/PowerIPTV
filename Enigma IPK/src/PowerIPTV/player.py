@@ -22,7 +22,7 @@ from Components.MenuList import MenuList
 from Components.ProgressBar import ProgressBar
 
 from . import store
-from .common import scale, run_async, make_timer, fmt_time, fmt_day, fetch_image, show_image
+from .common import scale, run_async, make_timer, fmt_time, fmt_day, fetch_image, show_image, px, PList
 
 
 def service_type():
@@ -60,19 +60,20 @@ class DirectSource(object):
         return None
 
 
-PLAYER_SKIN = """
+def _player_skin():
+    return """
 <screen name="PortivaPlayer" position="0,0" size="1280,720" flags="wfNoBorder" backgroundColor="#ff000000">
-  <eLabel position="0,500" size="1280,220" backgroundColor="#30000000" zPosition="-1" />
-  <widget name="p_logo" position="40,530" size="130,86" alphatest="blend" scale="1" zPosition="2" />
-  <widget name="p_title" position="190,518" size="880,40" font="Regular;30" foregroundColor="#00ffffff" backgroundColor="#30000000" transparent="1" />
-  <widget source="global.CurrentTime" render="Label" position="1090,518" size="150,40" font="Regular;28" halign="right" foregroundColor="#00ffffff" backgroundColor="#30000000" transparent="1">
+  <ePixmap pixmap="%(osd)s" position="0,480" size="1280,240" alphatest="blend" zPosition="-1" />
+  <widget name="p_logo" position="48,572" size="114,70" alphatest="blend" scale="1" zPosition="2" />
+  <widget name="p_title" position="190,556" size="880,40" font="Regular;30" foregroundColor="#00ffffff" backgroundColor="#00000000" transparent="1" />
+  <widget source="global.CurrentTime" render="Label" position="1090,556" size="150,40" font="Regular;30" halign="right" foregroundColor="#00ffffff" backgroundColor="#00000000" transparent="1">
     <convert type="ClockToText">Default</convert>
   </widget>
-  <widget name="p_now" position="190,562" size="1050,34" font="Regular;26" foregroundColor="#00ffffff" backgroundColor="#30000000" transparent="1" />
-  <widget name="p_progress" position="190,602" size="1050,8" borderWidth="0" foregroundColor="#005ec4f2" backgroundColor="#00505860" />
-  <widget name="p_next" position="190,618" size="1050,30" font="Regular;22" foregroundColor="#00b0b8c8" backgroundColor="#30000000" transparent="1" />
-  <widget name="p_hint" position="40,666" size="1200,30" font="Regular;20" foregroundColor="#005ec4f2" backgroundColor="#30000000" transparent="1" />
-</screen>"""
+  <widget name="p_now" position="190,598" size="1050,32" font="Regular;24" foregroundColor="#005ec4f2" backgroundColor="#00000000" transparent="1" />
+  <widget name="p_progress" position="190,636" size="1050,6" pixmap="%(prog)s" borderWidth="0" backgroundColor="#002a3348" />
+  <widget name="p_next" position="190,650" size="1050,28" font="Regular;20" foregroundColor="#00b0b8c8" backgroundColor="#00000000" transparent="1" />
+  <widget name="p_hint" position="40,690" size="1200,24" font="Regular;17" foregroundColor="#009fb1c9" backgroundColor="#00000000" transparent="1" />
+</screen>""" % {"osd": px("osd.png"), "prog": px("progress.png")}
 
 
 class PortivaPlayer(MoviePlayer):
@@ -88,7 +89,7 @@ class PortivaPlayer(MoviePlayer):
         self.p_epg_cache = {}
         self.p_pid = (store.active_profile() or {}).get("id")
         MoviePlayer.__init__(self, session, make_ref(self.p_url, playlist[index].get("name", "")))
-        self.skin = scale(PLAYER_SKIN)
+        self.skin = scale(_player_skin())
         self.skinName = ["PortivaPlayer"]
         self.p_closed = False
         self.onClose.append(self._p_closed)
@@ -340,19 +341,21 @@ class PortivaPlayer(MoviePlayer):
 
 
 # ---------- Senderliste rechts im Bild ----------
-PANEL_SKIN = """
-<screen name="PortivaChannelPanel" position="760,0" size="520,720" flags="wfNoBorder" backgroundColor="#10101620">
-  <widget name="title" position="24,20" size="300,40" font="Regular;30" foregroundColor="#00ffffff" backgroundColor="#10101620" transparent="1" />
-  <eLabel position="330,26" size="10,28" backgroundColor="#0014a37f" />
-  <widget name="key_green" position="346,24" size="170,32" font="Regular;20" foregroundColor="#00ffffff" backgroundColor="#10101620" transparent="1" />
-  <widget name="epg" position="24,66" size="480,110" font="Regular;21" foregroundColor="#00c8d2e0" backgroundColor="#10101620" transparent="1" />
-  <widget name="list" position="10,184" size="500,520" itemHeight="40" font="Regular;24" backgroundColor="#10101620" foregroundColor="#00ffffff" backgroundColorSelected="#001e5bd8" foregroundColorSelected="#00ffffff" scrollbarMode="showOnDemand" />
-</screen>"""
+def _panel_skin():
+    return """
+<screen name="PortivaChannelPanel" position="760,0" size="520,720" flags="wfNoBorder" backgroundColor="#ff000000">
+  <ePixmap pixmap="%(panel)s" position="0,0" size="520,720" alphatest="blend" zPosition="-1" />
+  <widget name="title" position="24,22" size="300,40" font="Regular;30" foregroundColor="#00ffffff" backgroundColor="#00080d1a" transparent="1" />
+  <ePixmap pixmap="%(dot)s" position="330,34" size="16,16" alphatest="blend" />
+  <widget name="key_green" position="354,26" size="160,32" font="Regular;19" foregroundColor="#00ffffff" backgroundColor="#00080d1a" transparent="1" />
+  <widget name="epg" position="24,84" size="472,100" font="Regular;20" foregroundColor="#00c8d2e0" backgroundColor="#00080d1a" transparent="1" />
+  <widget name="list" position="16,192" size="488,504" itemHeight="42" font="Regular;23" selectionPixmap="%(sel)s" foregroundColor="#00ffffff" foregroundColorSelected="#00ffffff" backgroundColor="#00080d1a" transparent="1" scrollbarMode="showOnDemand" />
+</screen>""" % {"panel": px("panel.png"), "dot": px("key_green.png"), "sel": px("sel_panel.png")}
 
 
 class ChannelPanel(Screen):
     def __init__(self, session, source, items, current):
-        self.skin = scale(PANEL_SKIN)
+        self.skin = scale(_panel_skin())
         Screen.__init__(self, session)
         self.source, self.items = source, items
         self.p_closed = False
@@ -361,7 +364,7 @@ class ChannelPanel(Screen):
         self["title"] = Label("Senderliste")
         self["key_green"] = Label("EPG aktualisieren")
         self["epg"] = Label("")
-        self["list"] = MenuList([(("%s  " % i["number"] if i.get("number") else "") + (i.get("name") or ""), n) for n, i in enumerate(items)])
+        self["list"] = PList([(("%s  " % i["number"] if i.get("number") else "") + (i.get("name") or ""), n) for n, i in enumerate(items)])
         self["list"].onSelectionChanged.append(self.changed)
         self["actions"] = ActionMap(["OkCancelActions", "ColorActions"], {
             "ok": self.ok, "cancel": lambda: self.close(None), "green": self.refresh,
@@ -429,7 +432,7 @@ class ProgrammeScreen(Screen):
         self["key_green"] = Label("EPG aktualisieren")
         self["key_yellow"] = Label("")
         self["key_blue"] = Label("")
-        self["list"] = MenuList([])
+        self["list"] = PList([])
         self["list"].onSelectionChanged.append(self.changed)
         self["actions"] = ActionMap(["OkCancelActions", "ColorActions"], {
             "ok": self.ok, "cancel": lambda: self.close(None), "green": self.load,

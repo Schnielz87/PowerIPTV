@@ -9,7 +9,7 @@ from Components.ActionMap import ActionMap
 from Components.MenuList import MenuList
 
 from . import store
-from .common import run_async, PLUGIN_DIR
+from .common import run_async, PLUGIN_DIR, PList
 
 REPO = "Schnielz87/PowerIPTV"
 ASSET = "PowerIPTV-Enigma2.ipk"
@@ -86,7 +86,7 @@ class UpdateScreen(__import__("Screens.Screen", fromlist=["Screen"]).Screen):
         self["key_green"] = Label("")
         self["key_yellow"] = Label("Erneut prüfen")
         self["key_blue"] = Label("")
-        self["list"] = MenuList([])
+        self["list"] = PList([])
         self["actions"] = ActionMap(["OkCancelActions", "ColorActions"], {
             "ok": self.install, "green": self.install, "yellow": self.recheck, "cancel": self.close,
         }, -1)

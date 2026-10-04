@@ -18,12 +18,13 @@ from Components.ActionMap import ActionMap
 from Components.MenuList import MenuList
 from Components.Label import Label
 from Components.Pixmap import Pixmap
+from Components.ProgressBar import ProgressBar
 from Components.ConfigList import ConfigListScreen
 from Components.config import ConfigText, ConfigPassword, ConfigSelection, ConfigYesNo, getConfigListEntry
 
 from . import store, rules
 from .api import make_source, normalize_server
-from .common import PLUGIN_DIR, FHD, CACHE, scale, run_async, make_timer, fmt_time
+from .common import PLUGIN_DIR, FHD, CACHE, scale, run_async, make_timer, fmt_time, px, PList, fetch_image, show_image
 from .player import PortivaPlayer
 
 VERSION = "1.1.0"
@@ -36,53 +37,103 @@ except Exception:
 FAV, RECENT, ALL = "__fav__", "__recent__", "__all__"
 TITLES = {"live": "Live TV", "movie": "Filme", "series": "Serien", "episode": "Folgen"}
 
-# ---------- Skin (HD-Masse, bei Full-HD automatisch x1,5) ----------
-BG = "#000b1020"
-TXT = 'foregroundColor="#00ffffff" backgroundColor="#000b1020" transparent="1"'
-LIST = 'backgroundColor="#00111827" foregroundColor="#00ffffff" backgroundColorSelected="#001e5bd8" foregroundColorSelected="#00ffffff" scrollbarMode="showOnDemand"'
-KEYS = """
-  <eLabel position="40,640" size="10,30" backgroundColor="#00e11d2e" />
-  <widget name="key_red" position="58,638" size="270,34" font="Regular;22" %(t)s />
-  <eLabel position="340,640" size="10,30" backgroundColor="#0014a37f" />
-  <widget name="key_green" position="358,638" size="270,34" font="Regular;22" %(t)s />
-  <eLabel position="640,640" size="10,30" backgroundColor="#00ffcc00" />
-  <widget name="key_yellow" position="658,638" size="270,34" font="Regular;22" %(t)s />
-  <eLabel position="940,640" size="10,30" backgroundColor="#001e5bd8" />
-  <widget name="key_blue" position="958,638" size="290,34" font="Regular;22" %(t)s />""" % {"t": TXT}
-HEAD = """
-  <eLabel position="0,0" size="1280,720" backgroundColor="%(bg)s" zPosition="-2" />
+# ---------- Skin (HD-Masse, bei Full-HD automatisch x1,5; Grafiken aus tools/make_skin.py) ----------
+BG = "#00070b16"
+CLEAR = "#ff000000"  # durchsichtig (Live-Vorschau scheint durch)
+GREY = "#009fb1c9"
+CYAN = "#005ec4f2"
+TXT = 'foregroundColor="#00ffffff" backgroundColor="#00101b30" transparent="1"'
+LIST = ('foregroundColor="#00ffffff" foregroundColorSelected="#00ffffff" backgroundColor="#00101b30" '
+        'transparent="1" scrollbarMode="showOnDemand"')
+KEYS = "".join("""
+  <ePixmap pixmap="%(dot)s" position="%(x)d,667" size="16,16" alphatest="blend" />
+  <widget name="key_%(k)s" position="%(tx)d,660" size="270,30" font="Regular;20" %(t)s />""" % {
+    "dot": px("key_%s.png" % k), "x": x, "tx": x + 24, "k": k, "t": TXT}
+    for k, x in (("red", 40), ("green", 340), ("yellow", 640), ("blue", 940)))
+
+
+def head(bg="bg_list.png"):
+    return """
+  <ePixmap pixmap="%(bg)s" position="0,0" size="1280,720" zPosition="-10" alphatest="blend" />
   <ePixmap pixmap="%(logo)s" position="40,24" size="64,64" alphatest="blend" />
-  <widget name="title" position="120,26" size="900,40" font="Regular;32" %(t)s />
-  <widget name="sub" position="120,66" size="1000,30" font="Regular;20" foregroundColor="#009fb1c9" backgroundColor="%(bg)s" transparent="1" />
-  <widget source="global.CurrentTime" render="Label" position="1080,26" size="160,40" font="Regular;30" halign="right" %(t)s>
+  <widget name="title" position="120,20" size="900,44" font="Regular;32" %(t)s />
+  <widget name="sub" position="120,64" size="900,28" font="Regular;19" foregroundColor="%(grey)s" backgroundColor="#00101b30" transparent="1" />
+  <widget source="global.CurrentTime" render="Label" position="1040,20" size="200,44" font="Regular;32" halign="right" %(t)s>
     <convert type="ClockToText">Default</convert>
-  </widget>""" % {"bg": BG, "t": TXT, "logo": PLUGIN_DIR + ("logo_fhd.png" if FHD else "logo.png")}
+  </widget>
+  <widget source="global.CurrentTime" render="Label" position="1000,64" size="240,28" font="Regular;19" halign="right" foregroundColor="%(grey)s" backgroundColor="#00101b30" transparent="1">
+    <convert type="ClockToText">Format:%%a, %%d.%%m.%%Y</convert>
+  </widget>""" % {"bg": px(bg), "t": TXT, "grey": GREY, "logo": PLUGIN_DIR + ("logo_fhd.png" if FHD else "logo.png")}
 
 
-def skin(name, info=True, config=False):
+HEAD = head("bg_full.png")
+PIG = '<widget source="session.VideoPicture" render="Pig" position="680,112" size="560,315" zPosition="1" backgroundColor="%s" />' % CLEAR
+
+
+def skin(name, info=True, config=False, layout=None):
+    """layout: None/"list" = Liste + Infospalte, "full" = Liste ueber die ganze Breite,
+    "live" = Liste + Live-Vorschau + Programm, "media" = Liste + Cover + Infos,
+    "catlive" = Kategorien + laufendes Bild, "catart" = Kategorien + Bild."""
+    layout = layout or ("full" if (config or not info) else "list")
+    bg, screen_bg = {"full": "bg_full.png", "live": "bg_live.png", "catlive": "bg_live.png"}.get(layout, "bg_list.png"), BG
+    if layout in ("live", "catlive"):
+        screen_bg = CLEAR
     if config:
-        body = '<widget name="config" position="40,110" size="1200,470" itemHeight="44" font="Regular;26" %s />' % LIST
+        body = ('<widget name="config" position="52,124" size="1176,460" itemHeight="46" font="Regular;24" selectionPixmap="%s" %s />'
+                % (px("sel_full.png"), LIST))
+    elif layout == "full":
+        body = ('<widget name="list" position="52,124" size="1176,460" itemHeight="46" font="Regular;24" selectionPixmap="%s" %s />'
+                % (px("sel_full.png"), LIST))
     else:
-        body = '<widget name="list" position="40,110" size="%s,470" itemHeight="44" font="Regular;26" %s />' % ("600" if info else "1200", LIST)
-    if info:
-        body += '\n  <widget name="info" position="670,110" size="570,470" font="Regular;24" foregroundColor="#00ffffff" backgroundColor="#00111827" />'
+        body = ('<widget name="list" position="52,124" size="596,460" itemHeight="46" font="Regular;24" selectionPixmap="%s" %s />'
+                % (px("sel_list.png"), LIST))
+    if layout == "list":
+        body += '\n  <widget name="info" position="700,132" size="520,460" font="Regular;21" %s />' % TXT
+    elif layout == "media":
+        body += ('\n  <widget name="cover" position="700,132" size="180,270" alphatest="blend" scale="1" zPosition="2" />'
+                 '\n  <widget name="info" position="896,132" size="330,464" font="Regular;19" %s />' % TXT)
+    elif layout == "live":
+        body += ("\n  " + PIG +
+                 '\n  <widget name="pv_hint" position="680,250" size="560,40" font="Regular;22" halign="center" foregroundColor="%(grey)s" backgroundColor="#00000000" transparent="1" zPosition="2" />'
+                 '\n  <widget name="pv_name" position="696,450" size="420,32" font="Regular;24" %(t)s />'
+                 '\n  <widget name="pv_live" position="1120,454" size="104,26" font="Regular;17" halign="right" foregroundColor="%(cyan)s" backgroundColor="#00101b30" transparent="1" />'
+                 '\n  <widget name="pv_now" position="696,484" size="528,28" font="Regular;19" foregroundColor="%(cyan)s" backgroundColor="#00101b30" transparent="1" />'
+                 '\n  <widget name="pv_progress" position="696,516" size="528,6" pixmap="%(prog)s" backgroundColor="#002a3348" borderWidth="0" />'
+                 '\n  <widget name="pv_next" position="696,530" size="528,26" font="Regular;18" foregroundColor="#00b0b8c8" backgroundColor="#00101b30" transparent="1" />'
+                 '\n  <widget name="pv_desc" position="696,558" size="528,48" font="Regular;16" foregroundColor="%(grey)s" backgroundColor="#00101b30" transparent="1" />'
+                 % {"t": TXT, "grey": GREY, "cyan": CYAN, "prog": px("progress_small.png")})
+    elif layout == "catlive":
+        body += ("\n  " + PIG +
+                 '\n  <widget name="info" position="696,452" size="528,150" font="Regular;19" %s />' % TXT)
+    elif layout == "catart":
+        body += ('\n  <widget name="art" position="770,136" size="380,250" alphatest="blend" zPosition="2" />'
+                 '\n  <widget name="info" position="700,410" size="520,190" font="Regular;19" %s />' % TXT)
     return scale("""<screen name="%s" position="0,0" size="1280,720" flags="wfNoBorder" backgroundColor="%s">%s
   %s
-  <widget name="status" position="40,590" size="1200,30" font="Regular;22" foregroundColor="#005ec4f2" backgroundColor="%s" transparent="1" />%s
-</screen>""" % (name, BG, HEAD, body, BG, KEYS))
+  <widget name="status" position="52,622" size="1180,28" font="Regular;19" foregroundColor="%s" backgroundColor="#00101b30" transparent="1" />%s
+</screen>""" % (name, screen_bg, head(bg), body, CYAN, KEYS))
 
 
 class Base(Screen):
-    def __init__(self, session, name, title, info=True, config=False):
-        self.skin = skin(name, info=info, config=config)
+    def __init__(self, session, name, title, info=True, config=False, layout=None):
+        self.skin = skin(name, info=info, config=config, layout=layout)
         Screen.__init__(self, session)
         self.p_closed = False
         self.onClose.append(self._p_closed)
         self["title"] = Label(title)
         self["sub"] = Label("")
         self["status"] = Label("")
-        if info:
+        layout = layout or ("full" if (config or not info) else "list")
+        if layout in ("list", "media", "catlive", "catart"):
             self["info"] = Label("")
+        if layout == "media":
+            self["cover"] = Pixmap()
+        if layout == "catart":
+            self["art"] = Pixmap()
+        if layout == "live":
+            for k in ("pv_hint", "pv_name", "pv_live", "pv_now", "pv_next", "pv_desc"):
+                self[k] = Label("")
+            self["pv_progress"] = ProgressBar()
         for k in ("key_red", "key_green", "key_yellow", "key_blue"):
             self[k] = Label("")
         self.setTitle(title)
@@ -155,23 +206,24 @@ def _home_skin():
     parts = []
     for i, t in enumerate(TILE_BIG):
         x = 40 + i * 410
-        parts.append('<widget name="big%d" position="%d,110" size="380,250" alphatest="off" scale="1" zPosition="1" />' % (i, x))
-        parts.append('<widget name="bigt%d" position="%d,280" size="360,44" font="Regular;34" halign="center" foregroundColor="#00ffffff" '
-                     'backgroundColor="#000b1020" transparent="1" shadowColor="#00000000" shadowOffset="-2,-2" zPosition="3" />' % (i, x + 10))
-        parts.append('<widget name="bigs%d" position="%d,322" size="360,28" font="Regular;20" halign="center" foregroundColor="#00d0d8e8" '
-                     'backgroundColor="#000b1020" transparent="1" zPosition="3" />' % (i, x + 10))
+        parts.append('<ePixmap pixmap="%s" position="%d,112" size="380,250" alphatest="blend" zPosition="1" />' % (px("big_%s.png" % t[2]), x))
+        parts.append('<widget name="bigt%d" position="%d,282" size="360,44" font="Regular;34" halign="center" foregroundColor="#00ffffff" '
+                     'backgroundColor="#00000000" transparent="1" zPosition="3" />' % (i, x + 10))
+        parts.append('<widget name="bigs%d" position="%d,324" size="360,28" font="Regular;19" halign="center" foregroundColor="#00d0d8e8" '
+                     'backgroundColor="#00000000" transparent="1" zPosition="3" />' % (i, x + 10))
     for i, t in enumerate(TILE_SMALL):
         row, col = divmod(i, 5)
-        x, y = 40 + col * 240, 385 + row * 118
-        parts.append('<eLabel position="%d,%d" size="222,104" backgroundColor="#00111827" zPosition="1" />' % (x, y))
-        parts.append('<widget name="small%d" position="%d,%d" size="206,104" font="Regular;24" halign="center" valign="center" '
-                     'foregroundColor="#00ffffff" backgroundColor="#00111827" transparent="1" zPosition="2" />' % (i, x + 8, y))
+        x, y = 40 + col * 240, 384 + row * 118
+        parts.append('<ePixmap pixmap="%s" position="%d,%d" size="222,104" alphatest="blend" zPosition="1" />' % (px("tile_%s.png" % t[1]), x, y))
+        parts.append('<widget name="small%d" position="%d,%d" size="206,36" font="Regular;19" halign="center" valign="center" '
+                     'foregroundColor="#00ffffff" backgroundColor="#00101b30" transparent="1" zPosition="2" />' % (i, x + 8, y + 58))
     return scale("""<screen name="PortivaHome" position="0,0" size="1280,720" flags="wfNoBorder" backgroundColor="%s">%s
-  <widget name="focus" position="36,106" size="388,258" backgroundColor="#005ec4f2" zPosition="0" />
+  <widget name="focus_big" position="32,104" size="396,266" pixmap="%s" alphatest="blend" zPosition="5" />
+  <widget name="focus_small" position="32,376" size="238,120" pixmap="%s" alphatest="blend" zPosition="5" />
   %s
-  <widget name="status" position="40,624" size="1200,30" font="Regular;22" foregroundColor="#005ec4f2" backgroundColor="%s" transparent="1" />
-  <widget name="hint" position="40,660" size="1200,30" font="Regular;20" foregroundColor="#009fb1c9" backgroundColor="%s" transparent="1" />
-</screen>""" % (BG, HEAD, "\n  ".join(parts), BG, BG))
+  <widget name="status" position="40,622" size="1200,28" font="Regular;19" foregroundColor="%s" backgroundColor="#00101b30" transparent="1" />
+  <widget name="hint" position="40,662" size="1200,28" font="Regular;18" foregroundColor="%s" backgroundColor="#00101b30" transparent="1" />
+</screen>""" % (BG, head("bg.png"), px("focus_big.png"), px("focus_small.png"), "\n  ".join(parts), CYAN, GREY))
 
 
 class PortivaHome(Screen):
@@ -185,10 +237,10 @@ class PortivaHome(Screen):
         self["title"] = Label("PowerIPTV  by Portiva©")
         self["sub"] = Label("")
         self["status"] = Label("")
-        self["hint"] = Label("OK öffnen  ·  Pfeiltasten wählen  ·  ROT Benutzer  ·  GRÜN Einstellungen  ·  BLAU Suche  ·  Version " + VERSION)
-        self["focus"] = Label("")
+        self["hint"] = Label("OK öffnen   ·   ROT Benutzer   ·   GRÜN Einstellungen   ·   BLAU Suche   ·   Version " + VERSION)
+        self["focus_big"] = Pixmap()
+        self["focus_small"] = Pixmap()
         for i, t in enumerate(TILE_BIG):
-            self["big%d" % i] = Pixmap()
             self["bigt%d" % i] = Label(t[0])
             self["bigs%d" % i] = Label(t[1])
         for i, t in enumerate(TILE_SMALL):
@@ -205,11 +257,6 @@ class PortivaHome(Screen):
         self.p_closed = True
 
     def layout(self):
-        for i, t in enumerate(TILE_BIG):
-            try:
-                self["big%d" % i].instance.setPixmapFromFile(PLUGIN_DIR + t[3])
-            except Exception:
-                pass
         self.show_focus()
         # Erst laden, wenn die Startseite wirklich angezeigt wird: Enigma2 erlaubt das Oeffnen weiterer
         # Fenster (z. B. "Zugang hinzufuegen" beim ersten Start) nicht waehrend des Aufbaus -> sonst Absturz.
@@ -256,15 +303,20 @@ class PortivaHome(Screen):
     @staticmethod
     def rect(pos):
         if pos < 3:
-            return 36 + pos * 410, 106, 388, 258
+            return 40 + pos * 410, 112, 380, 250
         row, col = divmod(pos - 3, 5)
-        return 36 + col * 240, 381 + row * 118, 230, 112
+        return 40 + col * 240, 384 + row * 118, 222, 104
 
     def show_focus(self):
+        """Leuchtender Rahmen um die gewaehlte Kachel (eigene Grafik fuer grosse und kleine Kacheln)."""
         x, y, w, h = self.rect(self.pos)
         f = 1.5 if FHD else 1
-        self["focus"].instance.move(ePoint(int(x * f), int(y * f)))
-        self["focus"].instance.resize(eSize(int(w * f), int(h * f)))
+        big = self.pos < 3
+        on, off = ("focus_big", "focus_small") if big else ("focus_small", "focus_big")
+        self[off].hide()
+        pad = 8
+        self[on].instance.move(ePoint(int((x - pad) * f), int((y - pad) * f)))
+        self[on].show()
 
     def move(self, drow, dcol):
         if self.pos < 3:
@@ -351,12 +403,15 @@ class PortivaHome(Screen):
 # ---------- Kategorien ----------
 class CategoryScreen(Base):
     def __init__(self, session, source, kind, guide=False):
-        Base.__init__(self, session, "PortivaCategories", ("TV-Guide" if guide else TITLES[kind]), info=False)
+        Base.__init__(self, session, "PortivaCategories" + ("Live" if kind == "live" else "Media"), ("TV-Guide" if guide else TITLES[kind]),
+                      layout="catlive" if kind == "live" else "catart")
         self.source, self.kind, self.guide = source, kind, guide
         self.cats = []
         self.langs = []
         self.lang = store.settings().get("language", "")
-        self["list"] = MenuList([])
+        self["list"] = PList([])
+        if kind != "live":
+            self.onLayoutFinish.append(lambda: self["art"].instance.setPixmapFromFile(px("big_%s.png" % kind)))
         self["key_red"].setText("Sperren")
         if kind == "live":
             self["key_green"].setText("Als Bouquet")
@@ -385,6 +440,13 @@ class CategoryScreen(Base):
             rows.append((name + ("   (gesperrt)" if store.is_locked(p, self.kind, c) else ""), c["id"]))
         self["list"].setList(rows)
         self["status"].setText("%d Kategorien%s" % (len(shown), ("  ·  Sprache: " + self.lang) if self.lang else ""))
+        tips = ["%d Kategorien" % len(shown), ""]
+        if self.langs:
+            tips.append("GELB  Sprache wählen (%s)" % (self.lang or "alle"))
+        tips.append("ROT  Kategorie mit PIN sperren")
+        if self.kind == "live":
+            tips.append("GRÜN  Kategorie als Bouquet übernehmen")
+        self["info"].setText("\n".join(tips))
         self["key_yellow"].setText(("Sprache: " + (self.lang or "Alle")) if self.langs else "")
 
     def next_lang(self):
@@ -459,14 +521,16 @@ class CategoryScreen(Base):
 # ---------- Sender / Filme / Serien ----------
 class ItemScreen(Base):
     def __init__(self, session, source, kind, cat_id, title, items=None):
-        Base.__init__(self, session, "PortivaItems", title)
+        self.p_live = kind == "live"
+        Base.__init__(self, session, "PortivaItemsLive" if self.p_live else "PortivaItemsMedia", title,
+                      layout="live" if self.p_live else "media")
         self.source, self.kind, self.cat_id = source, kind, cat_id
         self.all = []
         self.shown = []
         self.filter = ""
         self.sort = store.settings().get("sort", "DEFAULT")
         self.pid = pid()
-        self["list"] = MenuList([])
+        self["list"] = PList([])
         self["list"].onSelectionChanged.append(self.selection_changed)
         self["key_red"].setText("Sortieren")
         self["key_green"].setText("Mehr (MENU)")
@@ -478,6 +542,16 @@ class ItemScreen(Base):
         }, -1)
         self.info_timer = make_timer(self.load_info)
         self.info_cache = {}
+        # Live-Vorschau: markierten Sender nach kurzem Verweilen klein rechts oben abspielen
+        self.pv_timer = make_timer(self.preview)
+        self.pv_on = self.p_live and store.settings().get("preview", True)
+        self.pv_ref = None       # was gerade in der Vorschau laeuft
+        self.pv_prev = None      # was vorher lief (wird beim Schliessen wiederhergestellt)
+        self.pv_started = False
+        if self.p_live:
+            self["pv_hint"].setText("Live-Vorschau …" if self.pv_on else "")
+            self["pv_progress"].hide()
+        self.onClose.append(self.p_cleanup)
         if items is not None:
             self.loaded(items)
         else:
@@ -513,20 +587,66 @@ class ItemScreen(Base):
         return (cur[1], self.shown[cur[1]]) if cur and cur[1] < len(self.shown) else (None, None)
 
     def selection_changed(self):
-        n, item = self.current()
-        if item is None:
-            self["info"].setText("")
+        if self.p_closed:
             return
-        self["info"].setText(item.get("name", ""))
-        self.info_timer.start(500, True)  # erst nach kurzer Pause nachladen (schnelles Blaettern)
+        n, item = self.current()
+        if self.p_live:
+            self["pv_name"].setText(item.get("name", "") if item else "")
+            self["pv_now"].setText("")
+            self["pv_next"].setText("")
+            self["pv_desc"].setText("")
+            self["pv_progress"].hide()
+            if self.pv_on and item is not None:
+                self.pv_timer.start(1200, True)
+        elif item is None:
+            self["info"].setText("")
+        else:
+            self["info"].setText(item.get("name", ""))
+            self["cover"].hide()
+        if item is not None:
+            self.info_timer.start(500, True)  # erst nach kurzer Pause nachladen (schnelles Blaettern)
+
+    # ---------- Live-Vorschau ----------
+    def preview(self):
+        n, item = self.current()
+        if self.p_closed or item is None or item.get("kind") != "live":
+            return
+        from .player import make_ref
+        url = item.get("url") or self.source.stream_url(item, store.settings().get("live_format", "ts"))
+        if url == self.pv_ref:
+            return
+        nav = self.session.nav
+        if not self.pv_started:
+            try:
+                self.pv_prev = nav.getCurrentlyPlayingServiceOrGroup()
+            except AttributeError:
+                self.pv_prev = nav.getCurrentlyPlayingServiceReference()
+            self.pv_started = True
+        self.pv_ref = url
+        self["pv_hint"].setText("")
+        self["pv_live"].setText("● LIVE")
+        nav.playService(make_ref(url, item.get("name", "")))
+
+    def p_cleanup(self):
+        """Beim Schliessen: Timer stoppen und das vorherige Programm wieder einschalten."""
+        self.info_timer.stop()
+        self.pv_timer.stop()
+        if self.pv_started:
+            try:
+                if self.pv_prev is not None:
+                    self.session.nav.playService(self.pv_prev)
+                else:
+                    self.session.nav.stopService()
+            except Exception:
+                pass
 
     def load_info(self):
         n, item = self.current()
-        if item is None:
+        if item is None or self.p_closed:
             return
         key = "%s:%s" % (item.get("kind"), item.get("id"))
         if key in self.info_cache:
-            self["info"].setText(self.info_cache[key])
+            self.show_info(item, self.info_cache[key])
             return
         kind = item.get("kind")
         if kind == "live":
@@ -535,17 +655,7 @@ class ItemScreen(Base):
                 now = time.time()
                 cur = [e for e in epg if e["start"] <= now < e["end"]]
                 nxt = [e for e in epg if e["start"] >= (cur[0]["end"] if cur else now)]
-                lines = [item.get("name", ""), ""]
-                if cur:
-                    pct = int(100 * (now - cur[0]["start"]) / max(1, cur[0]["end"] - cur[0]["start"]))
-                    lines += ["Jetzt: %s – %s  (%d%%)" % (fmt_time(cur[0]["start"]), fmt_time(cur[0]["end"]), pct), cur[0]["title"],
-                              (cur[0].get("desc") or "")[:350], ""]
-                else:
-                    lines += ["Jetzt: Kein Programm gefunden", ""]
-                if nxt:
-                    lines += ["Danach: %s  %s" % (fmt_time(nxt[0]["start"]), nxt[0]["title"])]
-                lines += ["", "INFO = Programm" + (" mit Catch-up" if item.get("archive") else "")]
-                return "\n".join(lines)
+                return {"cur": cur[0] if cur else None, "next": nxt[0] if nxt else None, "logo": fetch_image(item.get("logo"))}
         elif kind == "movie":
             def work():
                 i = self.source.vod_info(item)
@@ -555,24 +665,51 @@ class ItemScreen(Base):
                 if meta:
                     parts += ["", meta]
                 if i.get("plot"):
-                    parts += ["", i["plot"][:700]]
+                    parts += ["", i["plot"][:600]]
                 if i.get("cast"):
-                    parts += ["", "Mit: " + i["cast"][:200]]
+                    parts += ["", "Mit: " + i["cast"][:160]]
                 pos = store.resume_get(item.get("url") or self.source.stream_url(item))
                 if pos > 0:
                     parts += ["", "Weiterschauen ab %d:%02d" % (pos // 60, pos % 60)]
-                return "\n".join(parts)
+                return {"text": "\n".join(parts), "logo": fetch_image(i.get("cover") or item.get("logo"))}
         else:
-            text = "\n".join([x for x in (item.get("name", ""), "", (item.get("plot") or "")[:700]) if x is not None])
-            self.info_cache[key] = text
-            self["info"].setText(text)
-            return
+            def work():
+                text = "\n".join([x for x in (item.get("name", ""), "", (item.get("plot") or "")[:600]) if x is not None])
+                return {"text": text, "logo": fetch_image(item.get("logo"))}
 
-        def show(text):
-            self.info_cache[key] = text
-            if self.current()[1] is item:
-                self["info"].setText(text)
+        def show(data):
+            self.info_cache[key] = data
+            if not self.p_closed and self.current()[1] is item:
+                self.show_info(item, data)
         run_async(self, work, show, lambda m: None)
+
+    def show_info(self, item, data):
+        if self.p_live:
+            cur, nxt = data.get("cur"), data.get("next")
+            if cur:
+                now = time.time()
+                self["pv_now"].setText("%s – %s   %s" % (fmt_time(cur["start"]), fmt_time(cur["end"]), cur["title"]))
+                self["pv_progress"].setValue(int(100 * (now - cur["start"]) / max(1, cur["end"] - cur["start"])))
+                self["pv_progress"].show()
+                self["pv_desc"].setText((cur.get("desc") or "")[:160])
+            else:
+                self["pv_now"].setText("Kein Programm gefunden")
+                self["pv_progress"].hide()
+                self["pv_desc"].setText("INFO = Programm" + (" mit Catch-up" if item.get("archive") else ""))
+            self["pv_next"].setText(("Danach: %s   %s" % (fmt_time(nxt["start"]), nxt["title"])) if nxt else "")
+            return
+        if item.get("kind") == "live":  # Sender in gemischten Listen (Favoriten, Zuletzt, Suche)
+            cur, nxt = data.get("cur"), data.get("next")
+            lines = [item.get("name", ""), ""]
+            if cur:
+                lines += ["Jetzt: %s – %s" % (fmt_time(cur["start"]), fmt_time(cur["end"])), cur["title"], ""]
+            if nxt:
+                lines += ["Danach: %s  %s" % (fmt_time(nxt["start"]), nxt["title"])]
+            text = "\n".join(lines)
+        else:
+            text = data.get("text", "")
+        self["info"].setText(text)
+        show_image(self["cover"], data.get("logo"))
 
     def ok(self):
         n, item = self.current()
@@ -674,7 +811,7 @@ class SeasonScreen(Base):
         Base.__init__(self, session, "PortivaSeasons", series.get("name", "Serie"))
         self.source, self.series = source, series
         self.seasons = {}
-        self["list"] = MenuList([])
+        self["list"] = PList([])
         self["actions"] = ActionMap(["OkCancelActions"], {"ok": self.ok, "cancel": self.close}, -1)
         self["status"].setText("Lade Staffeln …")
         run_async(self, lambda: source.series_info(series), self.loaded)
@@ -704,7 +841,7 @@ class AddChooser(Base):
 
     def __init__(self, session):
         Base.__init__(self, session, "PortivaAdd", "Zugang hinzufügen", info=True)
-        self["list"] = MenuList([("Vom Handy empfangen (QR-Code scannen)", "receive"), ("Manuell eingeben (Xtream Codes / M3U)", "manual")])
+        self["list"] = PList([("Vom Handy empfangen (QR-Code scannen)", "receive"), ("Manuell eingeben (Xtream Codes / M3U)", "manual")])
         self["info"].setText("Am schnellsten: Auf dem Handy in Portiva unter „Benutzer wechseln“ beim Zugang auf das QR-Symbol tippen → "
                              "„An TV-Stick / Fernseher senden“ und den Code scannen, der hier gleich erscheint.\n\n"
                              "Handy und Receiver müssen im selben Heimnetz sein.")
@@ -727,7 +864,7 @@ class AddChooser(Base):
 class ProfilesScreen(Base):
     def __init__(self, session):
         Base.__init__(self, session, "PortivaProfiles", "Benutzer wechseln", info=True)
-        self["list"] = MenuList([])
+        self["list"] = PList([])
         self["key_red"].setText("Löschen")
         self["key_green"].setText("Neu")
         self["key_yellow"].setText("Bearbeiten")
@@ -918,9 +1055,11 @@ class SettingsScreen(ConfigListScreen, Base):
         self.c_pin = ConfigText(default=self.old_pin, fixed_size=False)
         self.c_adult = ConfigYesNo(default=bool(s.get("auto_adult", True)))
         self.c_update = ConfigYesNo(default=bool(s.get("auto_update", True)))
+        self.c_preview = ConfigYesNo(default=bool(s.get("preview", True)))
         ConfigListScreen.__init__(self, [
             getConfigListEntry("Player", self.c_player),
             getConfigListEntry("Live-TV-Format", self.c_live),
+            getConfigListEntry("Live-Vorschau in der Senderliste", self.c_preview),
             getConfigListEntry("Name dieses Receivers (für „An Gerät senden“)", self.c_name),
             getConfigListEntry("PIN der Kindersicherung (leer = aus)", self.c_pin),
             getConfigListEntry("Erwachseneninhalte automatisch sperren", self.c_adult),
@@ -954,7 +1093,8 @@ class SettingsScreen(ConfigListScreen, Base):
                 return
             s = store.settings()
             s.update({"player": self.c_player.value, "live_format": self.c_live.value, "device_name": self.c_name.value.strip() or "Enigma2-Receiver",
-                      "pin": new_pin, "auto_adult": bool(self.c_adult.value), "auto_update": bool(self.c_update.value)})
+                      "pin": new_pin, "auto_adult": bool(self.c_adult.value), "auto_update": bool(self.c_update.value),
+                      "preview": bool(self.c_preview.value)})
             store.save_settings(s)
             self.close()
         # PIN aendern/entfernen nur mit der alten PIN

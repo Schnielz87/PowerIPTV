@@ -188,7 +188,8 @@ class XtreamSource(object):
             return {}
         info = r.get("info") or {}
         return {"plot": info.get("plot") or info.get("description"), "genre": info.get("genre"), "cast": info.get("cast"),
-                "duration": info.get("duration"), "rating": info.get("rating"), "year": info.get("releasedate")}
+                "duration": info.get("duration"), "rating": info.get("rating"), "year": info.get("releasedate"),
+                "cover": info.get("movie_image") or info.get("cover_big")}
 
     def series_info(self, item):
         r = self.api("get_series_info", timeout=40, series_id=item["id"]) or {}

@@ -78,11 +78,18 @@ def data_tar(tar):
     parts = TARGET.split("/")
     for i in range(1, len(parts) + 1):
         add_dir(tar, "./" + "/".join(parts[:i]) + "/")
-    for name in sorted(os.listdir(SRC)):
-        path = os.path.join(SRC, name)
-        if os.path.isfile(path) and not name.endswith(".pyc"):
-            with open(path, "rb") as f:
-                add_bytes(tar, "./%s/%s" % (TARGET, name), f.read())
+    # alle Dateien inkl. Unterordner (z. B. skin/hd, skin/fhd), ohne __pycache__/.pyc
+    for root, dirs, files in os.walk(SRC):
+        dirs[:] = sorted(d for d in dirs if d != "__pycache__")
+        rel = os.path.relpath(root, SRC)
+        if rel != ".":
+            add_dir(tar, "./%s/%s/" % (TARGET, rel.replace(os.sep, "/")))
+        for name in sorted(files):
+            if name.endswith(".pyc"):
+                continue
+            with open(os.path.join(root, name), "rb") as f:
+                sub = name if rel == "." else rel.replace(os.sep, "/") + "/" + name
+                add_bytes(tar, "./%s/%s" % (TARGET, sub), f.read())
     add_bytes(tar, "./%s/version.txt" % TARGET, VERSION.encode())
 
 
