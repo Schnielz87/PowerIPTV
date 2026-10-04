@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.102 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.103 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -62,7 +62,7 @@ table; c.push(table(['Bereich', 'Funktionen'], [
 
 // 2
 c.push(h1('2. Installation & Updates'));
-c.push(p('Alle Dateien liegen im Release bereit. Der Quellcode ist auf GitHub nach Geräten getrennt: Ordner „Android“, „iOS“, „Tizen Samsung“, „Windows“ und „Fire TV Vega“ (neue Amazon-Sticks mit Vega OS).'));
+c.push(p('Alle Dateien liegen im Release bereit. Der Quellcode ist auf GitHub nach Geräten getrennt: Ordner „Android“, „iOS“, „Tizen Samsung“, „Windows“, „Fire TV Vega“ (neue Amazon-Sticks mit Vega OS) und „Enigma IPK“ (Enigma2-Receiver).'));
 c.push(h2('Handy und Tablet'));
 c.push(step('Auf GitHub unter „Releases“ die neueste Version öffnen.', 'n1'));
 c.push(step('Die APK-Datei herunterladen und antippen.', 'n1'));
@@ -234,7 +234,7 @@ c.push(bullet([b('Kategorien: '), t('genau wie in der Android-App – Sprache (G
 c.push(bullet([b('Vollbild: '), t('F, F11 oder Doppelklick – deckt den ganzen Bildschirm ab (ohne Titel- und Taskleiste). Esc beendet das Vollbild. Kino-Filme haben oben und unten schwarze Balken; Taste Z (Zoomen) füllt den Bildschirm.')]));
 c.push(bullet([b('Rechtsklick '), t('auf Sender, Film, Serie oder Folge: Favorit, gesehen markieren, aus „Weiterschauen“ entfernen.')]));
 
-c.push(bullet([b('Player: '), t('Klick = Pause, Doppelklick = Vollbild, Mausrad = Lautstärke. Zahnrad: Bildformat, Tonspur, Untertitel, Geschwindigkeit. Bei Serien „Nächste Folge“ 40 Sekunden vor Schluss.')]));
+c.push(bullet([b('Player: '), t('Klick = Pause, Doppelklick = Vollbild. Mausrad verstellt Helligkeit/Lautstärke nur direkt über dem jeweiligen Regler (sonst nichts – z. B. beim Blättern in der Senderliste). Zahnrad: Bildformat, Tonspur, Untertitel, Geschwindigkeit. Bei Serien „Nächste Folge“ 40 Sekunden vor Schluss.')]));
 c.push(table(['Taste', 'Funktion'], [
   ['Leertaste / K', 'Pause / Weiter'],
   ['← / →', '10 Sekunden zurück / vor (mit Umschalt: 1 Minute)'],
@@ -362,6 +362,22 @@ c.push(step('Zugang am bequemsten per „Vom Handy empfangen“ einrichten (Kapi
 c.push(tip('Updates genauso installieren – Zugänge und Favoriten bleiben erhalten. Die App zeigt unter „Update“, wenn es eine neue Version gibt.'));
 c.push(tip('Hinweis: Diese Version ist neu und noch nicht auf jedem Stick erprobt. Klappt ein Sender oder Film nicht, im Anbieter-Portal bzw. in den Einstellungen das Live-Format „HLS (m3u8)“ wählen; MKV-Filme mit DTS-Ton spielen die neuen Sticks evtl. ohne Ton ab.'));
 
+// 19
+c.push(h1('19. PowerIPTV für Enigma2-Receiver (.ipk)'));
+c.push(p('Für Sat-/Kabel-Receiver mit Enigma2 (z. B. VU+, Dreambox, Gigablue, Octagon, Zgemma mit OpenATV, OpenPLi oder VTi) gibt es PowerIPTV als Plugin: Datei „PowerIPTV-Enigma2.ipk“ im Release (Quellcode im Ordner „Enigma IPK“).'));
+c.push(h2('Installieren'));
+c.push(step('Die Datei „PowerIPTV-Enigma2.ipk“ am PC herunterladen.', 'n17'));
+c.push(step('Mit einem FTP-Programm (z. B. FileZilla; Adresse = IP des Receivers, Benutzer „root“, Passwort meist leer oder das des Images) in den Ordner /tmp des Receivers kopieren.', 'n17'));
+c.push(step('Am Receiver: Menü → Plugins → „Lokale Erweiterungen installieren“ (je nach Image grüne/blaue Taste) und die Datei wählen. Alternativ per Telnet/SSH: opkg install /tmp/PowerIPTV-Enigma2.ipk', 'n17'));
+c.push(step('GUI neu starten (Menü → Standby/Neustart → GUI neu starten).', 'n17'));
+c.push(step('Menü → Plugins → PowerIPTV öffnen und den Zugang eintragen (Xtream Codes oder M3U-Link). OK bzw. Gelb öffnet die Bildschirmtastatur, Grün prüft und speichert.', 'n17'));
+c.push(h2('Bedienung'));
+c.push(bullet('Startseite: Live TV, Filme, Serien, Favoriten, Suche, Zugänge (rot), Einstellungen (grün), Suche (blau).'));
+c.push(bullet('In den Listen: rechts erscheinen Jetzt/Danach (Sender) bzw. Handlung (Filme). Gelb = Favorit, Blau = Liste filtern.'));
+c.push(bullet('Live-Kategorie mit Grün „Als Bouquet“ übernehmen: Die Sender stehen dann auch in der normalen Senderliste des Receivers.'));
+c.push(bullet('Im Player: Hoch/Runter bzw. CH+/CH- = Sender wechseln, INFO = Jetzt/Danach, Tonspur und Untertitel wie beim Receiver gewohnt, EXIT = zurück. Filme und Folgen merken sich die Stelle (Weiterschauen), die nächste Folge startet automatisch.'));
+c.push(tip('Ruckelt ein Sender oder fehlt Bild/Ton: Einstellungen → Player „exteplayer3 (5002)“ wählen (dafür das Paket ServiceApp aus dem Image-Feed installieren) oder Live-TV-Format „HLS (m3u8)“ probieren.'));
+
 const doc = new Document({
   creator: 'Portiva', title: 'PowerIPTV – Bedienungsanleitung',
   styles: {
@@ -373,7 +389,7 @@ const doc = new Document({
   },
   numbering: { config: [
     { reference: 'bul', levels: [{ level: 0, format: LevelFormat.BULLET, text: '•', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] },
-    ...['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'n10', 'n11', 'n12', 'n13', 'n14', 'n15', 'n16', 'num'].map(r => ({ reference: r, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] })),
+    ...['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'n10', 'n11', 'n12', 'n13', 'n14', 'n15', 'n16', 'n17', 'num'].map(r => ({ reference: r, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] })),
   ] },
   features: { updateFields: true },
   sections: [{

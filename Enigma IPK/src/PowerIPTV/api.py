@@ -1,0 +1,236 @@
+# -*- coding: utf-8 -*-
+"""
+Zugaenge wie in den anderen Portiva-Varianten: Xtream Codes (player_api.php) und M3U-Link.
+Laeuft im Hintergrund-Thread (siehe ui.run_async), nie im Bedien-Thread von Enigma2.
+"""
+import json
+import re
+import base64
+
+try:  # Python 3 (OpenATV 7, OpenPLi 9 ...)
+    from urllib.request import urlopen, Request
+    from urllib.parse import urlencode, quote
+except ImportError:  # Python 2 (aeltere Images)
+    from urllib2 import urlopen, Request
+    from urllib import urlencode, quote
+
+UA = "PowerIPTV-Enigma2"
+
+
+def http_get(url, timeout=30):
+    req = Request(url, headers={"User-Agent": UA})
+    resp = urlopen(req, timeout=timeout)
+    data = resp.read()
+    try:
+        return data.decode("utf-8")
+    except Exception:
+        return data.decode("latin-1")
+
+
+def normalize_server(s):
+    s = (s or "").strip().rstrip("/")
+    if s and not re.match(r"^https?://", s, re.I):
+        s = "http://" + s
+    return s
+
+
+def _b64(s):
+    if not s:
+        return ""
+    try:
+        return base64.b64decode(s).decode("utf-8", "ignore")
+    except Exception:
+        return s
+
+
+def _num(v, default=0):
+    try:
+        return int(float(v))
+    except Exception:
+        return default
+
+
+class XtreamSource(object):
+    kinds = ("live", "movie", "series")
+
+    def __init__(self, profile):
+        self.p = profile
+        self.base = normalize_server(profile.get("server"))
+        self.cache = {}
+
+    def api(self, action=None, timeout=40, **params):
+        q = {"username": self.p.get("username", ""), "password": self.p.get("password", "")}
+        if action:
+            q["action"] = action
+        q.update(params)
+        text = http_get(self.base + "/player_api.php?" + urlencode(q), timeout)
+        if not text.strip():
+            return None
+        return json.loads(text)
+
+    def authenticate(self):
+        r = self.api()
+        info = (r or {}).get("user_info") if isinstance(r, dict) else None
+        if not info:
+            raise Exception("Ungültige Antwort vom Server")
+        if str(info.get("auth")) != "1":
+            raise Exception("Benutzername oder Passwort falsch")
+        return info
+
+    def categories(self, kind):
+        key = "cat_" + kind
+        if key not in self.cache:
+            action = {"live": "get_live_categories", "movie": "get_vod_categories", "series": "get_series_categories"}[kind]
+            data = self.api(action) or []
+            self.cache[key] = [{"id": str(c.get("category_id")), "name": c.get("category_name") or "Unbenannt"} for c in data if c.get("category_id") is not None]
+        return self.cache[key]
+
+    def items(self, kind, cat_id=None):
+        key = "items_%s_%s" % (kind, cat_id)
+        if key in self.cache:
+            return self.cache[key]
+        action = {"live": "get_live_streams", "movie": "get_vod_streams", "series": "get_series"}[kind]
+        params = {"category_id": cat_id} if cat_id else {}
+        data = self.api(action, timeout=90, **params) or []
+        out = []
+        for o in data:
+            if kind == "series":
+                sid = o.get("series_id")
+                out.append({"kind": kind, "id": str(sid), "name": o.get("name") or "", "logo": o.get("cover"),
+                            "plot": o.get("plot"), "year": o.get("releaseDate") or o.get("year"), "rating": o.get("rating")})
+            else:
+                sid = o.get("stream_id")
+                out.append({"kind": kind, "id": str(sid), "name": o.get("name") or "", "logo": o.get("stream_icon"),
+                            "number": o.get("num"), "ext": o.get("container_extension") or "mp4",
+                            "epg_id": o.get("epg_channel_id"), "rating": o.get("rating")})
+        self.cache[key] = out
+        return out
+
+    def stream_url(self, item, live_ext="ts"):
+        u, p = quote(self.p.get("username", "")), quote(self.p.get("password", ""))
+        if item["kind"] == "live":
+            return "%s/live/%s/%s/%s.%s" % (self.base, u, p, item["id"], live_ext)
+        if item["kind"] == "episode":
+            return "%s/series/%s/%s/%s.%s" % (self.base, u, p, item["id"], item.get("ext") or "mp4")
+        return "%s/movie/%s/%s/%s.%s" % (self.base, u, p, item["id"], item.get("ext") or "mp4")
+
+    def short_epg(self, item):
+        try:
+            r = self.api("get_short_epg", timeout=15, stream_id=item["id"], limit="4") or {}
+        except Exception:
+            return []
+        out = []
+        for o in r.get("epg_listings") or []:
+            start = _num(o.get("start_timestamp"))
+            end = _num(o.get("stop_timestamp"))
+            if end > start:
+                out.append({"start": start, "end": end, "title": _b64(o.get("title")), "desc": _b64(o.get("description"))})
+        return sorted(out, key=lambda x: x["start"])
+
+    def vod_info(self, item):
+        try:
+            r = self.api("get_vod_info", timeout=20, vod_id=item["id"]) or {}
+        except Exception:
+            return {}
+        info = r.get("info") or {}
+        return {"plot": info.get("plot") or info.get("description"), "genre": info.get("genre"), "cast": info.get("cast"),
+                "duration": info.get("duration"), "rating": info.get("rating"), "year": info.get("releasedate")}
+
+    def series_info(self, item):
+        r = self.api("get_series_info", timeout=40, series_id=item["id"]) or {}
+        seasons = {}
+        eps = r.get("episodes") or {}
+        if isinstance(eps, dict):
+            for season, lst in eps.items():
+                for e in lst or []:
+                    n = _num(e.get("season"), _num(season))
+                    seasons.setdefault(n, []).append({
+                        "kind": "episode", "id": str(e.get("id")), "ext": e.get("container_extension") or "mp4",
+                        "name": "S%02d E%02d  %s" % (n, _num(e.get("episode_num")), e.get("title") or ""),
+                        "episode_num": _num(e.get("episode_num")), "plot": (e.get("info") or {}).get("plot") if isinstance(e.get("info"), dict) else None,
+                    })
+        for n in seasons:
+            seasons[n].sort(key=lambda x: x["episode_num"])
+        info = r.get("info") or {}
+        return {"plot": info.get("plot"), "seasons": seasons}
+
+    def account_text(self):
+        try:
+            info = self.authenticate()
+        except Exception:
+            return ""
+        parts = []
+        exp = _num(info.get("exp_date"))
+        if exp:
+            import time
+            parts.append("Gültig bis " + time.strftime("%d.%m.%Y", time.localtime(exp)))
+        if info.get("max_connections"):
+            parts.append("%s Verbindung(en)" % info.get("max_connections"))
+        return " · ".join(parts)
+
+
+class M3uSource(object):
+    """M3U-Link: Gruppen = Kategorien; Filme/Serien anhand der Adresse (/movie/, /series/) erkannt."""
+
+    def __init__(self, profile):
+        self.p = profile
+        self.entries = None
+
+    def _load(self):
+        if self.entries is not None:
+            return
+        text = http_get(self.p.get("m3u", ""), 120)
+        entries, info = [], None
+        for line in text.splitlines():
+            line = line.strip()
+            if line.startswith("#EXTINF"):
+                name = line.split(",", 1)[1].strip() if "," in line else ""
+                g = re.search(r'group-title="([^"]*)"', line)
+                logo = re.search(r'tvg-logo="([^"]*)"', line)
+                info = {"name": name, "group": g.group(1) if g else "Ohne Gruppe", "logo": logo.group(1) if logo else None}
+            elif line and not line.startswith("#") and info is not None:
+                low = line.lower()
+                kind = "movie" if "/movie/" in low else "series" if "/series/" in low else "live"
+                info.update({"url": line, "kind": "episode" if kind == "series" else kind, "id": line})
+                info["_kind"] = kind
+                entries.append(info)
+                info = None
+        self.entries = entries
+
+    def authenticate(self):
+        self._load()
+        if not self.entries:
+            raise Exception("Die M3U-Liste ist leer oder nicht erreichbar")
+        return {}
+
+    def categories(self, kind):
+        self._load()
+        seen, out = set(), []
+        for e in self.entries:
+            if e["_kind"] == kind and e["group"] not in seen:
+                seen.add(e["group"])
+                out.append({"id": e["group"], "name": e["group"]})
+        return out
+
+    def items(self, kind, cat_id=None):
+        self._load()
+        return [e for e in self.entries if e["_kind"] == kind and (cat_id is None or e["group"] == cat_id)]
+
+    def stream_url(self, item, live_ext="ts"):
+        return item["url"]
+
+    def short_epg(self, item):
+        return []
+
+    def vod_info(self, item):
+        return {}
+
+    def series_info(self, item):
+        return {"plot": None, "seasons": {1: [item]}}
+
+    def account_text(self):
+        return "M3U-Link"
+
+
+def make_source(profile):
+    return M3uSource(profile) if profile.get("type") == "m3u" else XtreamSource(profile)

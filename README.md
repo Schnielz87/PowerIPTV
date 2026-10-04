@@ -13,6 +13,7 @@ mit **eingebautem VPN**, **Offline-Downloads** und **eigenen Favoritenlisten**.
 | `Windows/` | Windows-PC | `Portiva-Windows-Setup-v1.1.x.exe` |
 | `Tizen Samsung/` | Samsung Smart TV (Tizen) | `PowerIPTV-Tizen-v1.1.x.zip` |
 | `iOS/` | iPhone, iPad | `Portiva-iOS-v1.1.x.ipa` |
+| `Enigma IPK/` | Enigma2-Receiver (VU+, Dreambox, Gigablue, Octagon … mit OpenATV/OpenPLi/VTi) | `PowerIPTV-Enigma2.ipk` |
 | `Fire TV Vega/` | 🆕 **NEUE Amazon Fire TV Sticks mit Vega OS** (Fire TV Stick 4K Select, Fire TV Stick HD 2026, Fire TV Stick 4K 2026) – dort laeuft keine APK | `Portiva-FireTV-Vega-v1.1.x.vpkg` |
 
 ## Funktionen

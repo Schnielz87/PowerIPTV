@@ -15,7 +15,9 @@
   laufen dort ueber die Bruecke `Tizen Samsung/src/vega.js` – Aenderungen an der Samsung-Oberflaeche gelten damit auch fuer Vega.
 - Gemeinsamer Player: VLC (Android, Windows, iOS); Samsung TV nutzt zwangsweise AVPlay.
   Gemeinsame Logik moeglichst als geteilte Datei ablegen (siehe `include(...)` in `Windows/build.gradle.kts`).
-- Repo-Aufbau: je Variante ein eigener Ordner – `Android/`, `iOS/`, `Tizen Samsung/`, `Windows/`, `Fire TV Vega/`.
+- Repo-Aufbau: je Variante ein eigener Ordner – `Android/`, `iOS/`, `Tizen Samsung/`, `Windows/`, `Fire TV Vega/`, `Enigma IPK/`.
+- Enigma2-Plugin (`Enigma IPK/`, Python 2/3, Enigma2-API, Build `python3 build.py`): Funktionen, die ein Receiver-Plugin
+  sinnvoll abbilden kann (Zugaenge, Live/Filme/Serien, EPG, Favoriten, Weiterschauen, Bouquet) mitziehen.
   Windows nutzt die gemeinsamen Kotlin-Dateien direkt aus `Android/app/src/main/java`.
 - Android lokal: `cd Android && ./gradlew assembleRelease`.
 - Windows-App lokal pruefen: `cd Windows && gradle compileKotlin` (Starten geht hier nicht, Google-Maven ist gesperrt).

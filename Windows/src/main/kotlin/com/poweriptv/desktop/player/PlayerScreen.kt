@@ -323,10 +323,8 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
             .focusRequester(focus).focusable()
             .pointerHoverIcon(if (overlayVisible) PointerIcon.Default else BlankCursor)
             .onPointerEvent(PointerEventType.Move) { poke() }
-            .onPointerEvent(PointerEventType.Scroll) { e ->
-                val dy = e.changes.firstOrNull()?.scrollDelta?.y ?: 0f
-                if (dy != 0f) { ctl.changeVolume(if (dy < 0) 5 else -5); poke() }
-            }
+            // Mausrad: nur noch direkt ueber den Reglern (Helligkeit/Lautstaerke) – sonst z.B. Blaettern in der Senderliste
+            .onPointerEvent(PointerEventType.Scroll) { poke() }
             .onPreviewKeyEvent { e ->
                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 poke()
