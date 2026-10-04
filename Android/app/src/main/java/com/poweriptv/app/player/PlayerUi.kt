@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.LiveTv
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
@@ -403,6 +404,9 @@ fun LiveInfoBar(
     onMultiScreen: (() -> Unit)?,
     modifier: Modifier = Modifier,
     sideInset: androidx.compose.ui.unit.Dp = 0.dp,
+    /** "EPG aktualisieren": Programm neu vom Anbieter laden (wie im TV-Guide). */
+    onRefreshEpg: (() -> Unit)? = null,
+    epgLoading: Boolean = false,
 ) {
     // Fortschritt der laufenden Sendung jede halbe Minute auffrischen
     var now by androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(System.currentTimeMillis()) }
@@ -433,6 +437,17 @@ fun LiveInfoBar(
                     Box(Modifier.fillMaxHeight().fillMaxWidth(progress).background(com.poweriptv.app.ui.theme.BrandCyan))
                 }
                 Text("Weiter: " + line(next), color = Color.White.copy(alpha = 0.8f), fontSize = 17.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            }
+            if (onRefreshEpg != null) {
+                androidx.compose.foundation.layout.Spacer(Modifier.size(8.dp))
+                Box(
+                    Modifier.size(48.dp).clip(androidx.compose.foundation.shape.CircleShape).tvFocus(androidx.compose.foundation.shape.CircleShape, 1.1f)
+                        .clickable(enabled = !epgLoading, onClick = onRefreshEpg).background(Color(0x66000000)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (epgLoading) androidx.compose.material3.CircularProgressIndicator(Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
+                    else androidx.compose.material3.Icon(Icons.Filled.Refresh, "EPG aktualisieren", tint = Color.White, modifier = Modifier.size(26.dp))
+                }
             }
         }
         @Composable

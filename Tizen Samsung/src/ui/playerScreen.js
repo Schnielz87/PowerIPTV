@@ -94,6 +94,7 @@ export default function playerScreen(params) {
       // Live-TV (wie Android/Windows): Seitenverhaeltnis – Senderliste (Mehrfachbildschirm kann der Fernseher nicht)
       quickRow.appendChild(chip('▭', 'Seitenverhältnis', asp ? asp[1] : '', pickAspect));
       quickRow.appendChild(chip('☰', 'Senderliste', '', openChannelList));
+      quickRow.appendChild(chip('⟳', 'EPG aktualisieren', '', refreshEpg));
       return;
     }
     quickRow.appendChild(chip('▭', 'Seitenverhältnis', asp ? asp[1] : '', pickAspect));
@@ -212,6 +213,14 @@ export default function playerScreen(params) {
   }
 
   // ---------------- EPG ----------------
+  let epgShow = null;
+  /** "EPG aktualisieren" (wie im TV-Guide): Jetzt/Weiter sofort neu vom Anbieter holen. */
+  function refreshEpg() {
+    if (!epgShow) return;
+    toast('EPG wird aktualisiert …');
+    epgShow(true);
+  }
+
   function loadEpg() {
     clearInterval(epgTimer);
     const item = cur.item;
@@ -228,13 +237,15 @@ export default function playerScreen(params) {
           h('div.next', null, 'Weiter: ' + line(next)))));
     };
     render(null, null);
-    const show = () => app.source.epg(item, false).then((l) => {
+    const show = (manual) => app.source.epg(item, false).then((l) => {
       if (cur.item !== item) return;
       const now = Date.now();
       const nowP = l.find((x) => x.start <= now && x.end > now);
       const next = l.find((x) => x.start >= (nowP ? nowP.end : now));
       render(nowP, next);
-    }).catch(() => {});
+      if (manual) toast(l.length ? 'EPG aktualisiert' : 'Für diesen Sender liefert der Anbieter kein Programm');
+    }).catch(() => { if (manual) toast('EPG konnte nicht geladen werden'); });
+    epgShow = show;
     show();
     epgTimer = setInterval(show, 60000);
   }

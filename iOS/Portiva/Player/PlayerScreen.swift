@@ -16,6 +16,7 @@ struct PlayerScreen: View {
     @State private var sleepUntil: Date?
     @State private var viewSize: CGSize = .zero
     @State private var epg: [EpgEntry] = []
+    @State private var epgLoading = false
     @State private var showChannels = false
     @State private var listExtra: CGFloat = 0          // Senderliste breiter gezogen
     @State private var listDragBase: CGFloat?
@@ -184,6 +185,14 @@ struct PlayerScreen: View {
                     }.frame(height: 5)
                     Text("Weiter: " + line(next)).font(.callout).foregroundColor(.white.opacity(0.8)).lineLimit(1)
                 }
+                // "EPG aktualisieren" (wie im TV-Guide)
+                Button { Task { await refreshEpg() } } label: {
+                    ZStack {
+                        Circle().fill(Color.black.opacity(0.45)).frame(width: 46, height: 46)
+                        if epgLoading { ProgressView().tint(.white) }
+                        else { Image(systemName: "arrow.clockwise").font(.title3.weight(.semibold)).foregroundColor(.white) }
+                    }
+                }.disabled(epgLoading)
             }
             HStack(spacing: 12) {
                 Spacer()
@@ -294,6 +303,17 @@ struct PlayerScreen: View {
             guard listEpg[e.url] == nil, let item = e.item, let src = app.source else { return }
             listEpg[e.url] = await src.epg(item, full: false)
         }
+    }
+
+    /** Jetzt/Weiter neu vom Anbieter holen. */
+    private func refreshEpg() async {
+        guard entry.live, let item = entry.item, let src = app.source, !epgLoading else { return }
+        touch(); epgLoading = true; app.show("EPG wird aktualisiert …")
+        let url = entry.url
+        let l = await src.epg(item, full: false)
+        if entry.url == url { epg = l }
+        epgLoading = false
+        app.show(l.isEmpty ? "Für diesen Sender liefert der Anbieter kein Programm" : "EPG aktualisiert")
     }
 
     private func loadEpg() async {

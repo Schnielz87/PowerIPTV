@@ -317,6 +317,8 @@ class VlcPlayerActivity : ComponentActivity() {
                             onMultiScreen = { startActivity(android.content.Intent(this@VlcPlayerActivity, MultiViewActivity::class.java)) },
                             modifier = Modifier.align(Alignment.BottomCenter),
                             sideInset = if (container.isTvDevice) 0.dp else 80.dp,
+                            onRefreshEpg = { refreshEpg(force = true) },
+                            epgLoading = epgLoading,
                         ) else androidx.compose.foundation.layout.Column(
                             Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -638,6 +640,22 @@ class VlcPlayerActivity : ComponentActivity() {
         }
     }
 
+    private var epgLoading by mutableStateOf(false)
+
+    /** Jetzt/Weiter auffrischen; force = Programmfuehrer neu vom Anbieter laden ("EPG aktualisieren"). */
+    private fun refreshEpg(force: Boolean) {
+        val entry = current() ?: return
+        val item = entry.item ?: return
+        if (!entry.live || epgLoading) return
+        lastInteraction = System.currentTimeMillis()
+        if (force) { epgLoading = true; toast = "EPG wird aktualisiert …" }
+        lifecycleScope.launch {
+            val list = LiveEpg.refresh(container, item, force)
+            if (current()?.url == entry.url && (force || list.isNotEmpty())) epg = list
+            if (force) { epgLoading = false; toast = if (list.isEmpty()) "Für diesen Sender liefert der Anbieter kein Programm" else "EPG aktualisiert" }
+        }
+    }
+
     private fun current(): PlayEntry? = container.playQueue.getOrNull(container.playIndex)
     private fun hasNext() = container.playIndex < container.playQueue.lastIndex
 
@@ -658,11 +676,9 @@ class VlcPlayerActivity : ComponentActivity() {
             showOverlay = true; lastInteraction = System.currentTimeMillis()
             entry.item?.let { item ->
                 lifecycleScope.launch {
-                    val now = System.currentTimeMillis()
-                    val fromXmltv = container.epg.programmesFor(item).filter { it.end > now }.take(2)
-                        .map { com.poweriptv.app.data.EpgEntry(it.title, it.description, it.start, it.end) }
-                    val list = fromXmltv.ifEmpty { runCatching { container.source?.shortEpg(item).orEmpty() }.getOrDefault(emptyList()) }
+                    val list = LiveEpg.quick(container, item)
                     if (current()?.url == entry.url) epg = list
+                    refreshEpg(force = false)
                 }
             }
         }

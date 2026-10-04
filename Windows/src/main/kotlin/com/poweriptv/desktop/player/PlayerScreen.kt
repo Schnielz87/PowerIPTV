@@ -56,6 +56,7 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Subtitles
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.VideoLibrary
@@ -162,10 +163,22 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
     var showChannels by remember { mutableStateOf(false) }
     // Kurz-EPG vom Anbieter, falls kein XMLTV fuer den Sender da ist
     var shortEpg by remember(req.item.key) { mutableStateOf<List<com.poweriptv.app.data.EpgEntry>>(emptyList()) }
+    var epgLoading by remember { mutableStateOf(false) }
+    val epgScope = androidx.compose.runtime.rememberCoroutineScope()
+    /** Jetzt/Weiter auffrischen; force = Programmfuehrer neu vom Anbieter laden ("EPG aktualisieren"). */
+    suspend fun reloadEpg(force: Boolean) {
+        val item = req.item
+        withContext(Dispatchers.IO) { app.source?.let { runCatching { app.epg.ensureLoaded(it, force) } } }
+        if (app.epg.current(item) == null) {
+            shortEpg = withContext(Dispatchers.IO) { runCatching { app.source?.shortEpg(item).orEmpty() }.getOrDefault(emptyList()) }
+        }
+    }
     LaunchedEffect(req.item.key) {
         if (req.isLive && app.epg.current(req.item) == null) {
             shortEpg = withContext(Dispatchers.IO) { runCatching { app.source?.shortEpg(req.item).orEmpty() }.getOrDefault(emptyList()) }
         }
+        // Programmfuehrer im Hintergrund laden bzw. auffrischen (aelter als 3 h -> neu einlesen)
+        if (req.isLive) reloadEpg(force = false)
     }
     var episodes by remember(req.item.key) { mutableStateOf(req.episodes) }
     var nextDismissed by remember(req.url) { mutableStateOf(false) }
@@ -471,6 +484,16 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                     onOpenChange = { menuOpen = it; poke() },
                     onMultiScreen = { app.multiViewStart = req.item; close(); app.navigate(Screen.MultiView) },
                     modifier = Modifier.align(Alignment.BottomCenter),
+                    epgLoading = epgLoading,
+                    onRefreshEpg = {
+                        poke()
+                        if (!epgLoading) epgScope.launch {
+                            epgLoading = true; toast = "EPG wird aktualisiert …"
+                            reloadEpg(force = true)
+                            epgLoading = false
+                            toast = if (app.epg.current(req.item) == null && shortEpg.isEmpty()) "Für diesen Sender liefert der Anbieter kein Programm" else "EPG aktualisiert"
+                        }
+                    },
                 ) else Column(
                     Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                         .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))))
@@ -673,6 +696,8 @@ private fun LiveInfoBar(
     app: AppState, req: PlayRequest, aspect: String, now: Long, shortEpg: List<com.poweriptv.app.data.EpgEntry>,
     onChannels: (() -> Unit)?, onAspect: (String) -> Unit, onOpenChange: (Boolean) -> Unit, onMultiScreen: () -> Unit,
     modifier: Modifier = Modifier,
+    epgLoading: Boolean = false,
+    onRefreshEpg: (() -> Unit)? = null,
 ) {
     val xCur = app.epg.current(req.item, now)
     val cur: Triple<Long, Long, String>? = xCur?.let { Triple(it.start, it.end, it.title) }
@@ -700,6 +725,17 @@ private fun LiveInfoBar(
                     Box(Modifier.fillMaxHeight().fillMaxWidth(progress).background(BrandCyan))
                 }
                 Text("Weiter: " + line(nxt), color = Color.White.copy(alpha = 0.8f), fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (onRefreshEpg != null) {
+                Spacer(Modifier.width(10.dp))
+                Box(
+                    Modifier.size(48.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)).handCursor()
+                        .clickable(enabled = !epgLoading, onClick = onRefreshEpg),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (epgLoading) CircularProgressIndicator(Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
+                    else Icon(Icons.Filled.Refresh, "EPG aktualisieren", tint = Color.White, modifier = Modifier.size(26.dp))
+                }
             }
         }
         @Composable

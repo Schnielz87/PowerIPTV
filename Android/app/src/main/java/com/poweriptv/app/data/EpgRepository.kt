@@ -54,12 +54,15 @@ class EpgRepository(
     val state: StateFlow<EpgState> = _state
 
     @Volatile private var loadedProfile: String? = null
+    /** Wann der Programmfuehrer zuletzt eingelesen wurde (aelter als 3 h -> automatisch neu einlesen). */
+    @Volatile private var loadedAt = 0L
     @Volatile private var byChannel: Map<String, List<Programme>> = emptyMap()
     @Volatile private var nameToId: Map<String, String> = emptyMap()
 
     suspend fun ensureLoaded(source: ContentSource, force: Boolean = false) = mutex.withLock {
         val profileId = source.profile.id
-        if (!force && loadedProfile == profileId && _state.value is EpgState.Ready) return@withLock
+        val stale = System.currentTimeMillis() - loadedAt > RELOAD_AFTER
+        if (!force && !stale && loadedProfile == profileId && _state.value is EpgState.Ready) return@withLock
         _state.value = EpgState.Loading
         try {
             val url = source.epgUrl() ?: throw IOException(
@@ -68,6 +71,7 @@ class EpgRepository(
             val file = withContext(Dispatchers.IO) { download(profileId, url, force) }
             withContext(Dispatchers.IO) { parse(file) }
             loadedProfile = profileId
+            loadedAt = System.currentTimeMillis()
             _state.value = EpgState.Ready(byChannel.size, byChannel.values.sumOf { it.size })
         } catch (e: Exception) {
             _state.value = EpgState.Error(e.message ?: e.javaClass.simpleName)
@@ -199,6 +203,7 @@ class EpgRepository(
 
     companion object {
         private const val MAX_AGE = 12 * 3600_000L
+        private const val RELOAD_AFTER = 3 * 3600_000L
         private const val KEEP_PAST = 3 * 24 * 3600_000L
         private const val KEEP_FUTURE = 3 * 24 * 3600_000L
 

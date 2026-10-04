@@ -406,6 +406,8 @@ class PlayerActivity : ComponentActivity() {
                             onMultiScreen = { startActivity(android.content.Intent(this@PlayerActivity, MultiViewActivity::class.java)) },
                             modifier = Modifier.align(Alignment.BottomCenter),
                             sideInset = if (container.isTvDevice) 0.dp else 80.dp,
+                            onRefreshEpg = { refreshEpg(force = true) },
+                            epgLoading = epgLoading,
                         )
                     } else if (showOverlay) {
                         // Wie gewuenscht: links Helligkeit, rechts Lautstaerke (Handy/Tablet) ...
@@ -558,13 +560,9 @@ class PlayerActivity : ComponentActivity() {
             epg = emptyList()
             val item = entry?.item
             if (entry?.live == true && item != null) {
-                // Erst den vollen XMLTV-EPG, sonst Kurz-EPG vom Server
-                val now = System.currentTimeMillis()
-                val fromXmltv = container.epg.programmesFor(item).filter { it.end > now }.take(2)
-                    .map { EpgEntry(it.title, it.description, it.start, it.end) }
-                epg = fromXmltv.ifEmpty {
-                    runCatching { container.source?.shortEpg(item).orEmpty() }.getOrDefault(emptyList())
-                }
+                // Erst den vollen XMLTV-EPG, sonst Kurz-EPG vom Server; danach im Hintergrund auffrischen
+                epg = LiveEpg.quick(container, item)
+                refreshEpg(force = false)
             }
         }
         Column(Modifier.fillMaxWidth().onFocusChanged { gearHasFocus = it.hasFocus }.background(Color(0x99000000)).padding(horizontal = 16.dp, vertical = 10.dp)) {
@@ -645,6 +643,22 @@ class PlayerActivity : ComponentActivity() {
         val v = if (liveInfoMode()) View.GONE else View.VISIBLE
         playerView?.findViewById<View>(androidx.media3.ui.R.id.exo_bottom_bar)?.visibility = v
         playerView?.findViewById<View>(androidx.media3.ui.R.id.exo_progress)?.visibility = v
+    }
+
+    private var epgLoading by mutableStateOf(false)
+
+    /** Jetzt/Weiter auffrischen; force = Programmfuehrer neu vom Anbieter laden ("EPG aktualisieren"). */
+    private fun refreshEpg(force: Boolean) {
+        val entry = current() ?: return
+        val item = entry.item ?: return
+        if (!entry.live || epgLoading) return
+        lastInteraction = System.currentTimeMillis()
+        if (force) { epgLoading = true; toast = "EPG wird aktualisiert …" }
+        lifecycleScope.launch {
+            val list = LiveEpg.refresh(container, item, force)
+            if (current()?.url == entry.url && (force || list.isNotEmpty())) epg = list
+            if (force) { epgLoading = false; toast = if (list.isEmpty()) "Für diesen Sender liefert der Anbieter kein Programm" else "EPG aktualisiert" }
+        }
     }
 
     private fun formatDelay(ms: Long): String {
