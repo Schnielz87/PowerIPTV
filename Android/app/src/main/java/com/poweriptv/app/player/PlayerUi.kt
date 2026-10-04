@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -43,6 +44,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -256,12 +258,12 @@ fun ChannelListPanel(
         val maxExtra = with(density) { (maxWidth * 0.95f - baseWidth).coerceAtLeast(0.dp).toPx() }
         val panelWidth = baseWidth + with(density) { extra.coerceIn(0f, maxExtra).toDp() }
         val wide = panelWidth >= baseWidth + 120.dp
-        Row(Modifier.align(Alignment.CenterEnd).fillMaxHeight().size(width = panelWidth + 22.dp, height = maxHeight)) {
+        Row(Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(panelWidth + 22.dp)) {
             // Griff zum Ziehen (nach links = breiter, nach rechts = schmaler)
             Box(
-                Modifier.fillMaxHeight().size(width = 22.dp, height = maxHeight).clickable(enabled = false) {}
+                Modifier.fillMaxHeight().width(22.dp).clickable(enabled = false) {}
                     .pointerInput(maxExtra) {
-                        androidx.compose.foundation.gestures.detectHorizontalDragGestures { change, dx ->
+                        detectHorizontalDragGestures { change, dx ->
                             change.consume()
                             extra = (extra - dx).coerceIn(0f, maxExtra)
                         }
@@ -271,7 +273,7 @@ fun ChannelListPanel(
                 Box(Modifier.size(width = 6.dp, height = 64.dp).clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.6f)))
             }
             Column(
-                Modifier.fillMaxHeight().size(width = panelWidth, height = maxHeight)
+                Modifier.fillMaxHeight().width(panelWidth)
                     .background(Color(0xF0101620)).clickable(enabled = false) {}.padding(vertical = 12.dp),
             ) {
                 Text("Senderliste", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))

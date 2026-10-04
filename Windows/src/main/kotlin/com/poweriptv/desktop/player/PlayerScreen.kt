@@ -1,5 +1,6 @@
 package com.poweriptv.desktop.player
 
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -565,7 +566,7 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                         Modifier.width(22.dp).fillMaxHeight()
                             .pointerHoverIcon(PointerIcon(java.awt.Cursor(java.awt.Cursor.W_RESIZE_CURSOR)))
                             .pointerInput(maxExtra) {
-                                androidx.compose.foundation.gestures.detectHorizontalDragGestures { change, dx ->
+                                detectHorizontalDragGestures { change, dx ->
                                     change.consume(); extra = (extra - dx).coerceIn(0f, maxExtra); poke()
                                 }
                             },
