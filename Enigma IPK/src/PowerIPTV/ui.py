@@ -24,7 +24,7 @@ from Components.config import ConfigText, ConfigPassword, ConfigSelection, Confi
 
 from . import store, rules
 from .api import make_source, normalize_server
-from .common import PLUGIN_DIR, FHD, CACHE, scale, run_async, make_timer, fmt_time, px, PList, fetch_image, show_image
+from .common import PLUGIN_DIR, FHD, CACHE, scale, run_async, make_timer, fmt_time, px, PList, fetch_image, show_image, stream_switch, is_stream
 from .player import PortivaPlayer
 
 VERSION = "1.1.0"
@@ -548,10 +548,16 @@ class ItemScreen(Base):
         self.pv_ref = None       # was gerade in der Vorschau laeuft
         self.pv_prev = None      # was vorher lief (wird beim Schliessen wiederhergestellt)
         self.pv_started = False
+        self.pv_last = 0.0       # Zeitpunkt der letzten Vorschau-Verbindung (Puffer gegen zu schnelles Umschalten)
+        self.open_timer = make_timer(self.open_pending)
+        self.open_item = None
         if self.p_live:
             self["pv_hint"].setText("Live-Vorschau …" if self.pv_on else "")
             self["pv_progress"].hide()
+            if self.pv_on:
+                run_async(self, source.connections, self.check_connections, lambda m: None)
         self.onClose.append(self.p_cleanup)
+        self.onExecBegin.append(self.p_resume)
         if items is not None:
             self.loaded(items)
         else:
@@ -597,7 +603,7 @@ class ItemScreen(Base):
             self["pv_desc"].setText("")
             self["pv_progress"].hide()
             if self.pv_on and item is not None:
-                self.pv_timer.start(1200, True)
+                self.pv_timer.start(1500, True)  # erst verbinden, wenn man kurz auf dem Sender stehen bleibt
         elif item is None:
             self["info"].setText("")
         else:
@@ -606,37 +612,62 @@ class ItemScreen(Base):
         if item is not None:
             self.info_timer.start(500, True)  # erst nach kurzer Pause nachladen (schnelles Blaettern)
 
-    # ---------- Live-Vorschau ----------
+    # ---------- Live-Vorschau (mit Verbindungsschutz) ----------
+    def check_connections(self, res):
+        """Vorschau pausieren, wenn der Zugang keine freie Verbindung mehr hat (z. B. anderes Geraet schaut)."""
+        active, maximum = res
+        if not maximum or self.p_closed:
+            return
+        own = 1 if is_stream(stream_switch(self.session).current()) else 0
+        if active - own >= maximum:
+            self.pv_on = False
+            self.pv_timer.stop()
+            self["pv_hint"].setText("Vorschau pausiert – alle %d Verbindung(en) belegt" % maximum)
+
+    def url_of(self, item):
+        return item.get("url") or self.source.stream_url(item, store.settings().get("live_format", "ts"))
+
     def preview(self):
         n, item = self.current()
-        if self.p_closed or item is None or item.get("kind") != "live":
+        if self.p_closed or not self.pv_on or item is None or item.get("kind") != "live":
+            return
+        # Puffer: hoechstens alle 3 Sekunden eine neue Verbindung, auch beim schnellen Blaettern
+        wait = 3.0 - (time.time() - self.pv_last)
+        if wait > 0:
+            self.pv_timer.start(int(wait * 1000) + 50, True)
             return
         from .player import make_ref
-        url = item.get("url") or self.source.stream_url(item, store.settings().get("live_format", "ts"))
+        url = self.url_of(item)
         if url == self.pv_ref:
             return
-        nav = self.session.nav
+        sw = stream_switch(self.session)
         if not self.pv_started:
-            try:
-                self.pv_prev = nav.getCurrentlyPlayingServiceOrGroup()
-            except AttributeError:
-                self.pv_prev = nav.getCurrentlyPlayingServiceReference()
+            self.pv_prev = sw.current()
             self.pv_started = True
         self.pv_ref = url
+        self.pv_last = time.time()
         self["pv_hint"].setText("")
         self["pv_live"].setText("● LIVE")
-        nav.playService(make_ref(url, item.get("name", "")))
+        sw.play(make_ref(url, item.get("name", "")))  # schliesst den alten Stream und wartet kurz
+
+    def p_resume(self):
+        """Zurueck aus dem Player: Vorschau wieder aufnehmen (der Player hat den Stream evtl. beendet)."""
+        if self.pv_on and self.pv_started and not self.p_closed:
+            self.pv_ref = None
+            self.pv_timer.start(1500, True)
 
     def p_cleanup(self):
         """Beim Schliessen: Timer stoppen und das vorherige Programm wieder einschalten."""
         self.info_timer.stop()
         self.pv_timer.stop()
+        self.open_timer.stop()
         if self.pv_started:
             try:
+                sw = stream_switch(self.session)
                 if self.pv_prev is not None:
-                    self.session.nav.playService(self.pv_prev)
+                    sw.play(self.pv_prev)
                 else:
-                    self.session.nav.stopService()
+                    sw.stop()
             except Exception:
                 pass
 
@@ -713,7 +744,25 @@ class ItemScreen(Base):
 
     def ok(self):
         n, item = self.current()
-        if item is not None:
+        if item is None:
+            return
+        self.pv_timer.stop()
+        if self.pv_started and item.get("kind") == "live" and self.url_of(item) == self.pv_ref:
+            play(self.session, self.source, self.shown, n)  # laeuft schon in der Vorschau -> keine neue Verbindung
+            return
+        if self.pv_started:
+            # anderer Sender/Film: Vorschau-Stream erst schliessen und kurz warten, dann oeffnen
+            sw = stream_switch(self.session)
+            sw.stop()
+            self.pv_ref = None
+            self.open_item = n
+            self.open_timer.start(max(100, sw.wait_ms()), True)
+            return
+        play(self.session, self.source, self.shown, n)
+
+    def open_pending(self):
+        n, self.open_item = self.open_item, None
+        if n is not None and not self.p_closed and n < len(self.shown):
             play(self.session, self.source, self.shown, n)
 
     def programme(self):

@@ -22,7 +22,7 @@ from Components.MenuList import MenuList
 from Components.ProgressBar import ProgressBar
 
 from . import store
-from .common import scale, run_async, make_timer, fmt_time, fmt_day, fetch_image, show_image, px, PList
+from .common import scale, run_async, make_timer, fmt_time, fmt_day, fetch_image, show_image, px, PList, stream_switch
 
 
 def service_type():
@@ -230,7 +230,8 @@ class PortivaPlayer(MoviePlayer):
         self.p_index = index % len(self.p_list)
         item = self.p_item()
         self.p_url = self._url(item)
-        self.session.nav.playService(make_ref(self.p_url, item.get("name", "")))
+        # Zapp-Puffer: alten Stream schliessen, kurz warten; beim schnellen Zappen wird nur der letzte Sender verbunden
+        stream_switch(self.session).play(make_ref(self.p_url, item.get("name", "")))
         store.add_history(self.p_pid, item)
         self.p_refresh_info()
         try:
@@ -330,7 +331,7 @@ class PortivaPlayer(MoviePlayer):
             self.p_index += 1
             item = self.p_item()
             self.p_url = self._url(item)
-            self.session.nav.playService(make_ref(self.p_url, item.get("name", "")))
+            stream_switch(self.session).play(make_ref(self.p_url, item.get("name", "")))
             self.p_refresh_info()
             return
         self.is_closing = True

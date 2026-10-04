@@ -209,6 +209,15 @@ class XtreamSource(object):
         info = r.get("info") or {}
         return {"plot": info.get("plot"), "seasons": seasons}
 
+    def connections(self):
+        """(aktive, erlaubte) Verbindungen laut Anbieter, frisch abgefragt; (None, None) wenn unbekannt."""
+        try:
+            info = (self.api(None, timeout=10) or {}).get("user_info") or {}
+        except Exception:
+            return None, None
+        mx = _num(info.get("max_connections"))
+        return _num(info.get("active_cons")), (mx or None)
+
     def account_text(self):
         try:
             info = self.authenticate()
@@ -288,6 +297,9 @@ class M3uSource(object):
 
     def series_info(self, item):
         return {"plot": None, "seasons": {1: [item]}}
+
+    def connections(self):
+        return None, None
 
     def account_text(self):
         return "M3U-Link"
