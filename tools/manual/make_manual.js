@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.96 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.97 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -163,6 +163,7 @@ c.push(bullet([b('Timeshift: '), t('Pause bei Live-TV puffert die Sendung; Play 
 c.push(bullet([b('Aufnahme: '), t('Roter Punkt (oder rote Taste) → bis Sendungsende oder 30–180 Minuten. Während der Aufnahme kommt das Bild direkt aus der Aufnahme – so reicht eine Verbindung. Stoppen: roter Punkt → „Aufnahme stoppen“ oder über die Benachrichtigung.')]));
 c.push(bullet([b('Catch-up: '), t('Verpasste Sendungen im Programmführer nachträglich ansehen (wenn der Anbieter es unterstützt).')]));
 c.push(bullet([b('VLC-Modus: '), t('Sender mit älterem Videoformat (z.B. RTL, ProSieben, VOX) wechseln automatisch in den VLC-Player.')]));
+c.push(bullet([b('Sender wechseln: '), t('Die Pfeile ⏮ / ⏭ in der Bildmitte schalten zum vorherigen bzw. nächsten Sender der Liste (wie CH+/CH- auf der Fernbedienung).')]));
 
 // 9
 c.push(h1('9. Programmführer (EPG) & Erinnerungen'));
@@ -204,6 +205,7 @@ c.push(tip('Beim Umzug vom Handy auf den Fire TV: Sicherung mit Passwort erstell
 c.push(h1('13. Hilfe bei Problemen'));
 c.push(table(['Problem', 'Lösung'], [
   ['Bild bleibt beim Spulen stehen', 'Behoben ab 1.1.79: Bei Zugängen mit nur 1 Stream öffnet die Vorschau keine 2. Verbindung mehr. Ab 1.1.80 gibt es die Vorschaubilder dort trotzdem wieder: Der Film hält beim Ziehen kurz an. Ab 1.1.84 spult der Player schneller: mehrere Tipps auf ⏪10/10⏩ werden zu einem Sprung zusammengefasst und es wird zum nächsten Schlüsselbild gesprungen (kein langes Nachladen bis zur exakten Sekunde). Hängt das Bild länger als 10 Sekunden, lädt der Player den Stream automatisch an derselben Stelle neu.'],
+  ['Live TV: nur Ton, kein Bild (oft SD-Sender)', 'Behoben ab 1.1.97: Viele SD-Sender senden im älteren MPEG-2-Format, das der Standard-Player auf Handys/Tablets nicht anzeigen kann. Läuft der Ton 6 Sekunden ohne Bild, wechselt Portiva automatisch zu VLC und merkt sich das für diesen Sender.'],
   ['Film läuft ohne Ton', 'Behoben ab 1.1.80: Viele Filme haben DTS- oder TrueHD-Ton, den der Standard-Player auf den meisten Handys/Tablets nicht abspielen kann. Portiva erkennt das und wechselt automatisch auf VLC (spielt DTS ab). Im Player-Zahnrad unter „Audiospur“ wählst du die Sprache (z. B. Deutsch / Englisch); Spuren mit „(mit VLC)“ wechseln beim Antippen auf VLC.'],
   ['Live TV stockt', 'Beide Player puffern Live TV jetzt größer (Standard-Player bis 60 s, nach einem Aussetzer erst mit 6 s Vorrat weiter; VLC 4 s) und verbinden sich nach Unterbrechungen automatisch neu. Unter Windows: Einstellungen → Player → Puffer „Groß“.'],
   ['Wann wird VLC benutzt?', 'Im Modus „Automatisch“ startet immer zuerst der Standard-Player. Nur wenn er einen bestimmten Stream nicht abspielen kann (z.B. seltene Ton- oder Bildformate), wechselt die App für genau diesen Titel zu VLC.'],

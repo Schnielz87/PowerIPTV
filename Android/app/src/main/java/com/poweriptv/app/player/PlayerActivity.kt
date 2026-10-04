@@ -271,13 +271,16 @@ class PlayerActivity : ComponentActivity() {
                 }
             }
 
+            override fun onRenderedFirstFrame() { firstFrameAt = System.currentTimeMillis() }
+
             override fun onTracksChanged(tracks: Tracks) {
                 panelTick++ // Einstellungsleiste/Untertitel-Knopf zeigen die neue Auswahl
                 matchFrameRate()
                 // Videospur vorhanden, aber kein Decoder dafuer (z.B. MPEG-2) -> nur Ton, kein Bild
                 val video = tracks.groups.filter { it.type == C.TRACK_TYPE_VIDEO }
                 val unsupported = video.isNotEmpty() && video.none { g -> (0 until g.length).any { g.isTrackSupported(it) } }
-                if (unsupported && !switchToVlc()) {
+                // Bild ohne Ton/Ton ohne Bild will niemand -> auch bei fest eingestelltem Standard-Player auf VLC
+                if (unsupported && !switchToVlc(force = true)) {
                     toast = "Videoformat wird von diesem Geraet nicht unterstuetzt – in den Einstellungen \"VLC\" waehlen"
                     return
                 }
@@ -362,6 +365,9 @@ class PlayerActivity : ComponentActivity() {
                                         }
                                     })
                                 playerView = this
+                                // ⏮/⏭ direkt an die App-Warteschlange (Sender bzw. Folge wechseln) – unabhaengig vom Player-Zustand
+                                findViewById<View>(androidx.media3.ui.R.id.exo_prev)?.setOnClickListener { lastInteraction = System.currentTimeMillis(); if (container.playQueue.size > 1) previous() }
+                                findViewById<View>(androidx.media3.ui.R.id.exo_next)?.setOnClickListener { lastInteraction = System.currentTimeMillis(); if (container.playQueue.size > 1) next() }
                                 // Nach PlayerView registriert -> setzt feste Formate nach jeder Videogroessen-Aenderung erneut
                                 this@PlayerActivity.player.addListener(object : Player.Listener {
                                     override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) = applyAspect()
@@ -479,6 +485,7 @@ class PlayerActivity : ComponentActivity() {
                     LaunchedEffect(Unit) {
                         while (true) {
                             delay(500)
+                            checkNoPicture()
                             if (introDetector.active) {
                                 val p = player.currentPosition
                                 introFp.enabled = p < com.poweriptv.app.intro.IntroDetector.WINDOW_MS + 5_000
@@ -650,6 +657,26 @@ class PlayerActivity : ComponentActivity() {
     private var switchedToVlc = false
     /** Automatische Neuverbindungen bei Netzwerk-Aussetzern (wird bei laufendem Bild zurueckgesetzt). */
     private var netRetries = 0
+
+    /** Wann das erste Bild kam (0 = noch keins) und seit wann der Ton laeuft – fuer "nur Ton, kein Bild". */
+    private var firstFrameAt = 0L
+    private var playingSince = 0L
+
+    /**
+     * Manche Sender (oft SD, MPEG-2) liefern im Standard-Player nur Ton: der Decoder meldet sich als
+     * passend, zeigt aber nie ein Bild. Laeuft der Ton 6 s ohne ein einziges Bild -> automatisch VLC.
+     */
+    private fun checkNoPicture() {
+        if (switchedToVlc || watchingRecording || playingBuffer) return
+        val hasVideo = player.currentTracks.groups.any { it.type == C.TRACK_TYPE_VIDEO && it.isSelected }
+        if (!player.isPlaying || !hasVideo || firstFrameAt > 0) { if (!player.isPlaying) playingSince = 0L; return }
+        val now = System.currentTimeMillis()
+        if (playingSince == 0L) { playingSince = now; return }
+        if (now - playingSince > 6_000) {
+            toast = "Kein Bild im Standard-Player – wechsle zu VLC …"
+            switchToVlc(force = true)
+        }
+    }
 
     private fun switchToVlc(force: Boolean = false): Boolean {
         if (switchedToVlc) return true
@@ -1023,6 +1050,7 @@ class PlayerActivity : ComponentActivity() {
         if (prev != container.playIndex && queue.getOrNull(prev)?.live == true) lastChannel = prev
         val entry = queue[container.playIndex]
         title = entry.title
+        firstFrameAt = 0L; playingSince = 0L
         // Live-TV: beim Umschalten immer kurz die Sender-Infos zeigen
         if (entry.live) { lastInteraction = System.currentTimeMillis(); playerView?.showController() }
         error = null
