@@ -27,9 +27,9 @@ struct HomeView: View {
                 }
                 // Grosse Kacheln
                 HStack(spacing: 12) {
-                    bigTile("LIVE TV", "Sender & TV-Guide", .LIVE, [Color(red: 0.12, green: 0.42, blue: 1), Color(red: 0.04, green: 0.15, blue: 0.28)])
-                    bigTile("FILME", "Filme & Neuheiten", .MOVIE, [Color(red: 0.48, green: 0.24, blue: 1), Color(red: 0.11, green: 0.08, blue: 0.31)])
-                    bigTile("SERIEN", "Serien & Staffeln", .SERIES, [Color(red: 0.05, green: 0.54, blue: 0.54), Color(red: 0.04, green: 0.15, blue: 0.28)])
+                    bigTile("LIVE TV", "Sender & TV-Guide", "live_tv_collage", .LIVE, [Color(red: 0.12, green: 0.42, blue: 1), Color(red: 0.04, green: 0.15, blue: 0.28)])
+                    bigTile("FILME", "Filme & Neuheiten", "movies_collage", .MOVIE, [Color(red: 0.48, green: 0.24, blue: 1), Color(red: 0.11, green: 0.08, blue: 0.31)])
+                    bigTile("SERIEN", "Serien & Staffeln", "series_collage", .SERIES, [Color(red: 0.05, green: 0.54, blue: 0.54), Color(red: 0.04, green: 0.15, blue: 0.28)])
                 }
                 .frame(height: 150)
 
@@ -86,14 +86,22 @@ struct HomeView: View {
         if let ep = h.episode { app.play([app.entry(for: ep, series: h.item)]) } else { app.play([app.entry(for: h.item)]) }
     }
 
-    private func bigTile(_ title: String, _ sub: String, _ type: ContentType, _ colors: [Color]) -> some View {
+    /** Grosse Kachel wie Android/Windows/Samsung: Bild, Farbton, abgedunkelte Mitte, Symbol + Titel. */
+    private func bigTile(_ title: String, _ sub: String, _ image: String, _ type: ContentType, _ colors: [Color]) -> some View {
         NavigationLink(value: Route.browse(type)) {
-            ZStack(alignment: .bottomLeading) {
+            ZStack {
                 LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.title2.weight(.heavy)).foregroundColor(.white)
-                    Text(sub).font(.caption).foregroundColor(.white.opacity(0.85))
-                }.padding(14)
+                GeometryReader { g in
+                    Image(image).resizable().scaledToFill().frame(width: g.size.width, height: g.size.height).clipped()
+                }
+                LinearGradient(colors: [colors[0].opacity(0.35), colors[1].opacity(0.65)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                RadialGradient(colors: [Color.black.opacity(0.55), .clear], center: .center, startRadius: 5, endRadius: 140)
+                VStack(spacing: 4) {
+                    Image(systemName: type == .LIVE ? "play.tv" : type == .MOVIE ? "film" : "play.rectangle.on.rectangle")
+                        .font(.system(size: 30, weight: .semibold)).foregroundColor(.white)
+                    Text(title).font(.title3.weight(.heavy)).foregroundColor(.white).shadow(color: .black.opacity(0.8), radius: 6, y: 2)
+                    Text(sub).font(.caption2).foregroundColor(.white.opacity(0.85)).lineLimit(1)
+                }.padding(8)
             }
             .clipShape(RoundedRectangle(cornerRadius: 18))
         }

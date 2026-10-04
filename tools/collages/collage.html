@@ -1,143 +1,245 @@
 <!doctype html>
 <!--
-  Generator fuer die Startseiten-Collagen (Live-TV, Filme, Serien).
-  Rein stilisiert und komplett OHNE Text: keine Senderlogos, keine Sendernamen, keine Film-/Serientitel,
-  keine echten Personen/Figuren – nur Farben, Formen und neutrale Symbole (keine Marken-/Urheberrechtsprobleme).
-  Aufruf ueber generate.js (Chromium-Screenshot 1200x600) -> generate_webp.py
+  Generator fuer die Startseiten-Collagen (Live-TV, Filme, Serien) – rechtlich unbedenklich:
+  - Live TV: nur allgemeine, beschreibende Bezeichnungen (SPORT HD, NEWS 24, DOKU ...) – keine echten
+    Sendernamen, keine echten Logos, keine logo-aehnlichen Formen (z.B. keine Zahl im Kreis).
+  - Filme: Kino-Motive (Vorhang, Projektor, Filmstreifen, Klappe, Popcorn); Serien: Fernseher mit Staffel-/
+    Folgen-Uebersicht. Nur selbst gezeichnete Szenen und anonyme Silhouetten – keine echten Plakate,
+    keine echten Personen/Gesichter, keine Titel oder Namen.
+  Alles wird hier selbst gezeichnet (CSS/SVG). Aufruf ueber generate.js -> generate_webp.py
 -->
 <html><head><meta charset="utf-8"><style>
   html,body{margin:0;width:1200px;height:600px;overflow:hidden;background:#050a18;font-family:"DejaVu Sans",Arial,sans-serif}
   .stage{position:absolute;inset:0;overflow:hidden}
-  .wall{position:absolute;display:flex;flex-wrap:wrap;gap:12px;transform-origin:50% 50%}
-  .tile{border-radius:12px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;
-        box-shadow:0 8px 24px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.18)}
-  .lbl{font-weight:900;letter-spacing:.5px;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.4)}
-  .poster{position:absolute;border-radius:10px;overflow:hidden;box-shadow:0 14px 34px rgba(0,0,0,.7)}
-  .ptitle{position:absolute;left:8%;right:8%;bottom:7%;text-align:center;color:#fff;font-family:"DejaVu Serif",Georgia,serif;
-          font-weight:700;letter-spacing:2px;text-shadow:0 2px 8px rgba(0,0,0,.8);line-height:1.05}
-  .ptag{position:absolute;top:5%;left:0;right:0;text-align:center;font-size:9px;letter-spacing:3px;color:rgba(255,255,255,.7)}
+  .wall{position:absolute;display:grid;gap:10px;transform-origin:50% 50%}
+  .tile{border-radius:10px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;
+        box-shadow:0 8px 22px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.22)}
+  .word{font-weight:900;letter-spacing:.5px;line-height:1;text-align:center}
+  .poster{position:absolute;border-radius:8px;overflow:hidden;box-shadow:0 14px 34px rgba(0,0,0,.75)}
+  .ptitle{position:absolute;left:6%;right:6%;bottom:8%;text-align:center;color:#fff;font-weight:800;line-height:1.02;
+          text-shadow:0 2px 10px rgba(0,0,0,.9)}
+  .ptag{position:absolute;top:5%;left:0;right:0;text-align:center;font-size:8px;letter-spacing:3px;color:rgba(255,255,255,.75)}
   .grain{position:absolute;inset:0;opacity:.10;mix-blend-mode:overlay;pointer-events:none}
 </style></head><body>
 <div class="stage" id="stage"></div>
 <svg width="0" height="0" style="position:absolute"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/></filter></svg>
 <script>
 // Deterministischer Zufall -> identische Bilder bei jedem Lauf
-let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 const pick = a => a[Math.floor(rnd() * a.length)];
 const stage = document.getElementById('stage');
 const type = new URLSearchParams(location.search).get('type') || 'live';
 
 function grain(){ const s=document.createElementNS('http://www.w3.org/2000/svg','svg'); s.setAttribute('class','grain');
   s.setAttribute('width','1200'); s.setAttribute('height','600'); s.innerHTML='<rect width="100%" height="100%" filter="url(#noise)"/>'; stage.appendChild(s); }
-function glow(x,y,r,c,o){ const d=document.createElement('div'); d.style.cssText=`position:absolute;left:${x-r}px;top:${y-r}px;width:${2*r}px;height:${2*r}px;border-radius:50%;background:radial-gradient(circle,${c} 0%,transparent 70%);opacity:${o};pointer-events:none`; stage.appendChild(d); }
+function glow(x,y,r,c,o){ const d=document.createElement('div'); d.style.cssText=`position:absolute;left:${x-r}px;top:${y-r}px;width:${2*r}px;height:${2*r}px;border-radius:50%;background:radial-gradient(circle,${c} 0%,transparent 70%);opacity:${o};pointer-events:none;z-index:5`; stage.appendChild(d); }
 
-/* ---------------- LIVE-TV: Senderwand ---------------- */
-function live(){
-  stage.style.background='radial-gradient(ellipse at 40% 40%,#12306a 0%,#08142e 55%,#040812 100%)';
-  const brands=[
-    ['#e11d2e','#8f0d1a'],['#1e5bd8','#0b2a74'],['#f28c1b','#b44d06'],['#14a37f','#0a5a46'],['#7c3aed','#3b1580'],
-    ['#f5f5f7','#c9ccd6'],['#0f172a','#1e293b'],['#e6007e','#7a0043'],['#ffcc00','#d48a00'],['#00a3e0','#005b8f'],['#222','#444']];
-  // Neutrale Genre-Symbole (eigene einfache Formen): Play, Note, Stern, Globus, Ball, Blitz, Herz, Mikrofon, Kamera, Sonne
-  const ICONS=[
-    '<path d="M8 5v14l11-7z"/>',
-    '<path d="M12 3v10.6A4 4 0 1 0 14 17V7h4V3z"/>',
-    '<path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.7 7-6.3-3.9-6.3 3.9 1.7-7L2 9.5l7.1-.6z"/>',
-    '<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2c1.3 1.6 2.2 3.7 2.4 6H9.6C9.8 7.7 10.7 5.6 12 4zM4.1 13h3.5c.1 1.9.6 3.7 1.4 5.2A8 8 0 0 1 4.1 13zm0-2a8 8 0 0 1 4.9-5.2C8.2 7.3 7.7 9.1 7.6 11zm7.9 9c-1.3-1.6-2.2-3.7-2.4-6h4.8c-.2 2.3-1.1 4.4-2.4 6zm3-1.8c.8-1.5 1.3-3.3 1.4-5.2h3.5a8 8 0 0 1-4.9 5.2zM16.4 11c-.1-1.9-.6-3.7-1.4-5.2a8 8 0 0 1 4.9 5.2z"/>',
-    '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="0"/><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4l3.8 2.8-1.5 4.4H9.7L8.2 8.8z"/>',
-    '<path d="M13 2L4 14h6l-1 8 9-12h-6z"/>',
-    '<path d="M12 21l-1.4-1.3C5.4 15 2 12 2 8.4 2 5.4 4.4 3 7.4 3c1.7 0 3.4.8 4.6 2.1C13.2 3.8 14.9 3 16.6 3 19.6 3 22 5.4 22 8.4c0 3.6-3.4 6.6-8.6 11.3z"/>',
-    '<path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1a7 7 0 0 0 6-6.9z"/>',
-    '<path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11z"/>',
-    '<circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="currentColor" stroke-width="2"/>',
-  ];
-  function layer(scale,blur,opacity,shiftX,shiftY,rot){
-    const w=document.createElement('div'); w.className='wall';
-    w.style.cssText+=`width:1700px;left:${-250+shiftX}px;top:${-160+shiftY}px;transform:perspective(1100px) rotateY(${rot}deg) rotateX(6deg) scale(${scale});filter:blur(${blur}px);opacity:${opacity}`;
-    for(let i=0;i<70;i++){
-      const t=document.createElement('div'); t.className='tile';
-      const big=rnd()<.18, wd=big?250:120, ht=big?140:72; t.style.width=wd+'px'; t.style.height=ht+'px';
-      const r=rnd();
-      if(r<.16){ // "Sendebild": Fussballfeld
-        t.style.background='linear-gradient(160deg,#1f7a3a,#0d4a22)';
-        t.innerHTML='<div style="position:absolute;inset:18% 10%;border:2px solid rgba(255,255,255,.55);border-radius:4px"></div><div style="position:absolute;left:50%;top:18%;bottom:18%;border-left:2px solid rgba(255,255,255,.55)"></div><div style="position:absolute;left:50%;top:50%;width:26%;height:36%;border:2px solid rgba(255,255,255,.55);border-radius:50%;transform:translate(-50%,-50%)"></div>';
-      } else if(r<.26){ // Studio / Nachrichten
-        t.style.background='radial-gradient(circle at 30% 40%,#5ec4f2 0%,#1e4f9a 45%,#0a1c3e 100%)';
-        t.innerHTML='<div style="position:absolute;left:8%;right:8%;bottom:10%;height:18%;background:rgba(225,29,46,.9);border-radius:3px"></div><div style="position:absolute;left:12%;bottom:13%;width:50%;height:6%;background:#fff;border-radius:2px"></div>';
-      } else if(r<.32){ // Motorsport
-        t.style.background='linear-gradient(120deg,#0b0f1a 0%,#2a0d3d 60%,#e6007e 140%)';
-        t.innerHTML='<div style="position:absolute;left:-10%;right:-10%;top:55%;height:10%;background:linear-gradient(90deg,transparent,#ff3b3b,transparent);transform:skewY(-8deg)"></div>';
-      } else { // neutrale Kachel: nur Farbe + Symbol, keine Namen/Logos
-        const b=pick(brands); t.style.background=`linear-gradient(145deg,${b[0]},${b[1]})`;
-        const light=b[0]==='#f5f5f7'||b[0]==='#ffcc00';
-        const col=light?'#10204a':'#fff', sz=big?64:30;
-        t.innerHTML=`<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="${col}" style="opacity:.92;color:${col}">${pick(ICONS)}</svg>`;
-      }
-      w.appendChild(t);
-    }
-    stage.appendChild(w);
+/* Neutrale Piktogramme (eigene einfache Formen) */
+const ICON={
+  play:'<path d="M8 5v14l11-7z"/>', note:'<path d="M12 3v10.6A4 4 0 1 0 14 17V7h4V3z"/>',
+  star:'<path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.7 7-6.3-3.9-6.3 3.9 1.7-7L2 9.5l7.1-.6z"/>',
+  bolt:'<path d="M13 2L4 14h6l-1 8 9-12h-6z"/>', heart:'<path d="M12 21l-1.4-1.3C5.4 15 2 12 2 8.4 2 5.4 4.4 3 7.4 3c1.7 0 3.4.8 4.6 2.1C13.2 3.8 14.9 3 16.6 3 19.6 3 22 5.4 22 8.4c0 3.6-3.4 6.6-8.6 11.3z"/>',
+  leaf:'<path d="M5 21c0-9 6-15 16-16-1 10-7 16-16 16zm2-2c3-4 6-7 10-10-4 2-7 5-10 10z"/>',
+  sun:'<circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="currentColor" stroke-width="2"/>',
+  cam:'<path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11z"/>',
+  mic:'<path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1a7 7 0 0 0 6-6.9z"/>',
+  car:'<path d="M5 11l2-5h10l2 5h1v6h-2v2h-3v-2H9v2H6v-2H4v-6zm3-3l-1.2 3h10.4L16 8zm-1 6a1.3 1.3 0 1 0 0 .1zm10 0a1.3 1.3 0 1 0 0 .1z"/>',
+};
+const svg=(name,size,col)=>`<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${col}" style="color:${col};flex:none">${ICON[name]}</svg>`;
+
+/* ---------------- LIVE-TV: Senderwand (nur allgemeine Bezeichnungen) ---------------- */
+const CHANNELS=[ // Wort, Symbol (oder leer)
+  ['SPORT HD','bolt'],['NEWS 24',''],['DOKU','leaf'],['KIDS','star'],['MUSIK','note'],['KANAL 5',''],['FILM','play'],
+  ['SERIE','play'],['REGIO',''],['WETTER','sun'],['KULTUR',''],['MOTOR','car'],['FUSSBALL',''],['KRIMI',''],
+  ['COMEDY','heart'],['WISSEN',''],['REISE','sun'],['KOCHEN','heart'],['TALK','mic'],['SHOW','star'],['NATUR','leaf'],['LIVE','cam']];
+const STYLES=[ // Hintergrund, Schrift, Symbolfarbe
+  ['linear-gradient(145deg,#ffffff,#d9dde6)','#c8102e','#c8102e'], ['linear-gradient(145deg,#e11d2e,#7f0b18)','#fff','#fff'],
+  ['linear-gradient(145deg,#1e5bd8,#0a2466)','#fff','#ffcc00'], ['linear-gradient(145deg,#0d0f14,#252a36)','#fff','#e11d2e'],
+  ['linear-gradient(145deg,#f28c1b,#a34400)','#fff','#fff'], ['linear-gradient(145deg,#14a37f,#064a38)','#fff','#d9ff7a'],
+  ['linear-gradient(145deg,#7c3aed,#2e0f6e)','#fff','#ffcc00'], ['linear-gradient(145deg,#ffcc00,#d48a00)','#10204a','#10204a'],
+  ['linear-gradient(145deg,#e6007e,#6d003b)','#fff','#fff'], ['linear-gradient(145deg,#00a3e0,#004f7a)','#fff','#fff'],
+  ['linear-gradient(145deg,#f4f4f4,#bfc4cf)','#10204a','#1e5bd8'], ['linear-gradient(145deg,#1b1f2a,#0a0c12)','#ffcc00','#ffcc00']];
+
+function scene(t){ // "laufendes Programm" als Kachelbild
+  const r=rnd();
+  if(r<.24){ // Fussball
+    t.style.background='linear-gradient(170deg,#2f9a4c,#0f5427)';
+    t.innerHTML='<div style="position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.06) 0 18px,transparent 18px 36px)"></div><div style="position:absolute;inset:16% 8%;border:2px solid rgba(255,255,255,.7);border-radius:3px"></div><div style="position:absolute;left:50%;top:16%;bottom:16%;border-left:2px solid rgba(255,255,255,.7)"></div><div style="position:absolute;left:50%;top:50%;width:24%;height:36%;border:2px solid rgba(255,255,255,.7);border-radius:50%;transform:translate(-50%,-50%)"></div><div style="position:absolute;left:12%;top:8%;width:30%;height:9%;background:rgba(0,0,0,.55);border-radius:2px"></div>';
+  } else if(r<.40){ // Nachrichtenstudio
+    t.style.background='radial-gradient(circle at 70% 35%,#7fd3ff 0%,#2a6fc2 40%,#0a1c3e 100%)';
+    t.innerHTML='<div style="position:absolute;left:30%;bottom:22%;width:22%;height:48%;background:rgba(10,20,40,.85);border-radius:45% 45% 8% 8%"></div><div style="position:absolute;left:8%;right:8%;bottom:9%;height:16%;background:rgba(225,29,46,.95);border-radius:2px"></div><div style="position:absolute;left:11%;bottom:12%;width:52%;height:5%;background:#fff;border-radius:2px"></div>';
+  } else if(r<.52){ // Motorsport
+    t.style.background='linear-gradient(180deg,#5aa0d8 0%,#a9c9e6 40%,#3b3f47 41%,#24272e 100%)';
+    t.innerHTML='<div style="position:absolute;left:0;right:0;top:62%;height:4%;background:repeating-linear-gradient(90deg,#fff 0 14px,#e11d2e 14px 28px)"></div><div style="position:absolute;left:34%;top:46%;width:34%;height:16%;background:#e11d2e;border-radius:40% 60% 20% 20%"></div><div style="position:absolute;left:38%;top:58%;width:9%;height:12%;background:#111;border-radius:50%"></div><div style="position:absolute;left:58%;top:58%;width:9%;height:12%;background:#111;border-radius:50%"></div>';
+  } else if(r<.64){ // Konzert / Show
+    t.style.background='linear-gradient(180deg,#1a0633,#4a0f63 60%,#120318)';
+    t.innerHTML='<div style="position:absolute;left:10%;top:-10%;width:18%;height:120%;background:linear-gradient(180deg,rgba(255,220,120,.6),transparent);transform:rotate(18deg)"></div><div style="position:absolute;right:12%;top:-10%;width:18%;height:120%;background:linear-gradient(180deg,rgba(94,196,242,.6),transparent);transform:rotate(-18deg)"></div><div style="position:absolute;left:0;right:0;bottom:0;height:28%;background:repeating-radial-gradient(circle at 10% 100%,#05010a 0 6px,#140422 6px 10px)"></div>';
+  } else if(r<.76){ // Natur / Doku
+    t.style.background='linear-gradient(180deg,#f6b26b 0%,#e07a3f 35%,#4a2a3a 60%,#14202a 100%)';
+    t.innerHTML='<div style="position:absolute;left:50%;top:28%;width:26%;height:44%;border-radius:50%;background:#ffd38a;transform:translateX(-50%);opacity:.9"></div><div style="position:absolute;left:-5%;right:-5%;bottom:0;height:50%;background:#16232b;clip-path:polygon(0 100%,0 45%,18% 20%,32% 50%,50% 15%,66% 48%,82% 25%,100% 50%,100% 100%)"></div>';
+  } else if(r<.88){ // Tennis
+    t.style.background='linear-gradient(170deg,#3b6fd1,#1e3f8a)';
+    t.innerHTML='<div style="position:absolute;inset:14% 14%;border:2px solid rgba(255,255,255,.8)"></div><div style="position:absolute;left:14%;right:14%;top:50%;border-top:2px solid rgba(255,255,255,.8)"></div><div style="position:absolute;left:50%;top:14%;bottom:14%;border-left:2px solid rgba(255,255,255,.5)"></div><div style="position:absolute;left:66%;top:30%;width:5%;height:9%;border-radius:50%;background:#e6ff3c"></div>';
+  } else { // Stadt bei Nacht
+    t.style.background='linear-gradient(180deg,#0b1430,#23305e 60%,#0b1020)';
+    let b=''; for(let i=0;i<8;i++){ const h=30+rnd()*50; b+=`<div style="position:absolute;bottom:0;left:${i*13}%;width:12%;height:${h}%;background:#0a0f1f;background-image:radial-gradient(rgba(255,214,102,.8) 1px,transparent 1.5px);background-size:6px 8px"></div>`; }
+    t.innerHTML=b;
   }
-  layer(1.25,3,0.55,-60,-40,-20);   // hintere, unscharfe Ebene
-  layer(1.0,0.4,0.95,40,30,-14);    // vordere Ebene
-  glow(600,300,420,'rgba(94,196,242,.35)',.9);
-  glow(1050,80,260,'rgba(124,58,237,.35)',.8);
-  glow(120,560,260,'rgba(230,0,126,.22)',.8);
 }
 
-/* ---------- Plakat-Generator (Filme / Serien) ---------- */
-function poster(x,y,w,h,pal,title,blur,op,z,opts={}){
-  const p=document.createElement('div'); p.className='poster';
-  p.style.cssText+=`left:${x}px;top:${y}px;width:${w}px;height:${h}px;filter:blur(${blur}px) brightness(${op});z-index:${z};background:linear-gradient(${Math.floor(rnd()*360)}deg,${pal[0]},${pal[1]} 55%,${pal[2]})`;
-  let html='';
-  const scene=rnd();
-  if(scene<.3){ // Planet / Sonne
-    const r=w*(.5+rnd()*.5); html+=`<div style="position:absolute;left:${w*.5-r/2}px;top:${h*.18}px;width:${r}px;height:${r}px;border-radius:50%;background:radial-gradient(circle at 35% 35%,${pal[3]},${pal[1]} 70%);box-shadow:0 0 40px ${pal[3]}"></div>`;
-  } else if(scene<.6){ // Skyline
-    let pts='0% 100%'; let xx=0; while(xx<100){ const bw=6+rnd()*10, bh=40+rnd()*35; pts+=`,${xx}% ${bh}%,${xx+bw}% ${bh}%`; xx+=bw; } pts+=',100% 100%';
-    html+=`<div style="position:absolute;inset:0;background:linear-gradient(transparent 30%,rgba(0,0,0,.85));clip-path:polygon(${pts})"></div>`;
-    html+=`<div style="position:absolute;left:0;right:0;top:20%;height:30%;background:radial-gradient(ellipse at 50% 100%,${pal[3]}55,transparent 70%)"></div>`;
-  } else { // Berge / Landschaft mit Lichtstrahl (keine Personen)
-    html+=`<div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 30%,${pal[3]}77,transparent 55%)"></div>`;
-    html+=`<div style="position:absolute;left:-10%;right:-10%;bottom:0;height:55%;background:rgba(0,0,0,.8);clip-path:polygon(0 100%,0 55%,22% 20%,38% 50%,55% 10%,75% 45%,88% 30%,100% 50%,100% 100%)"></div>`;
+function channelTile(t,big){
+  const [word,icon]=pick(CHANNELS), st=pick(STYLES);
+  t.style.background=st[0];
+  const fs=(big?40:21)*(word.length>7?.78:word.length>5?.9:1);
+  const ic=icon?svg(icon,big?34:18,st[2]):'';
+  const layout=rnd();
+  if(layout<.5) t.innerHTML=`<div style="display:flex;align-items:center;gap:${big?10:6}px">${ic}<span class="word" style="font-size:${fs}px;color:${st[1]}">${word}</span></div>`;
+  else if(layout<.8) t.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;gap:${big?6:3}px">${ic}<span class="word" style="font-size:${fs*.92}px;color:${st[1]}">${word}</span></div>`;
+  else t.innerHTML=`<span class="word" style="font-size:${fs}px;color:${st[1]};font-style:italic">${word}</span><div style="position:absolute;left:10%;right:10%;bottom:12%;height:4px;border-radius:2px;background:${st[2]};opacity:.9"></div>`;
+}
+
+function live(){
+  stage.style.background='radial-gradient(ellipse at 50% 50%,#14306a 0%,#08142e 60%,#040812 100%)';
+  const w=document.createElement('div'); w.className='wall';
+  const cols=11, rows=7;
+  w.style.cssText+=`grid-template-columns:repeat(${cols},150px);grid-auto-rows:96px;grid-auto-flow:dense;left:-210px;top:-140px;transform:perspective(1300px) rotateY(-10deg) rotateX(4deg) scale(1.08)`;
+  for(let i=0;i<cols*rows;i++){
+    const t=document.createElement('div'); t.className='tile';
+    const big=rnd()<.10;
+    if(big){ t.style.gridColumn='span 2'; t.style.gridRow='span 2'; }
+    if(rnd()<.36) scene(t); else channelTile(t,big);
+    w.appendChild(t);
   }
-  html+=`<div style="position:absolute;inset:0;background:linear-gradient(transparent 55%,rgba(0,0,0,.75))"></div>`;
-  // statt Titel nur neutrale Platzhalterbalken (keine echten oder erfundenen Namen)
-  html+=`<div style="position:absolute;left:18%;right:18%;bottom:12%;height:${Math.max(4,w*.05)}px;border-radius:3px;background:rgba(255,255,255,.85)"></div>`;
-  html+=`<div style="position:absolute;left:30%;right:30%;bottom:${12+Math.max(4,w*.05)/h*100+4}%;height:${Math.max(2,w*.025)}px;border-radius:2px;background:${pal[3]}cc"></div>`;
+  stage.appendChild(w);
+  glow(600,300,430,'rgba(94,196,242,.20)',.9);
+  glow(1080,60,260,'rgba(124,58,237,.30)',.8);
+  glow(80,560,260,'rgba(230,0,126,.20)',.8);
+  const v=document.createElement('div'); v.style.cssText='position:absolute;inset:0;z-index:6;background:radial-gradient(ellipse at 50% 50%,transparent 55%,rgba(0,0,0,.55) 100%)'; stage.appendChild(v);
+}
+
+/* ---------- Plakat-Generator (Filme / Serien): erfundene Titel, anonyme Silhouetten ---------- */
+function poster(x,y,w,h,pal,title,blur,bright,z,tag){
+  const p=document.createElement('div'); p.className='poster';
+  p.style.cssText+=`left:${x}px;top:${y}px;width:${w}px;height:${h}px;filter:blur(${blur}px) brightness(${bright});z-index:${z};background:linear-gradient(${Math.floor(rnd()*60)+150}deg,${pal[0]},${pal[1]} 55%,${pal[2]})`;
+  let html='';
+  const s=rnd();
+  if(s<.18){ // Planet + Raumschiff
+    const r=w*(.6+rnd()*.3);
+    html+=`<div style="position:absolute;left:${w*.5-r/2}px;top:${h*.12}px;width:${r}px;height:${r}px;border-radius:50%;background:radial-gradient(circle at 35% 35%,${pal[3]},${pal[1]} 72%);box-shadow:0 0 50px ${pal[3]}"></div>`;
+    html+=`<div style="position:absolute;left:20%;top:${h*.52}px;width:${w*.6}px;height:${w*.08}px;background:#0a0d16;clip-path:polygon(0 50%,25% 0,100% 40%,100% 60%,25% 100%)"></div>`;
+  } else if(s<.36){ // Wueste mit Sonne
+    html+=`<div style="position:absolute;left:50%;top:${h*.2}px;width:${w*.5}px;height:${w*.5}px;border-radius:50%;background:${pal[3]};transform:translateX(-50%);box-shadow:0 0 60px ${pal[3]}"></div>`;
+    html+=`<div style="position:absolute;left:-10%;right:-10%;bottom:0;height:42%;background:linear-gradient(#3a2210,#120a04);clip-path:polygon(0 30%,30% 5%,55% 35%,80% 10%,100% 30%,100% 100%,0 100%)"></div>`;
+  } else if(s<.54){ // Grossstadt
+    let pts='0% 100%'; let xx=0; while(xx<100){ const bw=6+rnd()*10, bh=35+rnd()*35; pts+=`,${xx}% ${bh}%,${xx+bw}% ${bh}%`; xx+=bw; } pts+=',100% 100%';
+    html+=`<div style="position:absolute;left:0;right:0;top:15%;height:35%;background:radial-gradient(ellipse at 50% 100%,${pal[3]}88,transparent 70%)"></div>`;
+    html+=`<div style="position:absolute;inset:0;background:#05070d;clip-path:polygon(${pts})"></div>`;
+  } else if(s<.68){ // Burg auf dem Huegel
+    html+=`<div style="position:absolute;inset:0;background:radial-gradient(circle at 60% 25%,${pal[3]}99,transparent 50%)"></div>`;
+    html+=`<div style="position:absolute;left:-10%;right:-10%;bottom:0;height:60%;background:#06080e;clip-path:polygon(0 100%,0 60%,20% 45%,30% 45%,30% 30%,34% 30%,34% 22%,38% 22%,38% 30%,46% 30%,46% 15%,50% 8%,54% 15%,54% 30%,62% 30%,62% 22%,66% 22%,66% 45%,80% 52%,100% 60%,100% 100%)"></div>`;
+  } else { // anonyme Silhouette(n) vor Lichtschein – kein Gesicht, keine echte Person
+    html+=`<div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 32%,${pal[3]}aa,transparent 55%)"></div>`;
+    const n=rnd()<.4?2:1;
+    for(let k=0;k<n;k++){ const cx=n===1?50:(k?66:36), sc=n===1?1:.82;
+      html+=`<div style="position:absolute;left:${cx}%;top:${20+k*4}%;width:${w*.2*sc}px;height:${w*.24*sc}px;border-radius:48%;background:#05060a;transform:translateX(-50%)"></div>`;
+      html+=`<div style="position:absolute;left:${cx}%;top:${20+k*4+w*.21*sc/h*100}%;width:${w*.56*sc}px;height:${h*.7}px;background:#05060a;border-radius:42% 42% 0 0;transform:translateX(-50%)"></div>`; }
+  }
+  html+=`<div style="position:absolute;inset:0;background:linear-gradient(transparent 50%,rgba(0,0,0,.8))"></div>`;
+  // Schriftgroesse so, dass das laengste Wort sicher in die Breite passt
+  const longest=Math.max(...title.split(' ').map(x=>x.length));
+  const fs=Math.max(9,Math.min(w*.14,(w*.86)/(longest*.8)));
+  const font=rnd()<.5?'"DejaVu Serif",Georgia,serif':'"DejaVu Sans",Arial,sans-serif';
+  html+=`<div class="ptag">${tag||''}</div><div class="ptitle" style="font-size:${fs}px;font-family:${font};letter-spacing:${rnd()<.5?2:1}px">${title}</div>`;
   p.innerHTML=html; stage.appendChild(p);
 }
 
-/* ---------------- FILME: Kino-Plakatwand ---------------- */
+/* ---------- Kleine Bildszenen fuer Filmstreifen / Episoden (selbst gezeichnet, ohne Personen-Details) ---------- */
+function miniScene(w,h,pal){
+  const s=rnd(); let html=`<div style="position:absolute;inset:0;background:linear-gradient(${150+Math.floor(rnd()*60)}deg,${pal[0]},${pal[1]} 60%,${pal[2]})"></div>`;
+  if(s<.2){ html+=`<div style="position:absolute;left:50%;top:18%;width:${h*.5}px;height:${h*.5}px;border-radius:50%;background:radial-gradient(circle at 35% 35%,${pal[3]},${pal[1]} 72%);transform:translateX(-50%);box-shadow:0 0 30px ${pal[3]}"></div>`; }
+  else if(s<.4){ html+=`<div style="position:absolute;left:50%;top:22%;width:${h*.36}px;height:${h*.36}px;border-radius:50%;background:${pal[3]};transform:translateX(-50%);box-shadow:0 0 30px ${pal[3]}"></div><div style="position:absolute;left:0;right:0;bottom:0;height:40%;background:#140a04;clip-path:polygon(0 35%,30% 5%,55% 40%,80% 12%,100% 35%,100% 100%,0 100%)"></div>`; }
+  else if(s<.6){ let pts='0% 100%'; let xx=0; while(xx<100){ const bw=8+rnd()*12, bh=35+rnd()*35; pts+=`,${xx}% ${bh}%,${xx+bw}% ${bh}%`; xx+=bw; } pts+=',100% 100%';
+    html+=`<div style="position:absolute;left:0;right:0;top:10%;height:40%;background:radial-gradient(ellipse at 50% 100%,${pal[3]}99,transparent 70%)"></div><div style="position:absolute;inset:0;background:#05070d;clip-path:polygon(${pts})"></div>`; }
+  else if(s<.8){ html+=`<div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 35%,${pal[3]}aa,transparent 60%)"></div><div style="position:absolute;left:50%;top:26%;width:${h*.18}px;height:${h*.2}px;border-radius:48%;background:#05060a;transform:translateX(-50%)"></div><div style="position:absolute;left:50%;top:44%;width:${h*.48}px;height:${h*.7}px;border-radius:42% 42% 0 0;background:#05060a;transform:translateX(-50%)"></div>`; }
+  else { html+=`<div style="position:absolute;inset:0;background:radial-gradient(circle at 60% 30%,${pal[3]}99,transparent 55%)"></div><div style="position:absolute;left:0;right:0;bottom:0;height:62%;background:#06080e;clip-path:polygon(0 100%,0 62%,20% 48%,30% 48%,30% 32%,36% 32%,36% 24%,42% 24%,42% 32%,48% 32%,48% 16%,52% 8%,56% 16%,56% 32%,64% 32%,64% 46%,80% 54%,100% 62%,100% 100%)"></div>`; }
+  return html;
+}
+function el(css,html){ const d=document.createElement('div'); d.style.cssText='position:absolute;'+css; if(html) d.innerHTML=html; stage.appendChild(d); return d; }
+const PALS=[['#123a7a','#1b1450','#05060f','#ff9a3c'],['#4a1f86','#140a34','#000','#ffd166'],['#0a4d73','#0b1c36','#020409','#7fd3ff'],
+            ['#7a1f1a','#22090f','#000','#ff7a18'],['#284092','#0b0f2e','#000','#c084fc'],['#5a3d0c','#1a1206','#000','#ffcc66'],['#0f5a4a','#06231e','#000','#9effd6']];
+
+/* ---------------- FILME: Kino – Vorhang, Projektor, Filmstreifen, Klappe, Popcorn ---------------- */
 function movies(){
-  stage.style.background='radial-gradient(ellipse at 50% 45%,#1b1450 0%,#0a0a24 60%,#040410 100%)';
-  const pals=[['#0f2b5c','#1b1450','#05060f','#ff9a3c'],['#3b1a6b','#120a2e','#000','#ffd166'],['#0a3d5c','#0b1c36','#020409','#5ec4f2'],
-              ['#5c1a1a','#1a0a12','#000','#ff7a18'],['#1f2a6b','#0b0f2e','#000','#c084fc'],['#3d2a0a','#1a1206','#000','#ffcc66']];
-  const titles=[''];
-  // hintere Reihe (unscharf, dunkel)
-  for(let c=0;c<10;c++) poster(c*125-30,-60+(c%2)*60,120,180,pick(pals),pick(titles),2.5,.55,1);
-  for(let c=0;c<10;c++) poster(c*125-80,300+(c%2)*40,120,180,pick(pals),pick(titles),2.5,.55,1);
-  // vordere Reihe (versetzt, unterschiedliche Groessen)
-  let x=-40; while(x<1200){ const w=150+rnd()*60, h=w*1.5; poster(x,40+rnd()*160-60,w,h,pick(pals),pick(titles),.3,.95,2,{}); x+=w*.82; }
-  glow(600,320,460,'rgba(124,58,237,.30)',.9);
-  glow(980,90,240,'rgba(255,154,60,.35)',.9);   // warmer Lichtakzent
-  glow(150,520,220,'rgba(255,204,102,.25)',.8);
+  stage.style.background='radial-gradient(ellipse at 55% 40%,#3a1030 0%,#1a0716 55%,#070208 100%)';
+  // Kinovorhang links und rechts (Falten)
+  const curtain='repeating-linear-gradient(90deg,#5a0a14 0 18px,#a3172a 30px,#7a0f1e 44px,#5a0a14 56px)';
+  el(`left:-20px;top:0;width:210px;height:600px;background:${curtain};box-shadow:20px 0 40px rgba(0,0,0,.7);border-radius:0 0 60% 0;z-index:2`);
+  el(`right:-20px;top:0;width:210px;height:600px;background:${curtain};box-shadow:-20px 0 40px rgba(0,0,0,.7);border-radius:0 0 0 60%;z-index:2`);
+  el(`left:0;right:0;top:-10px;height:60px;background:${curtain};box-shadow:0 12px 30px rgba(0,0,0,.7);z-index:3;border-radius:0 0 50% 50%/0 0 100% 100%`);
+  // Leinwand-Schein + Projektor-Lichtkegel von hinten
+  el('left:260px;top:70px;width:680px;height:300px;background:radial-gradient(ellipse at 50% 50%,rgba(255,240,200,.35),rgba(255,200,140,.08) 60%,transparent 75%);z-index:1');
+  el('left:520px;top:150px;width:900px;height:520px;background:linear-gradient(200deg,rgba(255,240,200,.22),transparent 65%);clip-path:polygon(100% 100%,0 0,0 60%);z-index:1');
+  // Filmstreifen quer durchs Bild
+  const strip=el('left:-120px;top:205px;width:1500px;height:170px;background:#0b0b0e;transform:rotate(-9deg);z-index:4;box-shadow:0 18px 40px rgba(0,0,0,.8)');
+  let frames=''; for(let i=0;i<12;i++){ const pal=pick(PALS); frames+=`<div style="position:absolute;left:${20+i*124}px;top:30px;width:110px;height:110px;border-radius:4px;overflow:hidden">${miniScene(110,110,pal)}</div>`; }
+  let holes=''; for(let i=0;i<60;i++){ holes+=`<div style="position:absolute;left:${8+i*25}px;top:8px;width:14px;height:12px;border-radius:2px;background:#d8d4c8"></div><div style="position:absolute;left:${8+i*25}px;bottom:8px;width:14px;height:12px;border-radius:2px;background:#d8d4c8"></div>`; }
+  strip.innerHTML=frames+holes;
+  // Filmrolle oben links
+  let reel=`<div style="position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,#3a3d46 0 18%,#1a1c22 19% 70%,#5b5f6b 71% 74%,#1a1c22 75%);box-shadow:0 10px 30px rgba(0,0,0,.8)"></div>`;
+  for(let k=0;k<5;k++){ const a=k*72*Math.PI/180; reel+=`<div style="position:absolute;left:${50+30*Math.cos(a)-11}%;top:${50+30*Math.sin(a)-11}%;width:22%;height:22%;border-radius:50%;background:#0a0b0e"></div>`; }
+  el('left:150px;top:-40px;width:170px;height:170px;z-index:5;transform:rotate(12deg)',reel);
+  // Filmklappe unten links
+  el('left:170px;top:400px;width:230px;height:170px;z-index:6;transform:rotate(-8deg)',
+    `<div style="position:absolute;left:0;top:46px;width:230px;height:124px;background:#16171c;border-radius:6px;box-shadow:0 14px 30px rgba(0,0,0,.8)">
+       <div style="position:absolute;left:14px;right:14px;top:24px;height:2px;background:#cfd2da"></div><div style="position:absolute;left:14px;right:14px;top:58px;height:2px;background:#cfd2da"></div>
+       <div style="position:absolute;left:115px;top:24px;bottom:16px;width:2px;background:#cfd2da"></div></div>
+     <div style="position:absolute;left:0;top:0;width:236px;height:40px;border-radius:5px;transform:rotate(-14deg);transform-origin:0 100%;background:repeating-linear-gradient(135deg,#f2f2f2 0 22px,#16171c 22px 44px);box-shadow:0 6px 16px rgba(0,0,0,.6)"></div>
+     <div style="position:absolute;left:0;top:40px;width:230px;height:14px;background:repeating-linear-gradient(135deg,#f2f2f2 0 22px,#16171c 22px 44px)"></div>`);
+  // Popcorn unten rechts
+  let pop=''; for(let i=0;i<26;i++){ const r=16+rnd()*14; pop+=`<div style="position:absolute;left:${10+rnd()*150}px;top:${rnd()*60}px;width:${r}px;height:${r}px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fffbe8,#f7d77a 70%,#d9a93a);box-shadow:0 2px 4px rgba(0,0,0,.35)"></div>`; }
+  el('left:860px;top:380px;width:190px;height:240px;z-index:6;transform:rotate(6deg)',
+    pop+`<div style="position:absolute;left:12px;top:56px;width:166px;height:180px;background:repeating-linear-gradient(90deg,#e11d2e 0 22px,#fafafa 22px 44px);clip-path:polygon(0 0,100% 0,88% 100%,12% 100%);box-shadow:0 14px 30px rgba(0,0,0,.8)"></div>`);
+  // Kinosessel-Reihe unten
+  let seats=''; for(let i=0;i<14;i++) seats+=`<div style="position:absolute;left:${i*90-20}px;top:0;width:78px;height:90px;border-radius:26px 26px 6px 6px;background:linear-gradient(#8a1424,#3a0710)"></div>`;
+  el('left:0;right:0;top:540px;height:90px;z-index:5;filter:blur(1.5px);opacity:.9',seats);
+  glow(600,250,380,'rgba(255,214,140,.18)',.9);
   grain();
 }
 
-/* ---------------- SERIEN: Streaming-Katalog ---------------- */
+/* ---------------- SERIEN: Fernseher mit Staffel-/Folgen-Uebersicht ---------------- */
 function series(){
-  stage.style.background='radial-gradient(ellipse at 50% 45%,#08384a 0%,#06182a 60%,#030a12 100%)';
-  const pals=[['#0b4a5c','#062633','#010608','#ff5a3c'],['#0d3b66','#071a30','#000','#5ec4f2'],['#14505c','#08262c','#000','#ff9a3c'],
-              ['#1a2f4a','#0b1626','#000','#e11d2e'],['#0a5a5a','#042a2a','#000','#ffd166'],['#202a5c','#0b0f2e','#000','#2ee5c4']];
-  const titles=[''];
-  // Querformat-Thumbnails hinten
-  for(let r=0;r<3;r++) for(let c=0;c<7;c++) poster(c*190-60+(r%2)*70,r*200-40,180,102,pick(pals),pick(titles),2.2,.5,1);
-  // Hochformat-Plakate vorne
-  let x=-30; while(x<1200){ const w=140+rnd()*50, h=w*1.48; poster(x,60+rnd()*140-50,w,h,pick(pals),pick(titles),.3,.95,2,{}); x+=w*.86; }
-  // Bokeh
-  for(let i=0;i<22;i++){ const r=8+rnd()*28; const b=document.createElement('div');
-    b.style.cssText=`position:absolute;left:${rnd()*1200}px;top:${rnd()*600}px;width:${r*2}px;height:${r*2}px;border-radius:50%;background:radial-gradient(circle,rgba(${rnd()<.75?'94,230,242':'255,120,80'},.45),transparent 70%);z-index:3;filter:blur(1px)`; stage.appendChild(b); }
-  glow(600,300,440,'rgba(46,229,196,.18)',.9);
-  glow(1000,520,240,'rgba(225,29,46,.22)',.8);
+  stage.style.background='radial-gradient(ellipse at 50% 45%,#0c3a52 0%,#071a2c 60%,#030a12 100%)';
+  // Fernseher mit Rahmen
+  const tv=el('left:120px;top:40px;width:960px;height:500px;background:#05070c;border:14px solid #15181f;border-radius:18px;box-shadow:0 30px 70px rgba(0,0,0,.85),0 0 0 2px #2a2f3a;z-index:2;overflow:hidden');
+  const pal0=pick(PALS);
+  let ui=`<div style="position:absolute;left:0;right:0;top:0;height:250px;overflow:hidden">${miniScene(960,250,pal0)}</div>
+    <div style="position:absolute;left:0;right:0;top:0;height:260px;background:linear-gradient(90deg,rgba(5,7,12,.95) 0%,rgba(5,7,12,.4) 55%,transparent),linear-gradient(transparent 60%,#05070c)"></div>
+    <div style="position:absolute;left:40px;top:60px;width:300px;height:22px;border-radius:4px;background:rgba(255,255,255,.9)"></div>
+    <div style="position:absolute;left:40px;top:96px;width:220px;height:10px;border-radius:3px;background:rgba(255,255,255,.45)"></div>
+    <div style="position:absolute;left:40px;top:114px;width:250px;height:10px;border-radius:3px;background:rgba(255,255,255,.35)"></div>
+    <div style="position:absolute;left:40px;top:146px;padding:10px 22px;border-radius:22px;background:#5ec4f2;color:#04121c;font-weight:900;font-size:16px;display:flex;align-items:center;gap:8px">${svg('play',16,'#04121c')}WEITERSCHAUEN</div>
+    <div style="position:absolute;left:40px;top:216px;display:flex;gap:26px;font-weight:800;font-size:15px;letter-spacing:1px">
+      <span style="color:#fff;border-bottom:3px solid #5ec4f2;padding-bottom:4px">STAFFEL 1</span><span style="color:rgba(255,255,255,.55)">STAFFEL 2</span><span style="color:rgba(255,255,255,.55)">STAFFEL 3</span></div>`;
+  for(let i=0;i<5;i++){
+    const x=40+i*182, done=i<2?1:(i===2?.45:0);
+    ui+=`<div style="position:absolute;left:${x}px;top:270px;width:168px;height:96px;border-radius:8px;overflow:hidden;${i===2?'box-shadow:0 0 0 3px #5ec4f2;':''}">${miniScene(168,96,pick(PALS))}
+      ${i===2?`<div style="position:absolute;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center">${svg('play',22,'#fff')}</div>`:''}
+      <div style="position:absolute;left:0;right:0;bottom:0;height:5px;background:rgba(255,255,255,.25)"><div style="width:${done*100}%;height:100%;background:#e11d2e"></div></div></div>
+      <div style="position:absolute;left:${x}px;top:374px;color:#fff;font-weight:800;font-size:14px">FOLGE ${i+1}</div>
+      <div style="position:absolute;left:${x}px;top:396px;width:${110+rnd()*40}px;height:8px;border-radius:3px;background:rgba(255,255,255,.35)"></div>`;
+  }
+  tv.innerHTML=ui;
+  // Standfuss
+  el('left:520px;top:540px;width:160px;height:24px;background:linear-gradient(#20242d,#0c0e13);border-radius:0 0 10px 10px;z-index:1');
+  el('left:440px;top:560px;width:320px;height:14px;background:#0c0e13;border-radius:8px;z-index:1;box-shadow:0 10px 30px rgba(0,0,0,.8)');
+  // Fernbedienung unten links
+  el('left:40px;top:430px;width:62px;height:200px;background:linear-gradient(#22262f,#0d0f14);border-radius:26px;transform:rotate(-22deg);z-index:4;box-shadow:0 14px 30px rgba(0,0,0,.8)',
+    `<div style="position:absolute;left:21px;top:18px;width:20px;height:20px;border-radius:50%;background:#e11d2e"></div><div style="position:absolute;left:13px;top:52px;width:36px;height:36px;border-radius:50%;border:3px solid #5b6070"></div>`+
+    Array.from({length:6},(_,k)=>`<div style="position:absolute;left:${14+(k%2)*22}px;top:${100+Math.floor(k/2)*22}px;width:14px;height:12px;border-radius:4px;background:#4a4f5c"></div>`).join(''));
+  // Bokeh / Wohnzimmerlicht
+  for(let i=0;i<18;i++){ const r=8+rnd()*26; el(`left:${rnd()*1200}px;top:${rnd()*600}px;width:${r*2}px;height:${r*2}px;border-radius:50%;background:radial-gradient(circle,rgba(${rnd()<.7?'94,230,242':'255,170,90'},.35),transparent 70%);z-index:0;filter:blur(1px)`); }
+  glow(1100,520,260,'rgba(255,170,90,.18)',.8);
+  glow(100,80,240,'rgba(94,196,242,.18)',.8);
   grain();
 }
 

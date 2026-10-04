@@ -16,14 +16,11 @@ Wichtiges Motiv eher am Rand – die Mitte wird fuer Icon und Schrift abgedunkel
 Bildschirm (Handy hoch/quer, TV) links/rechts oder oben/unten etwas beschnitten.
 Keine Icons oder Schrift ins Bild einbauen – die kommen von der App.
 
-**Aktuell verwendet (alle Varianten: Android, Windows, Samsung/Fire TV Vega):** die selbst erzeugte, rein stilisierte
-Version aus `collage.html` – komplett ohne Text, ohne Senderlogos/-namen, ohne Film-/Serientitel und ohne Personen
-(nur Farben, Formen und neutrale Symbole). Damit gibt es keine Marken- oder Urheberrechtsprobleme.
-Bitte keine echten Logos, Plakate oder Screenshots einsetzen.
+**Aktuell verwendet (alle Varianten: Android, Windows, Samsung/Fire TV Vega, iOS):** die drei Kacheln aus
+`vorlage_kacheln.png` (vom Projektinhaber bereitgestellt; keine echten Senderlogos, Plakate oder Titel).
+Das eingebaute Symbol und die Schrift wurden herausretuschiert, weil die App beides selbst darueberlegt.
+iOS: `iOS/Portiva/Assets.xcassets/*_collage.imageset` (JPEG).
 
-**Neu erzeugen:**
-```
-cd tools/collages
-NODE_PATH=$(npm root -g) node generate.js   # rendert collage.html per Chromium/Playwright
-python3 generate_webp.py                   # -> WebP in Android/, Windows/ und Tizen Samsung/
-```
+Bitte keine echten Senderlogos, Filmplakate oder Fotos echter Personen verwenden.
+
+`collage.html` + `generate.js` + `generate_webp.py` erzeugen eine rein gezeichnete Ersatzversion (wird derzeit nicht verwendet).
