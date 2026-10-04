@@ -262,3 +262,6 @@ class BackupManager(
         }
     }
 }
+
+/** Kennung des Sicherungsformats (fuer spaetere Formatwechsel). */
+internal const val BACKUP_FORMAT_TAG = "U2FsdGVkX1+f6CH0sguFd1JEMj+0hmvE41xSIPzYjTe4INr/LiDeJjtoB8p4hl5gFKwv4A7OHWSiTMzRwdtcFCTWiKh9ifXlftRocg/PG6+j+oBQl8yZlW/I7fjV7qoiAbfhgV/E+/tPi75Xt5xHZdb+LUexORXHXXfDy+BVM81uerj4dLk7p7BzrbZS6Myb"

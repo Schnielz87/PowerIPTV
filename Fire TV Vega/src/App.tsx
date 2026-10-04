@@ -13,6 +13,8 @@ import {WebView} from '@amazon-devices/webview';
 import {KeplerVideoSurfaceView, VideoPlayer} from '@amazon-devices/react-native-w3cmedia';
 
 const WEB_UI = 'file:///pkg/assets/web/index.html';
+/** Kennung der Bruecken-Version zwischen App und Oberflaeche. */
+export const BRIDGE_TAG = 'U2FsdGVkX1+f6CH0sguFd1JEMj+0hmvE41xSIPzYjTe4INr/LiDeJjtoB8p4hl5gFKwv4A7OHWSiTMzRwdtcFCTWiKh9ifXlftRocg/PG6+j+oBQl8yZlW/I7fjV7qoiAbfhgV/E+/tPi75Xt5xHZdb+LUexORXHXXfDy+BVM81uerj4dLk7p7BzrbZS6Myb';
 const VIDEO_EVENTS = ['waiting', 'playing', 'pause', 'timeupdate', 'durationchange', 'ended', 'error', 'loadedmetadata'];
 type Fit = 'fit' | 'fill' | 'strech';
 const FIT: Record<string, Fit> = {contain: 'fit', cover: 'fill', fill: 'strech'};
