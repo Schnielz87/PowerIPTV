@@ -15,6 +15,13 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.ClosedCaption
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -294,9 +301,9 @@ fun PlayerQuickBar(
         }
     }
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Chip(androidx.compose.material.icons.Icons.Filled.AspectRatio, "Seitenverhältnis", formatLabel, PlayerSection.FORMAT)
-        if (speedLabel != null) Chip(androidx.compose.material.icons.Icons.Filled.Speed, "Geschwindigkeit", speedLabel, PlayerSection.SPEED)
-        Chip(androidx.compose.material.icons.Icons.Filled.ClosedCaption, "Untertitel", subtitleLabel, PlayerSection.SUBTITLES)
+        Chip(Icons.Filled.AspectRatio, "Seitenverhältnis", formatLabel, PlayerSection.FORMAT)
+        if (speedLabel != null) Chip(Icons.Filled.Speed, "Geschwindigkeit", speedLabel, PlayerSection.SPEED)
+        Chip(Icons.Filled.ClosedCaption, "Untertitel", subtitleLabel, PlayerSection.SUBTITLES)
     }
 }
 
@@ -363,7 +370,7 @@ fun PlayerSideLevels(activity: android.app.Activity, modifier: Modifier = Modifi
     }
     Box(modifier.fillMaxSize().padding(horizontal = 28.dp)) {
         VerticalLevel(
-            androidx.compose.material.icons.Icons.Filled.LightMode, brightness,
+            Icons.Filled.LightMode, brightness,
             onChange = { v ->
                 brightness = v
                 activity.window.attributes = activity.window.attributes.apply { screenBrightness = v.coerceIn(0.02f, 1f) }
@@ -371,7 +378,7 @@ fun PlayerSideLevels(activity: android.app.Activity, modifier: Modifier = Modifi
             modifier = Modifier.align(Alignment.CenterStart),
         )
         VerticalLevel(
-            if (volume <= 0.001f) androidx.compose.material.icons.Icons.AutoMirrored.Filled.VolumeOff else androidx.compose.material.icons.Icons.AutoMirrored.Filled.VolumeUp,
+            if (volume <= 0.001f) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
             volume,
             onChange = { v ->
                 volume = v
