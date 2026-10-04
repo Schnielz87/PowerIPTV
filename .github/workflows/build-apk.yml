@@ -1,4 +1,4 @@
-name: APK + Windows + Samsung TV bauen & veroeffentlichen
+name: APK + Windows + Samsung TV + iOS bauen & veroeffentlichen
 
 on:
   push:
@@ -166,8 +166,46 @@ jobs:
           name: Portiva-Tizen
           path: out/*
 
+  # iPhone/iPad (Ordner iOS/): SwiftUI + VLC (MobileVLCKit), unsignierte .ipa zum Aufspielen mit Sideloadly/AltStore
+  ios:
+    runs-on: macos-14
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+    defaults:
+      run:
+        working-directory: iOS
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: XcodeGen installieren
+        run: brew install xcodegen
+
+      - name: Projekt erzeugen + VLC (MobileVLCKit) laden
+        run: |
+          xcodegen generate
+          pod install --repo-update
+
+      - name: iOS-App bauen (unsigniert)
+        run: |
+          xcodebuild -workspace Portiva.xcworkspace -scheme Portiva -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
+            BUILD_NUMBER=$BUILD_NUMBER CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build 2>&1 | tail -n 200; exit ${PIPESTATUS[0]}
+
+      - name: .ipa erstellen
+        run: |
+          mkdir -p Payload ../out
+          cp -R build/Build/Products/Release-iphoneos/Portiva.app Payload/
+          zip -qry "../out/Portiva-iOS-v1.1.${BUILD_NUMBER}.ipa" Payload
+          ls -la ../out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Portiva-iOS
+          path: out/*
+
   release:
-    needs: [build, windows, tizen]
+    needs: [build, windows, tizen, ios]
     # Die APK erscheint auch dann, wenn der Windows-Build einmal fehlschlaegt
     if: ${{ always() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
@@ -187,6 +225,12 @@ jobs:
         if: ${{ needs.tizen.result == 'success' }}
         with:
           name: Portiva-Tizen
+          path: out
+
+      - uses: actions/download-artifact@v4
+        if: ${{ needs.ios.result == 'success' }}
+        with:
+          name: Portiva-iOS
           path: out
 
       # Jede erfolgreiche Version erscheint unter "Releases" – dort einfach die passende Datei antippen.
@@ -215,5 +259,8 @@ jobs:
             mit dem eigenen Samsung-Zertifikat signieren und per Entwicklermodus installieren
             (`tizen package -t wgt -s PortivaTV -- PowerIPTV-Tizen` → `tizen install -n Portiva.wgt -t <TV>`).
             Genaue Schritte: Bedienungsanleitung, Kapitel „Samsung Smart TV“.
+
+            📱 **iPhone/iPad:** `Portiva-iOS-v1.1.${{ github.run_number }}.ipa` am PC/Mac mit Sideloadly (oder AltStore) und deiner Apple-ID aufspielen.
+            Genaue Schritte: Bedienungsanleitung, Kapitel „iPhone & iPad“.
 
             Commit: ${{ github.sha }}

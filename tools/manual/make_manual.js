@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.88 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.89 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -49,7 +49,7 @@ c.push(new Paragraph({ children: [new PageBreak()] }));
 
 // 1
 c.push(h1('1. Was die App kann'));
-c.push(p('PowerIPTV ist ein IPTV-Player für Live-TV, Filme und Serien deines Anbieters (Xtream Codes oder M3U). Eine einzige App-Datei läuft auf Handy, Tablet, Fire TV und Android TV und passt die Oberfläche automatisch an. Zusätzlich gibt es eine eigene Version für Windows-PCs (Kapitel 14) und für Samsung Smart TVs ab 2018 (Kapitel 15).'));
+c.push(p('PowerIPTV ist ein IPTV-Player für Live-TV, Filme und Serien deines Anbieters (Xtream Codes oder M3U). Eine einzige App-Datei läuft auf Handy, Tablet, Fire TV und Android TV und passt die Oberfläche automatisch an. Zusätzlich gibt es eine eigene Version für Windows-PCs (Kapitel 14) und für Samsung Smart TVs ab 2018 (Kapitel 15) sowie für iPhone & iPad (Kapitel 17).'));
 table; c.push(table(['Bereich', 'Funktionen'], [
   ['Anmeldung', 'Xtream Codes, M3U-Link oder M3U-Datei; mehrere Profile'],
   ['Live-TV', 'Senderliste im Bild, letzter Sender, Timeshift (Pause), Aufnahmen, Catch-up, Multi-View'],
@@ -321,6 +321,20 @@ c.push(step('Unter „Portiva-Geräte“ erscheinen alle Geräte mit geöffnetem
 c.push(step('Der Film läuft dort an derselben Stelle weiter (Live TV: derselbe Sender), hier wird gestoppt.', 'n12'));
 c.push(tip('Portiva muss auf dem Zielgerät geöffnet sein (Android ab Version 10 erlaubt Apps im Hintergrund nicht, sich selbst zu öffnen). Samsung-Fernseher können senden, aber nichts empfangen. Windows fragt beim ersten Mal nach der Firewall – „Zulassen“ wählen.'));
 
+// 17 iPhone & iPad
+c.push(new Paragraph({ children: [new PageBreak()] }));
+c.push(h1('17. PowerIPTV für iPhone & iPad'));
+c.push(p('Die iOS-Version nutzt denselben Player wie Android und Windows: VLC. Damit laufen auch DTS-, AC3- und MKV-Filme. Sie kann Zugänge (auch per QR-Code), Live TV, Filme und Serien mit Sprachauswahl, Weiterschauen, Favoriten, Suche, TV-Guide mit Catch-up, Player mit Helligkeit/Lautstärke, Seitenverhältnis, Geschwindigkeit, Untertiteln und Einstellungsleiste sowie „An Gerät senden“.'));
+c.push(tip('Apple erlaubt Apps außerhalb des App Stores nur mit einer Apple-ID-Signatur. Mit einer kostenlosen Apple-ID läuft die App 7 Tage und muss dann neu aufgespielt werden (Zugänge bleiben erhalten). Mit einem Apple-Entwicklerkonto (99 €/Jahr) gilt sie 1 Jahr.'));
+c.push(h2('Installation mit Sideloadly (Windows oder Mac)'));
+c.push(step('Am PC: Sideloadly von https://sideloadly.io herunterladen und installieren. Unter Windows zusätzlich iTunes und iCloud von der Apple-Webseite (nicht aus dem Microsoft Store).', 'n13'));
+c.push(step('Auf GitHub unter „Releases“ die neueste Version öffnen und „Portiva-iOS-v1.1.X.ipa“ herunterladen.', 'n13'));
+c.push(step('iPhone/iPad per Kabel anschließen, entsperren und „Vertrauen“ bestätigen.', 'n13'));
+c.push(step('Sideloadly öffnen, die .ipa hineinziehen, deine Apple-ID eintragen und „Start“ klicken.', 'n13'));
+c.push(step('Am iPhone: Einstellungen → Datenschutz & Sicherheit → Entwicklermodus einschalten (iOS 16+, Neustart). Danach Einstellungen → Allgemein → VPN & Geräteverwaltung → deine Apple-ID → „Vertrauen“.', 'n13'));
+c.push(step('Portiva öffnen. Beim ersten Start fragt iOS nach „Lokales Netzwerk“ – erlauben (für QR-Übertragung und „An Gerät senden“).', 'n13'));
+c.push(p('Zugang am schnellsten: Benutzer wechseln → „+“ → „QR-Code scannen“ und am anderen Gerät beim Zugang auf das QR-Symbol tippen.'));
+
 const doc = new Document({
   creator: 'Portiva', title: 'PowerIPTV – Bedienungsanleitung',
   styles: {
@@ -332,7 +346,7 @@ const doc = new Document({
   },
   numbering: { config: [
     { reference: 'bul', levels: [{ level: 0, format: LevelFormat.BULLET, text: '•', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] },
-    ...['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'n10', 'n11', 'n12', 'num'].map(r => ({ reference: r, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] })),
+    ...['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'n10', 'n11', 'n12', 'n13', 'num'].map(r => ({ reference: r, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] })),
   ] },
   features: { updateFields: true },
   sections: [{

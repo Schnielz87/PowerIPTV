@@ -11,7 +11,7 @@ enum class LiveFormat(val ext: String, val label: String) {
 
 /** Wiedergabe-Engine. */
 enum class PlayerEngine(val label: String) {
-    AUTO("Automatisch (empfohlen) – bei Bildproblemen VLC"),
+    AUTO("Automatisch (empfohlen) – Filme & Serien mit VLC, Live TV mit Standard-Player (Live-Pause)"),
     EXO("Immer Standard-Player (mit Timeshift & Aufnahme)"),
     VLC("Immer VLC (spielt fast jedes Format)"),
 }

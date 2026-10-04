@@ -16,3 +16,9 @@
 /Tizen Samsung/build/
 /Tizen Samsung/PowerIPTV-Tizen/
 *.p12
+/iOS/Pods/
+/iOS/Portiva.xcodeproj/
+/iOS/Portiva.xcworkspace/
+/iOS/Podfile.lock
+/iOS/build/
+/iOS/Payload/

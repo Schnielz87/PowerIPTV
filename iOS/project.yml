@@ -1,0 +1,30 @@
+# Xcode-Projekt fuer Portiva iOS (wird im CI mit XcodeGen erzeugt: `xcodegen generate`)
+name: Portiva
+options:
+  bundleIdPrefix: app.portiva
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.1.$(BUILD_NUMBER)"
+    CURRENT_PROJECT_VERSION: "$(BUILD_NUMBER)"
+    BUILD_NUMBER: "0"
+    ENABLE_BITCODE: NO
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+targets:
+  Portiva:
+    type: application
+    platform: iOS
+    scheme: {}
+    sources:
+      - path: Portiva
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.portiva.poweriptv
+        PRODUCT_NAME: Portiva
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_FILE: Portiva/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
