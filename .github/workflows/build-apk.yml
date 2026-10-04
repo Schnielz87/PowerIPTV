@@ -170,7 +170,7 @@ jobs:
 
   # iPhone/iPad (Ordner iOS/): SwiftUI + VLC (MobileVLCKit), unsignierte .ipa zum Aufspielen mit Sideloadly/AltStore
   ios:
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       BUILD_NUMBER: ${{ github.run_number }}
     defaults:
@@ -179,8 +179,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: XcodeGen installieren
-        run: brew install xcodegen
+      - name: Neuestes Xcode waehlen + XcodeGen installieren
+        run: |
+          X=$(ls -d /Applications/Xcode_*.app | grep -v beta | sort -V | tail -1)
+          sudo xcode-select -s "$X"
+          xcodebuild -version
+          brew install xcodegen
 
       - name: Projekt erzeugen + VLC (MobileVLCKit) laden
         run: |
