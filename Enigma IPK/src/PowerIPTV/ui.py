@@ -550,6 +550,8 @@ class ItemScreen(Base):
         self.pv_started = False
         self.pv_last = 0.0       # Zeitpunkt der letzten Vorschau-Verbindung (Puffer gegen zu schnelles Umschalten)
         self.open_timer = make_timer(self.open_pending)
+        self.pv_blocked = False  # Verbindung gerade woanders belegt -> spaeter erneut pruefen
+        self.recheck_timer = make_timer(self.recheck_connections)
         self.open_item = None
         if self.p_live:
             self["pv_hint"].setText("Live-Vorschau …" if self.pv_on else "")
@@ -620,16 +622,27 @@ class ItemScreen(Base):
             return
         own = 1 if is_stream(stream_switch(self.session).current()) else 0
         if active - own >= maximum:
-            self.pv_on = False
+            # Belegt (anderes Geraet – oder der Anbieter zaehlt eine gerade beendete Verbindung noch mit):
+            # nicht aufgeben, sondern alle 10 Sekunden erneut pruefen
+            self.pv_blocked = True
             self.pv_timer.stop()
-            self["pv_hint"].setText("Vorschau pausiert – alle %d Verbindung(en) belegt" % maximum)
+            self["pv_hint"].setText("Vorschau wartet – Verbindung belegt (%d/%d)" % (active, maximum))
+            self.recheck_timer.start(10000, True)
+        elif self.pv_blocked:
+            self.pv_blocked = False
+            self["pv_hint"].setText("Live-Vorschau …")
+            self.pv_timer.start(300, True)
+
+    def recheck_connections(self):
+        if not self.p_closed and self.pv_on:
+            run_async(self, self.source.connections, self.check_connections, lambda m: self.recheck_timer.start(10000, True))
 
     def url_of(self, item):
         return item.get("url") or self.source.stream_url(item, store.settings().get("live_format", "ts"))
 
     def preview(self):
         n, item = self.current()
-        if self.p_closed or not self.pv_on or item is None or item.get("kind") != "live":
+        if self.p_closed or not self.pv_on or self.pv_blocked or item is None or item.get("kind") != "live":
             return
         # Puffer: hoechstens alle 3 Sekunden eine neue Verbindung, auch beim schnellen Blaettern
         wait = 3.0 - (time.time() - self.pv_last)
@@ -661,6 +674,7 @@ class ItemScreen(Base):
         self.info_timer.stop()
         self.pv_timer.stop()
         self.open_timer.stop()
+        self.recheck_timer.stop()
         if self.pv_started:
             try:
                 sw = stream_switch(self.session)
