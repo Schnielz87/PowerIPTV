@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.114 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.115 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -378,6 +378,7 @@ c.push(bullet('Kategorien: oben „♥ Favoriten“, „Zuletzt gesehen“ und �
 c.push(bullet('In den Listen: rechts Jetzt/Weiter (Sender) bzw. Handlung, Genre, Bewertung (Filme). Rot = Sortieren, Gelb = Favorit, Blau = Filtern, MENU = mehr (Film herunterladen auf Festplatte/USB, Programm), INFO = Programm des Senders.'));
 c.push(bullet('Live TV: Beim Umschalten erscheint unten die Info-Leiste mit Senderlogo, Name, Uhrzeit, „Jetzt“ mit Fortschrittsbalken und „Weiter“. Hoch/Runter bzw. CH+/CH- = Sender wechseln, Rot = letzter Sender, Gelb = Favorit, Blau = an ein anderes Portiva-Gerät senden.'));
 c.push(bullet('Neues Design: dunkle Glas-Optik mit Bild-Kacheln, leuchtendem Auswahlrahmen und Symbolen. In der Senderliste läuft nach kurzem Verweilen rechts oben eine Live-Vorschau des markierten Senders, darunter Jetzt/Danach mit Fortschrittsbalken. Filme und Serien zeigen das Cover. Die Vorschau lässt sich in den Einstellungen („Live-Vorschau in der Senderliste“) abschalten; beim Verlassen der Liste läuft wieder das vorherige Programm.'));
+c.push(bullet('Zoom-Effekt: Läuft ein Sender in der Vorschau und du drückst OK, zieht das kleine Bild flüssig zum Vollbild auf – ohne neue Verbindung. Beim Verlassen des Players schrumpft es wieder ins kleine Fenster, und die Liste steht auf dem Sender, den du zuletzt gesehen hast.'));
 c.push(bullet('Verbindungsschutz (wichtig bei Zugängen mit 1–2 Verbindungen): Es ist immer nur ein Stream offen. Vor jedem Wechsel wird der alte geschlossen und kurz gewartet, schnelles Blättern oder Zappen verbindet nur den Sender, auf dem man stehen bleibt (Vorschau höchstens alle 3 Sekunden). Läuft der Sender schon in der Vorschau, übernimmt der Vollbild-Player ihn ohne neue Verbindung. Auch mit nur einer Verbindung funktioniert die Vorschau. Ist die Verbindung woanders belegt (z. B. schaut jemand auf dem Handy), wartet die Vorschau und prüft alle 10 Sekunden, ob sie wieder frei ist.'));
 c.push(bullet('OK im Live TV öffnet rechts die Senderliste; Grün „EPG aktualisieren“ lädt das Programm neu. EXIT schließt die Liste wieder.'));
 c.push(bullet('INFO im Live TV zeigt das ganze Programm des Senders. Sendungen mit ► kann man nachträglich ansehen (Catch-up), wenn der Anbieter ein Archiv hat.'));

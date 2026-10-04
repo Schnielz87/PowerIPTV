@@ -77,7 +77,7 @@ def _player_skin():
 
 
 class PortivaPlayer(MoviePlayer):
-    def __init__(self, session, source, playlist, index, live, start_at=0):
+    def __init__(self, session, source, playlist, index, live, start_at=0, keep_stream=False):
         self.p_source = source
         self.p_list = playlist
         self.p_index = index
@@ -85,6 +85,7 @@ class PortivaPlayer(MoviePlayer):
         self.p_live = live
         self.p_url = self._url(playlist[index])
         self.p_start_at = start_at
+        self.p_keep = keep_stream and live  # aus der Live-Vorschau gestartet: Sender beim Verlassen weiterlaufen lassen
         self.p_epg = []
         self.p_epg_cache = {}
         self.p_pid = (store.active_profile() or {}).get("id")
@@ -317,6 +318,14 @@ class PortivaPlayer(MoviePlayer):
     def leavePlayer(self):
         self.p_save()
         self.is_closing = True
+        if self.p_keep:
+            # zurueck in die Senderliste: aktuellen Sender in der Vorschau weiterlaufen lassen (keine neue Verbindung)
+            try:
+                self.lastservice = self.session.nav.getCurrentlyPlayingServiceOrGroup()
+            except AttributeError:
+                self.lastservice = self.session.nav.getCurrentlyPlayingServiceReference()
+            self.close(self.p_index)
+            return
         self.close()
 
     def leavePlayerOnExit(self):

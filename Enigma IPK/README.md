@@ -12,6 +12,7 @@ Gedacht für die Bedienung am Fernseher mit der Receiver-Fernbedienung (HD- und 
 - Listen: **Sortieren** (rot), **Favorit** (gelb), **Filtern** (blau), MENU = **Download** auf HDD/USB, INFO = Programm
 - **Neues Design** (Grafiken aus `tools/make_skin.py`, HD + Full-HD): Glas-Panels, Bild-Kacheln, Leucht-Fokus, Symbole
 - **Live-Vorschau** in der Senderliste (Bild-im-Bild über `session.VideoPicture`/Pig), abschaltbar in den Einstellungen; Filme/Serien mit Cover
+- **Zoom-Effekt** (`zoom.py`): Vorschau zieht per /proc/stb/vmpeg/0/dst_* zum Vollbild auf und beim Verlassen wieder zurück
 - **Verbindungsschutz** (`StreamSwitch` in `common.py`): nie zwei Streams gleichzeitig, Pause zwischen Schliessen/Oeffnen, Zapp-Puffer, Vorschau max. alle 3 s, Pause wenn alle Verbindungen des Zugangs belegt sind
 - **Live TV Info-Leiste**: Logo, Name, Uhr, Jetzt mit Fortschritt, Weiter; ▲▼/CH = umschalten, ROT = letzter Sender
 - **Senderliste** im Player (OK) mit **EPG aktualisieren** (grün)

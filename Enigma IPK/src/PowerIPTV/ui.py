@@ -167,7 +167,9 @@ def ask_pin(session, callback, title="PIN der Kindersicherung"):
 
 
 # ---------- Wiedergabe ----------
-def play(session, source, items, index):
+def play(session, source, items, index, on_close=None, keep_stream=False):
+    """on_close: Rueckruf, wenn der Player geschlossen wird (bekommt den zuletzt gesehenen Index).
+    keep_stream: Live-Sender laeuft bereits (Vorschau) -> beim Verlassen weiterlaufen lassen."""
     item = items[index]
     if item.get("kind") == "series":
         store.add_history(pid(), item)
@@ -179,7 +181,7 @@ def play(session, source, items, index):
     else:
         store.add_history(pid(), item)
     if live:
-        session.open(PortivaPlayer, source, items, index, True)
+        session.openWithCallback(on_close or (lambda *a: None), PortivaPlayer, source, items, index, True, 0, keep_stream)
         return
     url = item.get("url") or source.stream_url(item, store.settings().get("live_format", "ts"))
     pos = store.resume_get(url)
@@ -762,7 +764,13 @@ class ItemScreen(Base):
             return
         self.pv_timer.stop()
         if self.pv_started and item.get("kind") == "live" and self.url_of(item) == self.pv_ref:
-            play(self.session, self.source, self.shown, n)  # laeuft schon in der Vorschau -> keine neue Verbindung
+            # laeuft schon in der Vorschau -> keine neue Verbindung; das kleine Bild zieht zum Vollbild auf
+            from . import zoom
+            if zoom.supported():
+                self.session.openWithCallback(self.player_closed, zoom.ZoomScreen,
+                                              lambda done: play(self.session, self.source, self.shown, n, on_close=done, keep_stream=True))
+            else:
+                play(self.session, self.source, self.shown, n, on_close=self.player_closed, keep_stream=True)
             return
         if self.pv_started:
             # anderer Sender/Film: Vorschau-Stream erst schliessen und kurz warten, dann oeffnen
@@ -773,6 +781,15 @@ class ItemScreen(Base):
             self.open_timer.start(max(100, sw.wait_ms()), True)
             return
         play(self.session, self.source, self.shown, n)
+
+    def player_closed(self, index=None, *args):
+        """Zurueck aus dem Player: Liste auf den zuletzt gesehenen Sender stellen; der laeuft in der Vorschau weiter."""
+        if self.p_closed or not isinstance(index, int) or not (0 <= index < len(self.shown)):
+            return
+        self["list"].moveToIndex(index)
+        self.pv_ref = self.url_of(self.shown[index])
+        self.pv_last = time.time()
+        self.pv_timer.stop()
 
     def open_pending(self):
         n, self.open_item = self.open_item, None
