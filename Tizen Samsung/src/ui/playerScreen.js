@@ -48,7 +48,9 @@ export default function playerScreen(params) {
   const times = h('div.p-times', null, tNow, h('div.spacer'), tEnd);
   const playBtn = button('⏸', () => { p.togglePause(); poke(); }, '.autofocus');
   const btnRow = h('div.p-buttons');
-  const bottom = h('div.p-bottom', null, epgEl, bar, times, btnRow);
+  // Wie Android/Windows: unten Seitenverhaeltnis – Geschwindigkeit – Untertitel
+  const quickRow = h('div.p-quick');
+  const bottom = h('div.p-bottom', null, epgEl, bar, times, btnRow, quickRow);
   const center = h('div.p-center');
   const subtitle = h('div.p-subtitle');
   const corner = h('div.p-corner');
@@ -76,8 +78,6 @@ export default function playerScreen(params) {
       btnRow.appendChild(button('Folgen', openEpisodes));
     }
     btnRow.appendChild(button('🔊 Ton', pickAudio));
-    btnRow.appendChild(button('💬 Untertitel', pickSubtitle));
-    btnRow.appendChild(button('▭ Bild', pickAspect));
     btnRow.appendChild(button(lib.isFavorite(cur.item) ? '❤' : '♡', toggleFavorite));
     btnRow.appendChild(button('⏾', pickSleep));
     // Portiva Link: auf TV-Stick, Tablet oder PC an derselben Stelle weiterschauen
@@ -85,6 +85,22 @@ export default function playerScreen(params) {
       title: titleEl.textContent, url: urlFor(), live: isLive(),
       positionMs: isLive() ? 0 : Math.floor(p.state.time || 0), durationMs: Math.floor(p.state.duration || 0), logo: cur.item.logo || null,
     }, () => { saveNow(); back(); })));
+  }
+
+  function buildQuick() {
+    clear(quickRow);
+    const chip = (icon, label, value, fn) => button(h('span', null, icon + '  ' + label, value ? h('span.val', null, '  ' + value) : null), fn, '.chip-q');
+    const asp = ASPECTS.find((a) => a[0] === p.aspect);
+    quickRow.appendChild(chip('▭', 'Seitenverhältnis', asp ? asp[1] : '', pickAspect));
+    if (!isLive()) quickRow.appendChild(chip('⏱', 'Geschwindigkeit', (p.rate || 1) + '×', pickSpeed));
+    quickRow.appendChild(chip('💬', 'Untertitel', subtitleLabel, pickSubtitle));
+  }
+  let subtitleLabel = 'Aus';
+
+  function pickSpeed() {
+    // AVPlay kann nur ganze Stufen (1×, 2×); im Browser auch Zwischenstufen
+    const steps = p.av ? [1, 2] : [0.75, 1, 1.25, 1.5, 2];
+    choose('Geschwindigkeit', steps.map((r) => ({ label: r === 1 ? 'Normal (1×)' : r + '×', active: (p.rate || 1) === r, onSelect: () => { p.setRate(r); buildQuick(); toast('Geschwindigkeit: ' + r + '×'); } })));
   }
 
   // ---------------- Abspielen ----------------
@@ -104,6 +120,8 @@ export default function playerScreen(params) {
     subEl.textContent = cur.episode ? cur.episode.title : cur.catchup ? `Sendung vom ${clock(cur.catchup.start)} (Catch-up)` : '';
     epgEl.innerHTML = '';
     buildButtons();
+    p.rate = 1;
+    buildQuick();
     let at = startAt;
     if (at == null && !isLive()) at = lib.position(posKey()) || 0;
     p.play(urlFor(), { startAt: at || 0, live: isLive() });
@@ -451,18 +469,18 @@ export default function playerScreen(params) {
   function pickSubtitle() {
     const t = p.tracks().text;
     if (!t.length) { toast('Keine Untertitel vorhanden'); return; }
-    choose('Untertitel', [{ label: 'Aus', active: false, onSelect: () => { p.selectText(-1); saveSettings({ subtitlesOn: false }); } }]
-      .concat(t.map((s) => ({ label: s.label, active: s.active, onSelect: () => { p.selectText(s.index); saveSettings({ subtitlesOn: true }); toast('Untertitel: ' + s.label); } }))));
+    choose('Untertitel', [{ label: 'Aus', active: subtitleLabel === 'Aus', onSelect: () => { p.selectText(-1); saveSettings({ subtitlesOn: false }); subtitleLabel = 'Aus'; buildQuick(); } }]
+      .concat(t.map((s) => ({ label: s.label, active: s.active, onSelect: () => { p.selectText(s.index); saveSettings({ subtitlesOn: true }); subtitleLabel = s.label; buildQuick(); toast('Untertitel: ' + s.label); } }))));
   }
 
   const ASPECTS = [['auto', 'Original'], ['fill', 'Zoom (ausfüllen)'], ['stretch', 'Strecken']];
   function pickAspect() {
-    choose('Bildformat', ASPECTS.map(([k, l]) => ({ label: l, active: p.aspect === k, onSelect: () => { p.setAspect(k); saveSettings({ aspect: k }); toast('Bild: ' + l); } })));
+    choose('Seitenverhältnis', ASPECTS.map(([k, l]) => ({ label: l, active: p.aspect === k, onSelect: () => { p.setAspect(k); saveSettings({ aspect: k }); buildQuick(); toast('Seitenverhältnis: ' + l); } })));
   }
   function cycleAspect() {
     const i = ASPECTS.findIndex((a) => a[0] === p.aspect);
     const n = ASPECTS[(i + 1) % ASPECTS.length];
-    p.setAspect(n[0]); saveSettings({ aspect: n[0] }); toast('Bild: ' + n[1]);
+    p.setAspect(n[0]); saveSettings({ aspect: n[0] }); buildQuick(); toast('Seitenverhältnis: ' + n[1]);
   }
 
   function toggleFavorite() {

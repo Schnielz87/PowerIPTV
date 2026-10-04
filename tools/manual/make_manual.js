@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.85 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.86 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -79,6 +79,7 @@ c.push(step('Den Android-Installer mit „Aktualisieren“ bestätigen – Zugä
 c.push(p('Unter „Update“ lässt sich die automatische Prüfung abschalten und jederzeit manuell „Nach Updates suchen“. Unter Windows lädt Portiva das neue Setup, schließt sich kurz und der Installer aktualisiert die App.'));
 c.push(p('Playlist und TV-Guide werden ebenfalls automatisch alle 24 Stunden aktualisiert – auch wenn die App länger geöffnet bleibt. Sofort geht es über die zwei Pfeile oben.'));
 c.push(tip('Auf jeder Seite steht oben links das Portiva-„P“ – ein Tipp (am Fernseher: Pfeil hoch, OK) führt direkt zur Startseite.'));
+c.push(tip('Im Player: links Helligkeit, rechts Lautstärke (senkrechte Regler zum Ziehen oder Antippen; am Fernseher regelt das die Fernbedienung). Unten unter dem Zeitstrahl: Seitenverhältnis – Geschwindigkeit – Untertitel. Das Zahnrad oben enthält jetzt Tonspur und Sleep-Timer.'));
 c.push(h2('Windows-PC'));
 c.push(p('Siehe Kapitel 14 – dort steht die Installation der Windows-Version.'));
 c.push(h2('Samsung Smart TV'));

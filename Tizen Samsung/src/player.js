@@ -239,6 +239,12 @@ export class Player {
 
   setAspect(mode) { this.aspect = mode; this.applyAspect(); }
 
+  /** Wiedergabe-Geschwindigkeit (AVPlay: ganze Stufen, HTML5: beliebig). */
+  setRate(r) {
+    this.rate = r;
+    try { if (this.av) this.av.setSpeed(r); else this.video.playbackRate = r; } catch (e) { /* nicht moeglich */ }
+  }
+
   applyAspect() {
     const m = this.aspect;
     if (this.av) {

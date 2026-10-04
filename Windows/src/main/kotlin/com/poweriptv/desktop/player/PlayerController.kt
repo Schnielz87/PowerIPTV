@@ -131,7 +131,7 @@ class PlayerController(
                     mediaPlayer.submit { readTracks(mediaPlayer) }
                 override fun elementaryStreamSelected(mediaPlayer: MediaPlayer, type: uk.co.caprica.vlcj.media.TrackType, id: Int) =
                     mediaPlayer.submit { readTracks(mediaPlayer) }
-                override fun videoOutput(mediaPlayer: MediaPlayer, newCount: Int) = mediaPlayer.submit { readTracks(mediaPlayer) }
+                override fun videoOutput(mediaPlayer: MediaPlayer, newCount: Int) = mediaPlayer.submit { readTracks(mediaPlayer); applyBrightness() }
             })
         }
     }
@@ -341,6 +341,22 @@ class PlayerController(
             pendingSeek?.let { p.controls().setTime(it) }
             pendingSeek = null
         }.apply { isRepeats = false; start() }
+    }
+
+    /** Bildhelligkeit (VLC-Bildanpassung): 0,3 = dunkel … 1 = normal … 1,7 = hell. */
+    var brightness by mutableStateOf(1f); private set
+
+    fun setBrightnessTo(v: Float) {
+        brightness = v.coerceIn(0.3f, 1.7f)
+        applyBrightness()
+    }
+
+    private fun applyBrightness() {
+        val p = player ?: return
+        runCatching {
+            if (kotlin.math.abs(brightness - 1f) < 0.01f) p.video().setAdjustVideo(false)
+            else { p.video().setAdjustVideo(true); p.video().setBrightness(brightness) }
+        }
     }
 
     fun changeVolume(delta: Int) = setVolumeTo(volume + delta)

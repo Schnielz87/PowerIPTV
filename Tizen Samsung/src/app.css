@@ -234,6 +234,11 @@ input:focus { border-color: #2EE59D; background: #172438; }
 .p-buttons { display: flex; flex-direction: row; flex-wrap: wrap; }
 .p-buttons .btn { background: rgba(23,36,56,.9); }
 .p-buttons .btn.focused { background: #5EC4F2; }
+.p-quick { display: flex; flex-direction: row; justify-content: center; margin-top: 4px; }
+.p-quick .btn { background: rgba(0,0,0,.55); height: 58px; font-size: 24px; }
+.p-quick .btn .val { color: #9FB1C9; font-size: 21px; }
+.p-quick .btn.focused { background: #5EC4F2; }
+.p-quick .btn.focused .val { color: #06101F; }
 .p-center { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: flex; align-items: center; justify-content: center; flex-direction: column; pointer-events: none; }
 .p-center .msg { margin-top: 24px; font-size: 30px; background: rgba(0,0,0,.6); padding: 14px 30px; border-radius: 16px; max-width: 1300px; text-align: center; }
 .p-subtitle { position: absolute; left: 160px; right: 160px; bottom: 90px; text-align: center; font-size: 44px; line-height: 56px; text-shadow: 0 0 6px #000, 2px 2px 2px #000; white-space: pre-line; }
@@ -283,3 +288,4 @@ input:focus { border-color: #2EE59D; background: #172438; }
 .legend b { display: inline-block; width: 20px; height: 20px; border-radius: 4px; margin: 0 8px -2px 22px; }
 .legend b.r { background: #E53935; } .legend b.g { background: #43A047; } .legend b.y { background: #FDD835; } .legend b.bl { background: #1E88E5; }
 .rec-row { min-height: 110px; }
+body.video-mode #toast { bottom: auto; top: 150px; }

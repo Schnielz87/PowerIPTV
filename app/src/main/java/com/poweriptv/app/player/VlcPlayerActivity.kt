@@ -106,6 +106,8 @@ class VlcPlayerActivity : ComponentActivity() {
     private var showRecordDialog by mutableStateOf(false)
     private var showFormatDialog by mutableStateOf(false)
     private var showSendDialog by mutableStateOf(false)
+    /** Welcher Teil der Einstellungen offen ist (Zahnrad = MAIN, Knoepfe unten = Bildformat/Tempo/Untertitel). */
+    private var dialogSection by mutableStateOf(PlayerSection.MAIN)
     /** Uebertragen-Dialog offen -> Leiste nicht ausblenden (sonst schliesst sich der Dialog mitten in der Suche). */
     private var castDialogOpen by mutableStateOf(false)
     /** Live: Senderliste im Bild und zuletzt gesehener Sender (Zurueck-Zappen). */
@@ -276,6 +278,7 @@ class VlcPlayerActivity : ComponentActivity() {
                         onSubtitleSize = { container.settings.setSubtitleSize(it); play(container.playIndex) },
                         subtitleBackground = container.settings.subtitleBackground.value,
                         onSubtitleBackground = { container.settings.setSubtitleBackground(it); play(container.playIndex) },
+                        section = dialogSection,
                     )
                     if (showRecordDialog) RecordDialog(
                         container, current(),
@@ -285,7 +288,24 @@ class VlcPlayerActivity : ComponentActivity() {
                     )
                     if (showOverlay) {
                         Overlay()
-                        if (current()?.live != true) SeekBar(Modifier.align(Alignment.BottomCenter))
+                        // Wie gewuenscht: links Helligkeit, rechts Lautstaerke (Handy/Tablet)
+                        if (!container.isTvDevice) PlayerSideLevels(this@VlcPlayerActivity, Modifier.padding(top = 72.dp, bottom = 130.dp))
+                        val liveNow = current()?.live == true
+                        androidx.compose.foundation.layout.Column(
+                            Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            if (!liveNow) SeekBar(Modifier)
+                            // Unten: Seitenverhaeltnis – Geschwindigkeit – Untertitel
+                            Box(Modifier.fillMaxWidth().background(Color(0x99000000)).padding(bottom = 8.dp, top = 4.dp), contentAlignment = Alignment.Center) {
+                                PlayerQuickBar(
+                                    formatLabel = scale.short,
+                                    speedLabel = if (liveNow) null else runCatching { mediaPlayer.rate }.getOrDefault(1f).let { if (it == 1f) "1×" else "${it.toString().removeSuffix(".0")}×" },
+                                    subtitleLabel = vlcTracks(false).firstOrNull { it.selected && it.key != OFF_KEY }?.label ?: "Aus",
+                                    onSection = { dialogSection = it; showFormatDialog = true; lastInteraction = System.currentTimeMillis() },
+                                )
+                            }
+                        }
                     }
                     // Thumbnail-Scrubbing: Vorschau an der Spulposition
                     val drag = dragging
@@ -395,7 +415,7 @@ class VlcPlayerActivity : ComponentActivity() {
                         Icon(Icons.Filled.FiberManualRecord, "Aufnehmen", tint = com.poweriptv.app.ui.theme.Danger)
                     }
                 }
-                IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { showFormatDialog = true }) { Icon(Icons.Filled.Settings, "Einstellungen (Audio, Untertitel, Bildformat)", tint = Color.White) }
+                IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { dialogSection = PlayerSection.MAIN; showFormatDialog = true }) { Icon(Icons.Filled.Settings, "Einstellungen (Tonspur, Sleep-Timer)", tint = Color.White) }
             }
             Row(
                 Modifier.align(Alignment.Center),
@@ -865,7 +885,8 @@ class VlcPlayerActivity : ComponentActivity() {
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE -> { togglePause(); return true }
             KeyEvent.KEYCODE_PROG_BLUE, KeyEvent.KEYCODE_TV_ZOOM_MODE -> { cycleScale(); return true }
             // Menue-Taste: Einstellungen (Audio, Untertitel, Bildformat)
-            KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SETTINGS, KeyEvent.KEYCODE_CAPTIONS -> { showFormatDialog = true; return true }
+            KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SETTINGS -> { dialogSection = PlayerSection.MAIN; showFormatDialog = true; return true }
+            KeyEvent.KEYCODE_CAPTIONS -> { dialogSection = PlayerSection.SUBTITLES; showFormatDialog = true; return true }
             KeyEvent.KEYCODE_INFO, KeyEvent.KEYCODE_GUIDE -> { showOverlay = !showOverlay; return true }
             KeyEvent.KEYCODE_BUTTON_B -> { closePlayer(); return true }
             KeyEvent.KEYCODE_MEDIA_RECORD, KeyEvent.KEYCODE_PROG_RED -> if (live) { showRecordDialog = true; return true }

@@ -126,6 +126,8 @@ class PlayerActivity : ComponentActivity() {
     private var showRecordDialog by mutableStateOf(false)
     private var showFormatDialog by mutableStateOf(false)
     private var showSendDialog by mutableStateOf(false)
+    /** Welcher Teil der Einstellungen offen ist (Zahnrad = MAIN, Knoepfe unten = Bildformat/Tempo/Untertitel). */
+    private var dialogSection by mutableStateOf(PlayerSection.MAIN)
     /** Uebertragen-Dialog offen -> Leiste nicht ausblenden (sonst schliesst sich der Dialog mitten in der Suche). */
     private var castDialogOpen by mutableStateOf(false)
     /** Live: Senderliste im Bild und zuletzt gesehener Sender (Zurueck-Zappen). */
@@ -308,10 +310,13 @@ class PlayerActivity : ComponentActivity() {
                                 // Steuerung ueber die App-Warteschlange: ⏮/⏭ = Sender bzw. Folge wechseln
                                 player = controlPlayer
                                 keepScreenOn = true
-                                setShowSubtitleButton(false) // Untertitel jetzt im Zahnrad-Menue oben rechts
+                                setShowSubtitleButton(false) // Untertitel jetzt unten in der Knopfleiste
+                                // Eigenes Zahnrad von media3 (Tempo/Audio) ausblenden – ersetzt durch die Knopfleiste unten
+                                findViewById<View>(androidx.media3.ui.R.id.exo_settings)?.visibility = View.GONE
                                 resizeMode = resizeModeFor(videoScale)
                                 setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { v ->
                                     showOverlay = v == View.VISIBLE
+                                    findViewById<View>(androidx.media3.ui.R.id.exo_settings)?.visibility = View.GONE
                                 })
                                 controllerShowTimeoutMs = 0 // Ausblenden steuert die App selbst (s. hideOverlay)
                                 // 10-s-Pfeile nur bei Filmen/Serien (Live-TV ist nicht spulbar)
@@ -376,6 +381,19 @@ class PlayerActivity : ComponentActivity() {
                         }
                     }
                     if (showOverlay) TopOverlay()
+                    if (showOverlay) {
+                        // Wie gewuenscht: links Helligkeit, rechts Lautstaerke (Handy/Tablet) ...
+                        if (!container.isTvDevice) PlayerSideLevels(this@PlayerActivity, Modifier.padding(top = 72.dp, bottom = 120.dp))
+                        // ... und unten Seitenverhaeltnis – Geschwindigkeit – Untertitel
+                        val live = current()?.live == true || timeshiftActive
+                        PlayerQuickBar(
+                            formatLabel = videoScale.short,
+                            speedLabel = if (live) null else player.playbackParameters.speed.let { if (it == 1f) "1×" else "${it.toString().removeSuffix(".0")}×" },
+                            subtitleLabel = trackOptions(C.TRACK_TYPE_TEXT).firstOrNull { it.selected && it.key != OFF_KEY }?.label ?: "Aus",
+                            onSection = { dialogSection = it; showFormatDialog = true; lastInteraction = System.currentTimeMillis() },
+                            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp),
+                        )
+                    }
                     scrubPos?.let { pos ->
                         val dur = player.duration.takeIf { it > 0 } ?: return@let
                         val p = scrubPreview
@@ -475,6 +493,7 @@ class PlayerActivity : ComponentActivity() {
                         onSubtitleSize = { container.settings.setSubtitleSize(it); applySubtitleStyle() },
                         subtitleBackground = container.settings.subtitleBackground.value,
                         onSubtitleBackground = { container.settings.setSubtitleBackground(it); applySubtitleStyle() },
+                        section = dialogSection,
                     )
                     if (showRecordDialog) RecordDialog(
                         container, current(),
@@ -552,8 +571,8 @@ class PlayerActivity : ComponentActivity() {
                         Icon(Icons.Filled.ConnectedTv, "An Gerät senden", tint = Color.White)
                     }
                 }
-                IconButton(modifier = Modifier.focusRequester(gearFocus).tvFocus(CircleShape, 1.15f), onClick = { showFormatDialog = true }) {
-                    Icon(Icons.Filled.Settings, "Einstellungen (Audio, Untertitel, Bildformat)", tint = Color.White)
+                IconButton(modifier = Modifier.focusRequester(gearFocus).tvFocus(CircleShape, 1.15f), onClick = { dialogSection = PlayerSection.MAIN; showFormatDialog = true }) {
+                    Icon(Icons.Filled.Settings, "Einstellungen (Tonspur, Sleep-Timer)", tint = Color.White)
                 }
                 if (entry?.live == true) {
                     IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { showRecordDialog = true }) {
@@ -1155,7 +1174,8 @@ class PlayerActivity : ComponentActivity() {
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_BUTTON_A ->
                 if (!controllerVisible) { playerView?.showController(); return true }
             // Menue-Taste: Einstellungen (Audio, Untertitel, Bildformat)
-            KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SETTINGS, KeyEvent.KEYCODE_CAPTIONS -> { showFormatDialog = true; return true }
+            KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SETTINGS -> { dialogSection = PlayerSection.MAIN; showFormatDialog = true; return true }
+            KeyEvent.KEYCODE_CAPTIONS -> { dialogSection = PlayerSection.SUBTITLES; showFormatDialog = true; return true }
             KeyEvent.KEYCODE_INFO, KeyEvent.KEYCODE_GUIDE, KeyEvent.KEYCODE_BUTTON_Y -> {
                 if (controllerVisible) playerView?.hideController() else playerView?.showController()
                 return true

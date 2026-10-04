@@ -23,6 +23,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,9 +44,12 @@ import kotlinx.coroutines.delay
 /** Eine waehlbare Audio- oder Untertitelspur. */
 data class TrackOption(val key: String, val label: String, val selected: Boolean)
 
+/** Welcher Teil der Player-Einstellungen gezeigt wird (Zahnrad = MAIN, Knoepfe unten = Rest). */
+enum class PlayerSection(val title: String) { MAIN("Einstellungen"), FORMAT("Seitenverhältnis"), SPEED("Geschwindigkeit"), SUBTITLES("Untertitel") }
+
 /**
- * Einstellungen im Player (Zahnrad oben rechts bzw. Menue-Taste):
- * Audiospur, Untertitel und Bildformat.
+ * Einstellungen im Player. Zahnrad oben rechts: Audiospur + Sleep-Timer.
+ * Seitenverhaeltnis, Geschwindigkeit und Untertitel haben eigene Knoepfe unten (PlayerQuickBar).
  */
 @Composable
 fun PlayerSettingsDialog(
@@ -62,6 +70,7 @@ fun PlayerSettingsDialog(
     onSubtitleSize: (String) -> Unit = {},
     subtitleBackground: Boolean = false,
     onSubtitleBackground: (Boolean) -> Unit = {},
+    section: PlayerSection = PlayerSection.MAIN,
 ) {
     val focus = remember { FocusRequester() }
     var firstFocusSet = false
@@ -85,14 +94,20 @@ fun PlayerSettingsDialog(
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Einstellungen") },
+        title = { Text(section.title) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                if (section == PlayerSection.MAIN) {
                 Header("Audiospur")
                 if (audio.isEmpty() || (audio.size == 1 && !audio[0].key.startsWith(VLC_KEY))) {
                     Text(audio.firstOrNull()?.label ?: "Keine Auswahl verfuegbar", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else audio.forEach { a -> Option(a.label, a.selected) { onAudio(a) } }
-                Header("Untertitel")
+                Header(if (sleepMinutes != null) "Sleep-Timer (noch $sleepMinutes Min.)" else "Sleep-Timer")
+                listOf(0 to "Aus", 15 to "15 Minuten", 30 to "30 Minuten", 60 to "60 Minuten", 90 to "90 Minuten", 120 to "2 Stunden").forEach { (m, l) ->
+                    Option(l, if (m == 0) sleepMinutes == null else false) { onSleep(m) }
+                }
+                }
+                if (section == PlayerSection.SUBTITLES) {
                 if (subtitles.none { it.key != OFF_KEY }) {
                     Text("Keine Untertitel verfuegbar", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
@@ -103,18 +118,16 @@ fun PlayerSettingsDialog(
                     }
                     Option(if (subtitleBackground) "Dunkler Hintergrund: an" else "Dunkler Hintergrund: aus", subtitleBackground) { onSubtitleBackground(!subtitleBackground) }
                 }
-                if (speed != null) {
-                    Header("Geschwindigkeit")
-                    listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f).forEach { v ->
+                }
+                if (section == PlayerSection.SPEED) {
+                    if (speed == null) Text("Bei Live TV nicht verfügbar", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    else listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f).forEach { v ->
                         Option(if (v == 1f) "Normal (1×)" else "${v.toString().removeSuffix(".0")}×", kotlin.math.abs(speed - v) < 0.01f) { onSpeed(v) }
                     }
                 }
-                Header(if (sleepMinutes != null) "Sleep-Timer (noch $sleepMinutes Min.)" else "Sleep-Timer")
-                listOf(0 to "Aus", 15 to "15 Minuten", 30 to "30 Minuten", 60 to "60 Minuten", 90 to "90 Minuten", 120 to "2 Stunden").forEach { (m, l) ->
-                    Option(l, if (m == 0) sleepMinutes == null else false) { onSleep(m) }
+                if (section == PlayerSection.FORMAT) {
+                    VideoScale.entries.forEach { v -> Option(v.label, v == format) { onFormat(v) } }
                 }
-                Header("Bildformat")
-                VideoScale.entries.forEach { v -> Option(v.label, v == format) { onFormat(v) } }
             }
         },
         confirmButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50)), onClick = onDismiss) { Text("Schliessen") } },
@@ -249,4 +262,131 @@ fun ChannelListPanel(
         }
     }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+}
+
+/**
+ * Knopfleiste unten im Player (wie gewuenscht): Seitenverhaeltnis – Geschwindigkeit – Untertitel.
+ * speedLabel = null -> Live TV (Geschwindigkeit nicht moeglich, Knopf ausgeblendet).
+ */
+@Composable
+fun PlayerQuickBar(
+    formatLabel: String,
+    speedLabel: String?,
+    subtitleLabel: String,
+    onSection: (PlayerSection) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    @Composable
+    fun Chip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String, section: PlayerSection) {
+        Row(
+            Modifier.clip(RoundedCornerShape(50)).tvFocus(RoundedCornerShape(50), 1.06f)
+                .clickable { onSection(section) }
+                .background(Color(0x66000000))
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            androidx.compose.material3.Icon(icon, null, tint = Color.White, modifier = Modifier.size(22.dp))
+            androidx.compose.foundation.layout.Spacer(Modifier.size(8.dp))
+            Text(label, color = Color.White, fontSize = 15.sp, maxLines = 1)
+            if (value.isNotBlank()) {
+                Text("  $value", color = Color.White.copy(alpha = 0.65f), fontSize = 13.sp, maxLines = 1)
+            }
+        }
+    }
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Chip(androidx.compose.material.icons.Icons.Filled.AspectRatio, "Seitenverhältnis", formatLabel, PlayerSection.FORMAT)
+        if (speedLabel != null) Chip(androidx.compose.material.icons.Icons.Filled.Speed, "Geschwindigkeit", speedLabel, PlayerSection.SPEED)
+        Chip(androidx.compose.material.icons.Icons.Filled.ClosedCaption, "Untertitel", subtitleLabel, PlayerSection.SUBTITLES)
+    }
+}
+
+/** Senkrechter Regler (0..1) mit Symbol oben – zum Ziehen oder Antippen. */
+@Composable
+fun VerticalLevel(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    value: Float,
+    onChange: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        androidx.compose.material3.Icon(icon, null, tint = Color.White, modifier = Modifier.size(30.dp))
+        androidx.compose.foundation.layout.Spacer(Modifier.size(14.dp))
+        androidx.compose.foundation.layout.BoxWithConstraints(
+            Modifier.size(width = 44.dp, height = 180.dp)
+                .androidx_pointer(onChange),
+            contentAlignment = Alignment.BottomCenter,
+        ) {
+            // Schiene
+            Box(Modifier.fillMaxHeight().size(width = 8.dp, height = 180.dp).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.3f)))
+            // Fuellung
+            Box(
+                Modifier.size(width = 8.dp, height = (180 * value.coerceIn(0f, 1f)).dp)
+                    .clip(RoundedCornerShape(4.dp)).background(Color.White),
+            )
+        }
+        Text("${(value * 100).toInt()}%", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+    }
+}
+
+/** Ziehen/Antippen auf dem Regler: oben = 100 %, unten = 0 %. */
+private fun Modifier.androidx_pointer(onChange: (Float) -> Unit): Modifier = this
+    .then(
+        Modifier.pointerInput(Unit) {
+            detectTapGestures { o -> onChange(1f - (o.y / size.height).coerceIn(0f, 1f)) }
+        },
+    )
+    .then(
+        Modifier.pointerInput(Unit) {
+            detectVerticalDragGestures { change, _ ->
+                change.consume()
+                onChange(1f - (change.position.y / size.height).coerceIn(0f, 1f))
+            }
+        },
+    )
+
+/**
+ * Helligkeit (links) und Lautstaerke (rechts) wie im Vorbild – nur auf Handy/Tablet
+ * (am Fernseher regelt die Fernbedienung Ton und der Fernseher die Helligkeit).
+ */
+@Composable
+fun PlayerSideLevels(activity: android.app.Activity, modifier: Modifier = Modifier) {
+    val audio = remember { activity.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager }
+    val maxVol = remember { audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC).coerceAtLeast(1) }
+    var volume by remember { androidx.compose.runtime.mutableFloatStateOf(audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) / maxVol.toFloat()) }
+    var brightness by remember { androidx.compose.runtime.mutableFloatStateOf(currentBrightness(activity)) }
+    // Lautstaerke auch per Hardware-Tasten geaendert -> Anzeige nachziehen
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(700)
+            volume = audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) / maxVol.toFloat()
+        }
+    }
+    Box(modifier.fillMaxSize().padding(horizontal = 28.dp)) {
+        VerticalLevel(
+            androidx.compose.material.icons.Icons.Filled.LightMode, brightness,
+            onChange = { v ->
+                brightness = v
+                activity.window.attributes = activity.window.attributes.apply { screenBrightness = v.coerceIn(0.02f, 1f) }
+            },
+            modifier = Modifier.align(Alignment.CenterStart),
+        )
+        VerticalLevel(
+            if (volume <= 0.001f) androidx.compose.material.icons.Icons.AutoMirrored.Filled.VolumeOff else androidx.compose.material.icons.Icons.AutoMirrored.Filled.VolumeUp,
+            volume,
+            onChange = { v ->
+                volume = v
+                runCatching { audio.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, (v * maxVol).toInt(), 0) }
+            },
+            modifier = Modifier.align(Alignment.CenterEnd),
+        )
+    }
+}
+
+/** Aktuelle Helligkeit: im Player gesetzt, sonst die des Systems. */
+private fun currentBrightness(activity: android.app.Activity): Float {
+    val w = activity.window.attributes.screenBrightness
+    if (w >= 0f) return w
+    return runCatching {
+        android.provider.Settings.System.getInt(activity.contentResolver, android.provider.Settings.System.SCREEN_BRIGHTNESS) / 255f
+    }.getOrDefault(0.5f).coerceIn(0f, 1f)
 }

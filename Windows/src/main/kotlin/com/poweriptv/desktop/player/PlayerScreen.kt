@@ -28,6 +28,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CastConnected
 import androidx.compose.material.icons.filled.Cast
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.ConnectedTv
 import androidx.compose.runtime.collectAsState
 import androidx.compose.material.icons.filled.Bedtime
@@ -440,6 +442,19 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                     }
                 }
 
+                // Links Helligkeit, rechts Lautstaerke (wie Android)
+                Box(Modifier.align(Alignment.CenterStart).padding(start = 28.dp)) {
+                    VerticalLevel(Icons.Filled.LightMode, (ctl.brightness - 0.3f) / 1.4f, "${((ctl.brightness - 0.3f) / 1.4f * 100).toInt()}%") { v ->
+                        ctl.setBrightnessTo(0.3f + v * 1.4f); poke()
+                    }
+                }
+                Box(Modifier.align(Alignment.CenterEnd).padding(end = 28.dp)) {
+                    VerticalLevel(
+                        if (ctl.muted || ctl.volume == 0) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                        ctl.volume / 150f, "${ctl.volume}%", onIcon = { ctl.toggleMute(); poke() },
+                    ) { v -> ctl.setVolumeTo((v * 150).toInt()); poke() }
+                }
+
                 // unten
                 Column(
                     Modifier.align(Alignment.BottomCenter).fillMaxWidth()
@@ -476,21 +491,14 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                             Text("${formatTime(t)} / ${formatTime(ctl.length)}", fontSize = 14.sp)
                         }
                         Spacer(Modifier.weight(1f))
+                        // Wie gewuenscht: unten Seitenverhaeltnis – Geschwindigkeit – Untertitel
+                        QuickBar(ctl, aspect, isLive, onAspect = { app.playerAspect = it }, onOpenChange = { menuOpen = it; poke() })
+                        Spacer(Modifier.weight(1f))
                         if (next != null) {
                             OutlinedButton(onClick = { playNext() }, modifier = Modifier.handCursor()) {
                                 Icon(Icons.Filled.SkipNext, null); Spacer(Modifier.width(6.dp)); Text("Nächste Folge")
                             }
-                            Spacer(Modifier.width(16.dp))
                         }
-                        IconButton(onClick = { ctl.toggleMute() }, modifier = Modifier.handCursor()) {
-                            Icon(if (ctl.muted || ctl.volume == 0) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, "Ton", tint = Color.White)
-                        }
-                        Slider(
-                            value = ctl.volume.toFloat(), onValueChange = { ctl.setVolumeTo(it.toInt()); poke() }, valueRange = 0f..150f,
-                            colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White, inactiveTrackColor = Color.White.copy(alpha = 0.3f)),
-                            modifier = Modifier.width(140.dp).handCursor(),
-                        )
-                        Text("${ctl.volume}%", fontSize = 12.sp, modifier = Modifier.width(44.dp).padding(start = 6.dp))
                     }
                 }
             }
@@ -573,26 +581,76 @@ private fun SettingsMenu(
     Box {
         RoundIcon(Icons.Filled.Settings, "Einstellungen") { open = true; onOpenChange(true) }
         DropdownMenu(open, onDismissRequest = { open = false; onOpenChange(false) }) {
-            MenuHeader(Icons.Filled.AspectRatio, "Bildformat")
-            AspectModes.forEach { (k, l) -> CheckItem(l, aspect == k) { onAspect(k) } }
-            HorizontalDivider()
             MenuHeader(Icons.AutoMirrored.Filled.VolumeUp, "Tonspur")
             if (ctl.audioTracks.isEmpty()) DropdownMenuItem(text = { Text("Standard") }, onClick = {}, enabled = false)
             ctl.audioTracks.forEach { t -> CheckItem(t.name, ctl.audioTrack == t.id) { ctl.selectAudio(t.id) } }
-            HorizontalDivider()
-            MenuHeader(Icons.Filled.Subtitles, "Untertitel")
-            CheckItem("Aus", ctl.subtitleTrack < 0) { ctl.selectSubtitle(-1) }
-            ctl.subtitleTracks.forEach { t -> CheckItem(t.name, ctl.subtitleTrack == t.id) { ctl.selectSubtitle(t.id) } }
-            if (!isLive) {
-                HorizontalDivider()
-                MenuHeader(Icons.Filled.Speed, "Geschwindigkeit")
-                listOf(0.75f, 1f, 1.25f, 1.5f, 2f).forEach { r -> CheckItem(if (r == 1f) "Normal" else "${r}x", ctl.rate == r) { ctl.changeRate(r) } }
-            }
             HorizontalDivider()
             MenuHeader(Icons.Filled.Bedtime, "Sleep-Timer" + (sleepMinutes?.let { " (noch $it Min.)" } ?: ""))
             CheckItem("Aus", sleepMinutes == null) { onSleep(0) }
             listOf(15, 30, 45, 60, 90, 120).forEach { m -> CheckItem("$m Minuten", false) { onSleep(m) } }
         }
+    }
+}
+
+/** Knopfleiste unten (wie Android): Seitenverhaeltnis – Geschwindigkeit – Untertitel, je mit eigenem Menue. */
+@Composable
+private fun QuickBar(ctl: PlayerController, aspect: String, isLive: Boolean, onAspect: (String) -> Unit, onOpenChange: (Boolean) -> Unit) {
+    @Composable
+    fun Chip(icon: ImageVector, label: String, value: String, menu: @Composable (close: () -> Unit) -> Unit) {
+        var open by remember { mutableStateOf(false) }
+        androidx.compose.runtime.DisposableEffect(open) { onOpenChange(open); onDispose { if (open) onOpenChange(false) } }
+        Box {
+            Row(
+                Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.45f)).handCursor()
+                    .clickable { open = true }.padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(icon, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(label, color = Color.White, fontSize = 14.sp)
+                if (value.isNotBlank()) Text("  $value", color = Color.White.copy(alpha = 0.65f), fontSize = 12.sp)
+            }
+            DropdownMenu(open, onDismissRequest = { open = false }) { menu { open = false } }
+        }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Chip(Icons.Filled.AspectRatio, "Seitenverhältnis", AspectModes.firstOrNull { it.first == aspect }?.second.orEmpty()) { close ->
+            AspectModes.forEach { (k, l) -> CheckItem(l, aspect == k) { onAspect(k); close() } }
+        }
+        if (!isLive) Chip(Icons.Filled.Speed, "Geschwindigkeit", if (ctl.rate == 1f) "1×" else "${ctl.rate}×") { close ->
+            listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f).forEach { r -> CheckItem(if (r == 1f) "Normal (1×)" else "${r}×", ctl.rate == r) { ctl.changeRate(r); close() } }
+        }
+        Chip(Icons.Filled.Subtitles, "Untertitel", ctl.subtitleTracks.firstOrNull { it.id == ctl.subtitleTrack }?.name ?: "Aus") { close ->
+            CheckItem("Aus", ctl.subtitleTrack < 0) { ctl.selectSubtitle(-1); close() }
+            if (ctl.subtitleTracks.isEmpty()) DropdownMenuItem(text = { Text("Keine Untertitel im Stream") }, onClick = {}, enabled = false)
+            ctl.subtitleTracks.forEach { t -> CheckItem(t.name, ctl.subtitleTrack == t.id) { ctl.selectSubtitle(t.id); close() } }
+        }
+    }
+}
+
+/** Senkrechter Regler (0..1) mit Symbol oben – Ziehen, Klicken oder Mausrad (wie Android). */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@Composable
+private fun VerticalLevel(icon: ImageVector, value: Float, label: String, onIcon: (() -> Unit)? = null, onChange: (Float) -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(40.dp).clip(CircleShape).then(if (onIcon != null) Modifier.handCursor().clickable { onIcon() } else Modifier), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = Color.White, modifier = Modifier.size(28.dp))
+        }
+        Spacer(Modifier.height(10.dp))
+        Box(
+            Modifier.width(44.dp).height(200.dp).handCursor()
+                .pointerInput(Unit) { detectTapGestures { o -> onChange(1f - (o.y / size.height).coerceIn(0f, 1f)) } }
+                .pointerInput(Unit) { detectVerticalDragGestures { c, _ -> c.consume(); onChange(1f - (c.position.y / size.height).coerceIn(0f, 1f)) } }
+                .onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Scroll) { e ->
+                    val dy = e.changes.firstOrNull()?.scrollDelta?.y ?: 0f
+                    onChange((value - dy * 0.05f).coerceIn(0f, 1f))
+                },
+            contentAlignment = Alignment.BottomCenter,
+        ) {
+            Box(Modifier.width(8.dp).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.3f)))
+            Box(Modifier.width(8.dp).fillMaxHeight(value.coerceIn(0.001f, 1f)).clip(RoundedCornerShape(4.dp)).background(Color.White))
+        }
+        Text(label, fontSize = 12.sp, color = Color.White.copy(alpha = 0.8f), modifier = Modifier.padding(top = 6.dp))
     }
 }
 
