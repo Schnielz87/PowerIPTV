@@ -1,21 +1,29 @@
 *.iml
 .gradle/
-/local.properties
-/.idea/
 .DS_Store
-/build/
-/app/build/
+/.idea/
 /captures/
 .externalNativeBuild/
 .cxx/
+local.properties
 *.keystore
 *.jks
+*.p12
+
+# Android
+/Android/build/
+/Android/app/build/
+
+# Windows
 /Windows/build/
 /Windows/.kotlin/
+
+# Samsung TV (Tizen)
 /Tizen Samsung/node_modules/
 /Tizen Samsung/build/
 /Tizen Samsung/PowerIPTV-Tizen/
-*.p12
+
+# iOS (Xcode-Projekt + VLC werden im CI erzeugt)
 /iOS/Pods/
 /iOS/Portiva.xcodeproj/
 /iOS/Portiva.xcworkspace/

@@ -35,7 +35,8 @@ jobs:
             echo "Kein Signatur-Secret gesetzt – APK wird mit Debug-Schluessel signiert."
           fi
 
-      - name: APK bauen
+      - name: APK bauen (Ordner Android/)
+        working-directory: Android
         env:
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
@@ -47,9 +48,9 @@ jobs:
       - name: APK umbenennen
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/release/app-release.apk "out/PowerIPTV-v1.1.${BUILD_NUMBER}.apk"
+          cp Android/app/build/outputs/apk/release/app-release.apk "out/PowerIPTV-v1.1.${BUILD_NUMBER}.apk"
           # Fester Dateiname -> gleichbleibender Link .../releases/latest/download/PowerIPTV.apk (z.B. fuer Fire TV "Downloader")
-          cp app/build/outputs/apk/release/app-release.apk "out/PowerIPTV.apk"
+          cp Android/app/build/outputs/apk/release/app-release.apk "out/PowerIPTV.apk"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -88,7 +89,8 @@ jobs:
 
       - name: Windows-App bauen
         shell: pwsh
-        run: ./gradlew.bat -p Windows --no-daemon createDistributable packageExe packageMsi
+        working-directory: Windows
+        run: ./gradlew.bat --no-daemon createDistributable packageExe packageMsi
 
       - name: Dateien zusammenstellen
         shell: pwsh

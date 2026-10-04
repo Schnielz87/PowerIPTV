@@ -20,10 +20,10 @@ Beim ersten Start warnt Windows evtl. („Der Computer wurde durch Windows gesch
 | Pfad | Inhalt |
 |---|---|
 | `src/main/kotlin/com/poweriptv/desktop/` | Windows-Oberfläche, Player, Speicher |
-| `../app/src/main/java/com/poweriptv/app/data/` | Xtream-/M3U-Logik, geteilt mit der Android-App |
+| `../Android/app/src/main/java/com/poweriptv/app/data/` | Xtream-/M3U-Logik, geteilt mit der Android-App |
 | `src/main/resources/` | Logo, Start-Klang, Kachelbilder |
 | `icon/` | App-Symbol (`make_icon.py` erzeugt es aus dem Android-Logo) |
 
-Bauen (Windows, JDK 17): `gradlew.bat -p Windows packageExe` – VLC (`libvlc.dll`, `libvlccore.dll`, `plugins/`)
+Bauen (Windows, JDK 17): `cd Windows && gradlew.bat packageExe` – VLC (`libvlc.dll`, `libvlccore.dll`, `plugins/`)
 gehört nach `Windows/build/vlc-resources/windows/vlc/` (macht der GitHub-Build automatisch).
 Daten (Zugänge, Favoriten, Verlauf) liegen unter `%APPDATA%\Portiva`, Passwörter sind mit Windows-DPAPI verschlüsselt.

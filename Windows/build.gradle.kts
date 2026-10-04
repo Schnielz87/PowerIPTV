@@ -25,7 +25,7 @@ dependencies {
 sourceSets {
     main {
         kotlin {
-            srcDir("../app/src/main/java")
+            srcDir("../Android/app/src/main/java")
             include(
                 "com/poweriptv/desktop/**",
                 "com/poweriptv/app/data/DesktopBase64.kt",

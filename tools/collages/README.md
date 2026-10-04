@@ -3,9 +3,9 @@
 Die drei Hintergrundbilder der grossen Startseiten-Kacheln liegen in:
 
 ```
-app/src/main/res/drawable-nodpi/live_tv_collage.webp
-app/src/main/res/drawable-nodpi/movies_collage.webp
-app/src/main/res/drawable-nodpi/series_collage.webp
+Android/app/src/main/res/drawable-nodpi/live_tv_collage.webp
+Android/app/src/main/res/drawable-nodpi/movies_collage.webp
+Android/app/src/main/res/drawable-nodpi/series_collage.webp
 ```
 
 **Austauschen:** Eigenes Bild mit exakt demselben Dateinamen dort ablegen (alte Datei ersetzen), committen – fertig.

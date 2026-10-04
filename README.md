@@ -90,14 +90,14 @@ Modell und API-Adresse sind einstellbar (auch OpenAI-kompatible Anbieter).
 
 ## Logo austauschen
 
-Das Logo (Portiva-P in der IPTV-Variante: Play-Button + Signalwellen) liegt als Vektor in `app/src/main/res/drawable/portiva_logo.xml`.
+Das Logo (Portiva-P in der IPTV-Variante: Play-Button + Signalwellen) liegt als Vektor in `Android/app/src/main/res/drawable/portiva_logo.xml`.
 Zum Ersetzen die Datei loeschen und das Original als `portiva_logo.png` in denselben Ordner legen.
 Das App-Icon befindet sich in `ic_launcher_background.xml` / `ic_launcher_foreground.xml`.
 
 ## Selbst bauen
 
 Android Studio (Koala oder neuer) oeffnen → Projekt laden → *Run*.
-Oder per Kommandozeile: `./gradlew assembleRelease` (JDK 17, Android SDK 34).
+Oder per Kommandozeile: `cd Android && ./gradlew assembleRelease` (JDK 17, Android SDK 34).
 
 ## Technik
 
