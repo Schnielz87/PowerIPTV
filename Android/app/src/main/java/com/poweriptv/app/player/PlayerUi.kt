@@ -231,6 +231,8 @@ object EpisodeFlow {
 /**
  * Senderliste im laufenden Bild (rechts): Logo, Nummer, Name und aktuelle Sendung.
  * Auswahl startet den Sender, ohne den Player zu verlassen.
+ * Am Griff links kann man die Liste breiter nach links ziehen: dann Programm-Uebersicht
+ * (Jetzt mit Uhrzeit und Fortschritt, Danach) fuer jeden Sender.
  */
 @Composable
 fun ChannelListPanel(
@@ -243,34 +245,100 @@ fun ChannelListPanel(
     val listState = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = (current - 3).coerceAtLeast(0))
     val focus = remember { FocusRequester() }
     val now = remember { System.currentTimeMillis() }
-    Box(Modifier.fillMaxSize().background(Color(0x55000000)).clickable(onClick = onDismiss)) {
-        Column(
-            Modifier.align(Alignment.CenterEnd).fillMaxHeight().widthIn(max = 380.dp).fillMaxWidth(0.42f)
-                .background(Color(0xF0101620)).clickable(enabled = false) {}.padding(vertical = 12.dp),
-        ) {
-            Text("Senderliste", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
-            androidx.compose.foundation.lazy.LazyColumn(state = listState) {
-                items(entries.size) { i ->
-                    val e = entries[i]
-                    val sel = i == current
-                    val programme = e.item?.let { runCatching { container.epg.current(it, now)?.title }.getOrNull() }
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)
-                            .then(if (sel) Modifier.focusRequester(focus) else Modifier)
-                            .clip(RoundedCornerShape(8.dp))
-                            .tvFocus(RoundedCornerShape(8.dp))
-                            .background(if (sel) Color(0x332FB8E6) else Color.Transparent)
-                            .clickable { onSelect(i) }
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("${e.item?.number ?: (i + 1)}", color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.widthIn(min = 30.dp))
-                        Box(Modifier.size(width = 52.dp, height = 30.dp), contentAlignment = Alignment.Center) {
-                            if (!e.item?.logo.isNullOrBlank()) coil.compose.AsyncImage(e.item?.logo, null, modifier = Modifier.fillMaxSize())
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    // Zusaetzliche Breite durch Ziehen am Griff (0 = normale Liste)
+    var extra by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    // Kurz-EPG je Sender (nur in der breiten Ansicht nachgeladen, falls kein XMLTV-Programm da ist)
+    val shortEpg = remember { androidx.compose.runtime.mutableStateMapOf<String, List<com.poweriptv.app.data.EpgEntry>>() }
+    val fmt = remember { java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT) }
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().background(Color(0x55000000)).clickable(onClick = onDismiss)) {
+        val baseWidth = minOf(380.dp, maxWidth * 0.42f)
+        val maxExtra = with(density) { (maxWidth * 0.95f - baseWidth).coerceAtLeast(0.dp).toPx() }
+        val panelWidth = baseWidth + with(density) { extra.coerceIn(0f, maxExtra).toDp() }
+        val wide = panelWidth >= baseWidth + 120.dp
+        Row(Modifier.align(Alignment.CenterEnd).fillMaxHeight().size(width = panelWidth + 22.dp, height = maxHeight)) {
+            // Griff zum Ziehen (nach links = breiter, nach rechts = schmaler)
+            Box(
+                Modifier.fillMaxHeight().size(width = 22.dp, height = maxHeight).clickable(enabled = false) {}
+                    .pointerInput(maxExtra) {
+                        androidx.compose.foundation.gestures.detectHorizontalDragGestures { change, dx ->
+                            change.consume()
+                            extra = (extra - dx).coerceIn(0f, maxExtra)
                         }
-                        Column(Modifier.padding(start = 10.dp).weight(1f)) {
-                            Text(e.title, color = Color.White, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal, maxLines = 1, fontSize = 15.sp)
-                            if (programme != null) Text(programme, color = Color.White.copy(alpha = 0.65f), maxLines = 1, fontSize = 12.sp)
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(Modifier.size(width = 6.dp, height = 64.dp).clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.6f)))
+            }
+            Column(
+                Modifier.fillMaxHeight().size(width = panelWidth, height = maxHeight)
+                    .background(Color(0xF0101620)).clickable(enabled = false) {}.padding(vertical = 12.dp),
+            ) {
+                Text("Senderliste", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                androidx.compose.foundation.lazy.LazyColumn(state = listState) {
+                    items(entries.size) { i ->
+                        val e = entries[i]
+                        val sel = i == current
+                        val programme = e.item?.let { runCatching { container.epg.current(it, now)?.title }.getOrNull() }
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)
+                                .then(if (sel) Modifier.focusRequester(focus) else Modifier)
+                                .clip(RoundedCornerShape(8.dp))
+                                .tvFocus(RoundedCornerShape(8.dp))
+                                .background(if (sel) Color(0x332FB8E6) else Color.Transparent)
+                                .clickable { onSelect(i) }
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("${e.item?.number ?: (i + 1)}", color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.widthIn(min = 30.dp))
+                            Box(Modifier.size(width = 52.dp, height = 30.dp), contentAlignment = Alignment.Center) {
+                                if (!e.item?.logo.isNullOrBlank()) coil.compose.AsyncImage(e.item?.logo, null, modifier = Modifier.fillMaxSize())
+                            }
+                            if (!wide) {
+                                Column(Modifier.padding(start = 10.dp).weight(1f)) {
+                                    Text(e.title, color = Color.White, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal, maxLines = 1, fontSize = 15.sp)
+                                    if (programme != null) Text(programme, color = Color.White.copy(alpha = 0.65f), maxLines = 1, fontSize = 12.sp)
+                                }
+                            } else {
+                                // Breite Ansicht: Name | Jetzt (Uhrzeit, Fortschritt) | Danach
+                                val item = e.item
+                                val xNow = item?.let { runCatching { container.epg.current(it, now) }.getOrNull() }
+                                val xNext = item?.let { runCatching { container.epg.next(it, now) }.getOrNull() }
+                                if (item != null && xNow == null && !shortEpg.containsKey(e.url)) {
+                                    LaunchedEffect(e.url) {
+                                        shortEpg[e.url] = runCatching { container.source?.shortEpg(item).orEmpty() }.getOrDefault(emptyList())
+                                    }
+                                }
+                                val list = shortEpg[e.url].orEmpty()
+                                val nowP = xNow?.let { Triple(it.start, it.end, it.title) }
+                                    ?: list.firstOrNull { it.start <= now && it.end > now }?.let { Triple(it.start, it.end, it.title) }
+                                val nextP = xNext?.let { Triple(it.start, it.end, it.title) }
+                                    ?: list.firstOrNull { it.start >= (nowP?.second ?: now) }?.let { Triple(it.start, it.end, it.title) }
+                                fun time(p: Triple<Long, Long, String>) = "${fmt.format(java.util.Date(p.first))} – ${fmt.format(java.util.Date(p.second))}"
+                                Text(
+                                    e.title, color = Color.White, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal, maxLines = 1, fontSize = 15.sp,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(start = 10.dp).weight(0.8f),
+                                )
+                                Column(Modifier.padding(start = 12.dp).weight(1.4f)) {
+                                    if (nowP != null) {
+                                        Text(nowP.third, color = Color.White, maxLines = 1, fontSize = 14.sp, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                        val frac = ((now - nowP.first).toFloat() / (nowP.second - nowP.first).coerceAtLeast(1)).coerceIn(0f, 1f)
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(time(nowP), color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp, maxLines = 1)
+                                            Box(Modifier.padding(start = 8.dp).weight(1f).height(3.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.25f))) {
+                                                Box(Modifier.fillMaxHeight().fillMaxWidth(frac).background(com.poweriptv.app.ui.theme.BrandCyan))
+                                            }
+                                        }
+                                    } else Text("Kein Programm gefunden", color = Color.White.copy(alpha = 0.5f), fontSize = 13.sp, maxLines = 1)
+                                }
+                                if (panelWidth >= 640.dp) Column(Modifier.padding(start = 12.dp).weight(1f)) {
+                                    if (nextP != null) {
+                                        Text("Danach: " + nextP.third, color = Color.White.copy(alpha = 0.75f), maxLines = 1, fontSize = 13.sp, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                        Text(time(nextP), color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp, maxLines = 1)
+                                    }
+                                }
+                            }
                         }
                     }
                 }

@@ -552,13 +552,65 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
             val idx = list.indexOfFirst { it.key == req.item.key }.coerceAtLeast(0)
             val state = rememberLazyListState(idx)
             LaunchedEffect(idx) { state.scrollToItem((idx - 3).coerceAtLeast(0)) }
-            Column(
-                Modifier.align(Alignment.CenterEnd).width(380.dp).fillMaxHeight().background(Surface.copy(alpha = 0.95f)).padding(12.dp),
-            ) {
-                Text("Sender", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(6.dp))
-                LazyColumn(state = state, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    itemsIndexed(list, key = { _, it -> it.key }) { _, ch ->
-                        ChannelCard(ch, onClick = { app.play(ch, channels = list) }, selected = ch.key == req.item.key)
+            // Links am Griff breiter ziehen -> Programm-Uebersicht (Jetzt mit Fortschritt, Danach)
+            var extra by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            val shortEpgs = remember { androidx.compose.runtime.mutableStateMapOf<String, List<com.poweriptv.app.data.EpgEntry>>() }
+            androidx.compose.foundation.layout.BoxWithConstraints(Modifier.align(Alignment.CenterEnd).fillMaxHeight()) {
+                val maxExtra = with(density) { (maxWidth * 0.95f - 380.dp).coerceAtLeast(0.dp).toPx() }
+                val panelWidth = 380.dp + with(density) { extra.coerceIn(0f, maxExtra).toDp() }
+                val wide = panelWidth >= 500.dp
+                Row(Modifier.align(Alignment.CenterEnd).fillMaxHeight()) {
+                    Box(
+                        Modifier.width(22.dp).fillMaxHeight()
+                            .pointerHoverIcon(PointerIcon(java.awt.Cursor(java.awt.Cursor.W_RESIZE_CURSOR)))
+                            .pointerInput(maxExtra) {
+                                androidx.compose.foundation.gestures.detectHorizontalDragGestures { change, dx ->
+                                    change.consume(); extra = (extra - dx).coerceIn(0f, maxExtra); poke()
+                                }
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) { Box(Modifier.size(width = 6.dp, height = 64.dp).clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.6f))) }
+                    Column(
+                        Modifier.width(panelWidth).fillMaxHeight().background(Surface.copy(alpha = 0.95f)).padding(12.dp),
+                    ) {
+                        Text("Sender", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(6.dp))
+                        LazyColumn(state = state, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            itemsIndexed(list, key = { _, it -> it.key }) { _, ch ->
+                                if (!wide) ChannelCard(ch, onClick = { app.play(ch, channels = list) }, selected = ch.key == req.item.key)
+                                else Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ChannelCard(ch, onClick = { app.play(ch, channels = list) }, selected = ch.key == req.item.key, modifier = Modifier.width(300.dp))
+                                    val xNow = runCatching { app.epg.current(ch, now) }.getOrNull()
+                                    val xNext = runCatching { app.epg.next(ch, now) }.getOrNull()
+                                    if (xNow == null && !shortEpgs.containsKey(ch.key)) LaunchedEffect(ch.key) {
+                                        shortEpgs[ch.key] = withContext(Dispatchers.IO) { runCatching { app.source?.shortEpg(ch).orEmpty() }.getOrDefault(emptyList()) }
+                                    }
+                                    val l = shortEpgs[ch.key].orEmpty()
+                                    val nowP = xNow?.let { Triple(it.start, it.end, it.title) } ?: l.firstOrNull { now >= it.start && now < it.end }?.let { Triple(it.start, it.end, it.title) }
+                                    val nextP = xNext?.let { Triple(it.start, it.end, it.title) } ?: l.firstOrNull { it.start >= (nowP?.second ?: now) }?.let { Triple(it.start, it.end, it.title) }
+                                    val fmt = java.text.SimpleDateFormat("HH:mm")
+                                    fun time(p: Triple<Long, Long, String>) = "${fmt.format(java.util.Date(p.first))} – ${fmt.format(java.util.Date(p.second))}"
+                                    Column(Modifier.padding(start = 12.dp).weight(1.4f)) {
+                                        if (nowP != null) {
+                                            Text(nowP.third, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            val frac = ((now - nowP.first).toFloat() / (nowP.second - nowP.first).coerceAtLeast(1)).coerceIn(0f, 1f)
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(time(nowP), color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp, maxLines = 1)
+                                                Box(Modifier.padding(start = 8.dp).weight(1f).height(3.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.25f))) {
+                                                    Box(Modifier.fillMaxHeight().fillMaxWidth(frac).background(BrandCyan))
+                                                }
+                                            }
+                                        } else Text("Kein Programm gefunden", color = Color.White.copy(alpha = 0.5f), fontSize = 13.sp, maxLines = 1)
+                                    }
+                                    if (panelWidth >= 760.dp) Column(Modifier.padding(start = 12.dp).weight(1f)) {
+                                        if (nextP != null) {
+                                            Text("Danach: " + nextP.third, color = Color.White.copy(alpha = 0.75f), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(time(nextP), color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp, maxLines = 1)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

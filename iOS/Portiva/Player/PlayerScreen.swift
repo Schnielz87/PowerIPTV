@@ -17,6 +17,9 @@ struct PlayerScreen: View {
     @State private var viewSize: CGSize = .zero
     @State private var epg: [EpgEntry] = []
     @State private var showChannels = false
+    @State private var listExtra: CGFloat = 0          // Senderliste breiter gezogen
+    @State private var listDragBase: CGFloat?
+    @State private var listEpg: [String: [EpgEntry]] = [:] // Programm je Sender (breite Senderliste)
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     init(entry: PlayEntry) { _entry = State(initialValue: entry) }
@@ -195,10 +198,24 @@ struct PlayerScreen: View {
         .padding(.horizontal, 84).padding(.bottom, 12)
     }
 
-    /** Senderliste rechts im Bild (wie Android): Antippen schaltet um, daneben tippen schliesst. */
+    /** Senderliste rechts im Bild (wie Android): Antippen schaltet um, daneben tippen schliesst.
+     *  Am Griff links breiter ziehen -> Programm-Uebersicht (Jetzt mit Fortschritt, Danach). */
     private var channelPanel: some View {
-        HStack(spacing: 0) {
+        let base = min(380, viewSize.width * 0.42)
+        let maxExtra = max(0, viewSize.width * 0.95 - base - 22)
+        let width = base + min(max(listExtra, 0), maxExtra)
+        let wide = width >= base + 120
+        return HStack(spacing: 0) {
             Color.black.opacity(0.35).ignoresSafeArea().onTapGesture { withAnimation { showChannels = false } }
+            // Griff: nach links = breiter, nach rechts = schmaler
+            ZStack { Capsule().fill(Color.white.opacity(0.6)).frame(width: 6, height: 64) }
+                .frame(width: 22).frame(maxHeight: .infinity).contentShape(Rectangle())
+                .gesture(DragGesture()
+                    .onChanged { v in
+                        if listDragBase == nil { listDragBase = listExtra }
+                        listExtra = min(max((listDragBase ?? 0) - v.translation.width, 0), maxExtra)
+                    }
+                    .onEnded { _ in listDragBase = nil })
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Text("Senderliste").font(.headline).foregroundColor(.white)
@@ -218,7 +235,8 @@ struct PlayerScreen: View {
                                         NetImage(url: e.item?.logo, contentMode: .fit).frame(width: 56, height: 34)
                                         Text(e.title).foregroundColor(e.url == entry.url ? Brand.cyan : .white)
                                             .fontWeight(e.url == entry.url ? .bold : .regular).lineLimit(1)
-                                        Spacer()
+                                            .frame(maxWidth: wide ? 180 : .infinity, alignment: .leading)
+                                        if wide { channelProgramme(e, showNext: width >= 640) } else { Spacer() }
                                     }
                                     .padding(.horizontal, 12).padding(.vertical, 8)
                                     .background(e.url == entry.url ? Brand.cyan.opacity(0.2) : Color.clear)
@@ -232,8 +250,49 @@ struct PlayerScreen: View {
                     .onAppear { proxy.scrollTo(entry.url, anchor: .center) }
                 }
             }
-            .frame(maxWidth: 380).frame(maxHeight: .infinity)
+            .frame(width: width).frame(maxHeight: .infinity)
             .background(Color(red: 0.06, green: 0.09, blue: 0.13).opacity(0.95).ignoresSafeArea())
+        }
+    }
+
+    /** Breite Senderliste: was laeuft (Uhrzeit, Fortschritt) und was danach kommt. */
+    @ViewBuilder
+    private func channelProgramme(_ e: PlayEntry, showNext: Bool) -> some View {
+        let now = Date().timeIntervalSince1970 * 1000
+        let l = listEpg[e.url] ?? []
+        let cur = l.first { $0.start <= now && $0.end > now }
+        let nxt = l.first { $0.start >= (cur?.end ?? now) }
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                if let c = cur {
+                    Text(c.title).font(.subheadline).foregroundColor(.white).lineLimit(1)
+                    HStack(spacing: 8) {
+                        Text("\(Rules.clock(c.start)) – \(Rules.clock(c.end))").font(.caption2).foregroundColor(.white.opacity(0.6))
+                        GeometryReader { g in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Color.white.opacity(0.25))
+                                Capsule().fill(Brand.cyan).frame(width: g.size.width * min(1, max(0, (now - c.start) / max(1, c.end - c.start))))
+                            }
+                        }.frame(height: 3)
+                    }
+                } else {
+                    Text("Kein Programm gefunden").font(.caption).foregroundColor(.white.opacity(0.5)).lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if showNext {
+                VStack(alignment: .leading, spacing: 3) {
+                    if let n = nxt {
+                        Text("Danach: " + n.title).font(.caption).foregroundColor(.white.opacity(0.75)).lineLimit(1)
+                        Text("\(Rules.clock(n.start)) – \(Rules.clock(n.end))").font(.caption2).foregroundColor(.white.opacity(0.5))
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .task(id: e.url) {
+            guard listEpg[e.url] == nil, let item = e.item, let src = app.source else { return }
+            listEpg[e.url] = await src.epg(item, full: false)
         }
     }
 
