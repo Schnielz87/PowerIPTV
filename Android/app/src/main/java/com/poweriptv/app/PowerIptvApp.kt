@@ -98,7 +98,7 @@ class AppContainer(private val app: Application) {
     val reminders = com.poweriptv.app.reminder.ReminderRepository(app, json)
     /** Sleep-Timer: Zeitpunkt, an dem die Wiedergabe endet (0 = aus). */
     @Volatile var sleepUntil = 0L
-    val history = HistoryRepository(app, json)
+    val history = HistoryRepository(app, json).also { h -> h.exclude = { pid, item -> parental.isAdultItem(pid, item) } }
     val categoryPrefs = com.poweriptv.app.data.CategoryPrefs(app)
     val backup by lazy { com.poweriptv.app.data.BackupManager(app, secure, json) }
     val resume = com.poweriptv.app.data.ResumeRepository(app)
@@ -240,6 +240,8 @@ class AppContainer(private val app: Application) {
                 listOf(ContentType.LIVE, ContentType.MOVIE, ContentType.SERIES).forEach { t ->
                     runCatching { parental.register(src.profile.id, t, src.categories(t)) }
                 }
+                // Erwachseneninhalte nie in "Zuletzt gesehen" (auch alte Eintraege entfernen)
+                kotlinx.coroutines.withContext(Dispatchers.Main) { history.purge() }
             }
         }
     }

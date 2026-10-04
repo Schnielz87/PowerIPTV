@@ -43,6 +43,26 @@ final class Settings: ObservableObject {
     }
 }
 
+/** Erwachseneninhalte erkennen (wie Android ParentalControl.isAdult) – die landen nie in "Zuletzt gesehen". */
+enum AdultContent {
+    private static let regex = try! NSRegularExpression(pattern: #"(xxx|adult|erotic|erotik|porn|\b18\s*\+|\+\s*18\b|for adults|nur für erwachsene)"#, options: [.caseInsensitive])
+    private static let lock = NSLock()
+    private static var cats: Set<String> = []
+
+    static func isAdult(_ name: String) -> Bool {
+        regex.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)) != nil
+    }
+    static func register(_ pid: String, _ type: ContentType, _ list: [Category]) {
+        lock.lock(); defer { lock.unlock() }
+        for c in list where isAdult(c.name) { cats.insert("\(pid)|\(type.rawValue)|\(c.id)") }
+    }
+    static func isAdultItem(_ pid: String, _ item: ContentItem) -> Bool {
+        if isAdult(item.name) { return true }
+        lock.lock(); defer { lock.unlock() }
+        return cats.contains("\(pid)|\(item.type.rawValue)|\(item.categoryId)")
+    }
+}
+
 /** Favoriten, Verlauf und Weiterschauen – je Zugang. */
 final class Library: ObservableObject {
     let pid: String
@@ -58,6 +78,13 @@ final class Library: ObservableObject {
         history = load("hist") ?? []
         positions = load("pos") ?? [:]
         watched = Set(load("watched") ?? [String]())
+        purgeHistory()
+    }
+
+    /** Erwachseneninhalte aus "Zuletzt gesehen" entfernen. */
+    func purgeHistory() {
+        let list = history.filter { !AdultContent.isAdultItem(pid, $0.item) }
+        if list.count != history.count { history = list; store("hist", history) }
     }
 
     private func load<T: Decodable>(_ k: String) -> T? {
@@ -104,7 +131,8 @@ final class Library: ObservableObject {
     }
 
     func addHistory(_ h: HistoryEntry) {
-        history.removeAll { $0.item.key == h.item.key }
+        if AdultContent.isAdultItem(pid, h.item) { purgeHistory(); return }  // nie in "Zuletzt gesehen"
+        history.removeAll { $0.item.key == h.item.key || AdultContent.isAdultItem(pid, $0.item) }
         var entry = h
         entry.updated = Date().timeIntervalSince1970
         history.insert(entry, at: 0)
@@ -161,12 +189,18 @@ final class AppState: ObservableObject {
         profile = p
         settings.lastProfileId = p.id
         source = makeSource(p) { [weak self] in self?.settings.liveFormat ?? "ts" }
-        library = Library(profileId: p.id)
+        let lib = Library(profileId: p.id)
+        library = lib
         account = nil
         let src = source
         Task { [weak self] in
             let acc = try? await src?.authenticate()
             await MainActor.run { self?.account = acc }
+            // Erwachsenen-Kategorien kennen, damit auch Einzeltitel daraus nicht in "Zuletzt gesehen" landen
+            for t in [ContentType.LIVE, .MOVIE, .SERIES] {
+                if let cats = try? await src?.categories(t) { AdultContent.register(p.id, t, cats) }
+            }
+            await MainActor.run { lib.purgeHistory() }
         }
     }
 

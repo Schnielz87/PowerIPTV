@@ -94,6 +94,10 @@ class ParentalControl(private val prefs: KeyValueStore) {
         return k in _locked.value || (_autoAdult.value && (k in adultCats || isAdult(item.name)))
     }
 
+    /** Erwachseneninhalt (Name oder Erwachsenen-Kategorie) – unabhaengig von PIN/Einstellung. Nie in "Zuletzt gesehen". */
+    fun isAdultItem(profileId: String, item: com.poweriptv.app.data.ContentItem): Boolean =
+        isAdult(item.name) || key(profileId, item.type, item.categoryId) in adultCats
+
     /** Liste ohne gesperrte Titel. */
     fun visible(profileId: String?, items: List<com.poweriptv.app.data.ContentItem>) =
         if (profileId == null || !_enabled.value || _unlocked.value) items else items.filterNot { isItemBlocked(profileId, it) }

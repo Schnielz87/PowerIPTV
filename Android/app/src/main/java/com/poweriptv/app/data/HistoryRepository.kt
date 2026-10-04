@@ -14,18 +14,30 @@ class HistoryRepository(context: Context, private val json: Json) {
     val items: StateFlow<List<ContentItem>> = _items
     private var profileId: String? = null
 
+    /** Titel, die nie in "Zuletzt gesehen" landen (Erwachseneninhalte, siehe ParentalControl.isAdultItem). */
+    var exclude: (profileId: String, item: ContentItem) -> Boolean = { _, _ -> false }
+
     fun bind(profileId: String?) {
         this.profileId = profileId
         _items.value = profileId?.let { id ->
             prefs.getString(id, null)?.let { runCatching { json.decodeFromString(serializer, it) }.getOrNull() }
         }.orEmpty()
+        purge()
     }
 
     fun add(item: ContentItem) {
         val id = profileId ?: return
-        val list = (listOf(item) + _items.value.filterNot { it.key == item.key }).take(MAX)
+        if (exclude(id, item)) { purge(); return }
+        val list = (listOf(item) + _items.value.filterNot { it.key == item.key || exclude(id, it) }).take(MAX)
         prefs.edit().putString(id, json.encodeToString(serializer, list)).apply()
         _items.value = list
+    }
+
+    /** Bereits gespeicherte Erwachseneninhalte entfernen (z. B. nachdem die Kategorien bekannt sind). */
+    fun purge() {
+        val id = profileId ?: return
+        val list = _items.value.filterNot { exclude(id, it) }
+        if (list.size != _items.value.size) save(list)
     }
 
     fun remove(key: String) = save(_items.value.filterNot { it.key == key })

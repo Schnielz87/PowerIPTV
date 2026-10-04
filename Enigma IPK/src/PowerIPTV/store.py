@@ -98,7 +98,7 @@ def toggle_favorite(pid, item):
     return added
 
 
-ITEM_KEYS = ("kind", "id", "name", "logo", "ext", "number", "url", "group", "_kind", "archive", "series_id", "series_name")
+ITEM_KEYS = ("kind", "id", "name", "logo", "ext", "number", "url", "group", "_kind", "cat", "archive", "series_id", "series_name")
 
 
 def slim(item):
@@ -136,11 +136,46 @@ def history(pid):
     return load("history", {}).get(pid, [])
 
 
+# Erwachseneninhalte landen nie in "Zuletzt gesehen" (Name, M3U-Gruppe oder Erwachsenen-Kategorie)
+_adult_cats = set()
+
+
+def register_cats(kind, cats):
+    from .rules import is_adult
+    for c in cats or []:
+        if is_adult(c.get("name")):
+            _adult_cats.add((kind, str(c.get("id"))))
+
+
+def is_adult_item(item):
+    from .rules import is_adult
+    if not item:
+        return False
+    if is_adult(item.get("name")) or is_adult(item.get("group")) or is_adult(item.get("series_name")):
+        return True
+    kind = item.get("kind") or item.get("_kind")
+    if kind == "episode":
+        kind = "series"
+    return (kind, str(item.get("cat"))) in _adult_cats
+
+
+def purge_history(pid):
+    all_ = load("history", {})
+    lst = all_.get(pid, [])
+    keep = [x for x in lst if not is_adult_item(x)]
+    if len(keep) != len(lst):
+        all_[pid] = keep
+        save("history", all_)
+
+
 def add_history(pid, item):
     if not pid:
         return
+    if is_adult_item(item):
+        purge_history(pid)
+        return
     all_ = load("history", {})
-    lst = [x for x in all_.get(pid, []) if _fav_key(x) != _fav_key(item)]
+    lst = [x for x in all_.get(pid, []) if _fav_key(x) != _fav_key(item) and not is_adult_item(x)]
     lst.insert(0, slim(item))
     all_[pid] = lst[:60]
     save("history", all_)

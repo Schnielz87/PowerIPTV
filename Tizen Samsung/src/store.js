@@ -44,6 +44,7 @@ export class Library {
     this.positions = storage.get(`pos.${profileId}`, {});
     this.watched = storage.get(`watched.${profileId}`, {});
     this.intros = storage.get(`intro.${profileId}`, {});
+    this.purgeHistory();
   }
 
   key(item) { return `${item.type}:${item.id}`; }
@@ -58,10 +59,17 @@ export class Library {
     return this.isFavorite(item);
   }
 
+  // Erwachseneninhalte landen nie in "Zuletzt gesehen"
+  isExcluded(item) { return parental.isAdultItem(this.pid, item); }
+  purgeHistory() {
+    const list = this.history.filter((h) => !this.isExcluded(h.item));
+    if (list.length !== this.history.length) { this.history = list; storage.set(`hist.${this.pid}`, list); }
+  }
   addHistory(entry) {
+    if (this.isExcluded(entry.item)) { this.purgeHistory(); return; }
     const k = this.key(entry.item);
     this.history = [Object.assign({}, entry, { item: slim(entry.item), updated: Date.now() })]
-      .concat(this.history.filter((h) => this.key(h.item) !== k)).slice(0, 150);
+      .concat(this.history.filter((h) => this.key(h.item) !== k && !this.isExcluded(h.item))).slice(0, 150);
     storage.set(`hist.${this.pid}`, this.history);
   }
   removeHistory(item) {
@@ -171,6 +179,8 @@ export const parental = {
     const k = this.key(pid, item.type, item.categoryId);
     return this.data.locked.indexOf(k) >= 0 || (this.data.autoAdult && (this.adultCats[k] || isAdult(item.name)));
   },
+  /** Erwachseneninhalt (Name oder Erwachsenen-Kategorie) – unabhaengig von PIN/Einstellung. */
+  isAdultItem(pid, item) { return !!item && (isAdult(item.name) || !!this.adultCats[this.key(pid, item.type, item.categoryId)]); },
   visible(pid, items) { return this.isOn() && !this.unlocked ? items.filter((i) => !this.isItemBlocked(pid, i)) : items; },
   setLocked(pid, type, catId, v) {
     const k = this.key(pid, type, catId);

@@ -174,6 +174,7 @@ class AppState(val window: WindowState) {
 
     fun activate(p: Profile) {
         profile = p
+        val lib = LibraryStore(p.id) { item -> parental.isAdultItem(p.id, item) }.also { it.purgeHistory() }
         source = DiskCachedSource(createSource(p) { settings.value.liveFormat })
         maxConnections = null
         source?.let { src ->
@@ -181,9 +182,11 @@ class AppState(val window: WindowState) {
                 maxConnections = runCatching { src.accountInfo()?.maxConnections?.toIntOrNull() }.getOrNull()
                 // Kategorien fuer die Kindersicherung kennen (Erwachsenen-Kategorien auch bei Einzeltiteln erkennen)
                 ContentType.entries.forEach { t -> runCatching { parental.register(src.profile.id, t, src.categories(t)) } }
+                // Erwachseneninhalte nie in "Zuletzt gesehen" (auch alte Eintraege entfernen)
+                lib.purgeHistory()
             }
         }
-        library = LibraryStore(p.id)
+        library = lib
         settings.update { it.copy(lastProfileId = p.id) }
         stack.clear(); stack += Screen.Home
         selectedCategory.clear()

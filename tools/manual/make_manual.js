@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.104 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.106 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -259,6 +259,7 @@ c.push(bullet([b('Downloads: '), t('Detailseite „Herunterladen“ (Filme) bzw.
 c.push(bullet([b('Multi-Screen: '), t('2 oder 4 Sender gleichzeitig. Fenster anklicken = dessen Ton; „Wechseln“ = anderer Sender. Das Stream-Limit des Zugangs wird beachtet wie am Handy („Pausiert (Limit des Zugangs)“, „Streams: x / y“).')]));
 c.push(bullet([b('KI-Empfehlungen: '), t('OpenAI-Schlüssel unter Einstellungen → KI-Empfehlungen eintragen, dann Kachel „KI-Empfehlungen“.')]));
 c.push(bullet([b('Kindersicherung: '), t('PIN festlegen, Erwachseneninhalte automatisch sperren, einzelne Kategorien sperren, Einstellungen schützen – gesperrte Inhalte sind überall ausgeblendet (Listen, Suche, Verlauf, Favoriten, TV-Guide) und nur mit PIN erreichbar.')]));
+c.push(bullet([b('Zuletzt gesehen ohne Erwachseneninhalte: '), t('Sender, Filme und Serien für Erwachsene (am Namen oder an der Kategorie erkannt, z. B. „XXX“, „Adult“, „18+“) werden auf allen Geräten nie in „Zuletzt gesehen“ gespeichert – auch ohne Kindersicherung. Bereits vorhandene Einträge werden automatisch entfernt.')]));
 c.push(bullet([b('VPN & Sicherheit: '), t('WireGuard-Konfiguration (.conf) importieren und verbinden (einmalig „WireGuard für Windows“ installieren; Windows fragt beim Verbinden nach Administrator-Rechten). Kill-Switch blockiert ohne VPN Login, Listen, Bilder und Streams. Externe VPNs (NordVPN, Surfshark …) werden erkannt. Startseite oben: „VPN aktiv“ / „Kein VPN“.')]));
 c.push(bullet([b('Favoriten & Listen: '), t('eigene Listen anlegen, umbenennen, löschen. Rechtsklick auf jeden Titel: Favorit, „Zu Liste hinzufügen …“, gesehen markieren, per WhatsApp teilen (nur der Titel, nie der Stream-Link).')]));
 c.push(bullet([b('Player-Extras: '), t('Favorit-Herz, Aufnahme (R), zurück zum vorherigen Sender (B), Sleep-Timer und Untertitel im Zahnrad-Menü, „Intro überspringen“ (lernt wie am Handy aus deinem Vorspulen), Vorschaubilder beim Spulen, Auf Fernseher übertragen (Chromecast / Android TV im Heimnetz).')]));

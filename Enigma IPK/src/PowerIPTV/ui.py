@@ -124,7 +124,7 @@ def play(session, source, items, index):
         return
     live = item.get("kind") == "live"
     if item.get("kind") == "episode" and item.get("series_id"):
-        store.add_history(pid(), {"kind": "series", "id": item["series_id"], "name": item.get("series_name", ""), "logo": item.get("logo")})
+        store.add_history(pid(), {"kind": "series", "id": item["series_id"], "name": item.get("series_name", ""), "logo": item.get("logo"), "cat": item.get("cat")})
     else:
         store.add_history(pid(), item)
     if live:
@@ -231,6 +231,17 @@ class PortivaHome(Screen):
         self["title"].setText("Portiva – PowerIPTV  ·  " + p.get("name", ""))
         self["sub"].setText("Verbinde …")
         run_async(self, self.source.account_text, lambda t: self["sub"].setText(t or ""), lambda m: self["sub"].setText("Verbindung fehlgeschlagen: " + m))
+        src, profile_id = self.source, pid()
+
+        def adult_scan():
+            # Erwachsenen-Kategorien kennen -> solche Titel nie in "Zuletzt gesehen" (auch alte Eintraege entfernen)
+            for kind in ("live", "movie", "series"):
+                try:
+                    store.register_cats(kind, src.categories(kind))
+                except Exception:
+                    pass
+            store.purge_history(profile_id)
+        run_async(self, adult_scan, lambda r: None, lambda m: None)
 
     def after_first(self, *args):
         if store.active_profile():
@@ -356,6 +367,7 @@ class CategoryScreen(Base):
 
     def loaded(self, cats):
         self.cats = cats
+        store.register_cats(self.kind, cats)
         self.langs = rules.detect_languages(cats)
         if self.lang and self.lang not in self.langs:
             self.lang = ""
@@ -670,6 +682,7 @@ class SeasonScreen(Base):
             for e in lst:
                 e["series_id"] = self.series.get("id")
                 e["series_name"] = self.series.get("name")
+                e["cat"] = self.series.get("cat")
                 e.setdefault("logo", self.series.get("logo"))
         self["info"].setText((info.get("plot") or self.series.get("plot") or "")[:900])
         keys = sorted(self.seasons.keys())

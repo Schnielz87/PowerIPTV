@@ -42,7 +42,11 @@ export function activateProfile(p) {
     const cur = top();
     if (cur && cur.name === 'home' && cur.refresh) cur.refresh();
   });
-  ['LIVE', 'MOVIE', 'SERIES'].forEach((t) => app.source.categories(t).then((c) => parental.register(p.id, t, c)).catch(() => {}));
+  const lib = app.library;
+  ['LIVE', 'MOVIE', 'SERIES'].forEach((t) => app.source.categories(t).then((c) => {
+    parental.register(p.id, t, c);
+    lib.purgeHistory(); // Erwachseneninhalte nie in "Zuletzt gesehen"
+  }).catch(() => {}));
 }
 
 export function firstProfile() {

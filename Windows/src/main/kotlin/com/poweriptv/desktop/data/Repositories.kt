@@ -104,7 +104,7 @@ data class WatchEntry(
 }
 
 /** Favoriten, Wiedergabe-Positionen, Verlauf und "gesehen"-Markierungen – je Zugang. */
-class LibraryStore(profileId: String) {
+class LibraryStore(profileId: String, private val exclude: (ContentItem) -> Boolean = { false }) {
     private val favFile = JsonFile(AppDirs.file("favorites_$profileId.json"), ListSerializer(ContentItem.serializer())) { emptyList() }
     private val historyFile = JsonFile(AppDirs.file("history_$profileId.json"), ListSerializer(WatchEntry.serializer())) { emptyList() }
     private val posFile = JsonFile(AppDirs.file("positions_$profileId.json"), MapSerializer(String.serializer(), Long.serializer())) { emptyMap() }
@@ -143,8 +143,16 @@ class LibraryStore(profileId: String) {
     fun position(key: String): Long = positions[key] ?: 0L
 
     fun addHistory(entry: WatchEntry) {
-        _history.update { list -> (listOf(entry.copy(updated = System.currentTimeMillis())) + list.filterNot { it.item.key == entry.item.key }).take(200) }
+        if (exclude(entry.item)) { purgeHistory(); return }  // Erwachseneninhalte nie in "Zuletzt gesehen"
+        _history.update { list -> (listOf(entry.copy(updated = System.currentTimeMillis())) + list.filterNot { it.item.key == entry.item.key || exclude(it.item) }).take(200) }
         historyFile.write(_history.value)
+    }
+
+    /** Bereits gespeicherte Erwachseneninhalte aus dem Verlauf entfernen. */
+    fun purgeHistory() {
+        val before = _history.value
+        val after = before.filterNot { exclude(it.item) }
+        if (after.size != before.size) { _history.value = after; historyFile.write(after) }
     }
 
     fun removeHistory(item: ContentItem) {

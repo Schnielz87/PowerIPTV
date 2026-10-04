@@ -117,7 +117,7 @@ struct BrowseView: View {
     private func loadCategories() async {
         guard let src = app.source, cats.isEmpty else { return }
         loading = true
-        do { cats = try await src.categories(type) } catch { self.error = "Kategorien konnten nicht geladen werden: \(error.localizedDescription)" }
+        do { cats = try await src.categories(type); AdultContent.register(src.profile.id, type, cats) } catch { self.error = "Kategorien konnten nicht geladen werden: \(error.localizedDescription)" }
         loading = false
         if selected == nil { select(type == .LIVE ? (visibleCats.first?.id ?? CAT_ALL) : CAT_ALL) }
     }
