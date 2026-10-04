@@ -229,7 +229,7 @@ object EpisodeFlow {
 }
 
 /**
- * Senderliste im laufenden Bild (links): Logo, Nummer, Name und aktuelle Sendung.
+ * Senderliste im laufenden Bild (rechts): Logo, Nummer, Name und aktuelle Sendung.
  * Auswahl startet den Sender, ohne den Player zu verlassen.
  */
 @Composable
@@ -245,7 +245,7 @@ fun ChannelListPanel(
     val now = remember { System.currentTimeMillis() }
     Box(Modifier.fillMaxSize().background(Color(0x55000000)).clickable(onClick = onDismiss)) {
         Column(
-            Modifier.fillMaxHeight().widthIn(max = 380.dp).fillMaxWidth(0.42f)
+            Modifier.align(Alignment.CenterEnd).fillMaxHeight().widthIn(max = 380.dp).fillMaxWidth(0.42f)
                 .background(Color(0xF0101620)).clickable(enabled = false) {}.padding(vertical = 12.dp),
         ) {
             Text("Senderliste", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
@@ -320,7 +320,8 @@ fun PlayerQuickBar(
 
 /**
  * Live-TV-Infoleiste unten (wie gewuenscht): Senderlogo, "Jetzt" mit Fortschritt, "Weiter",
- * darunter Senderliste – Seitenverhaeltnis – Mehrfachbildschirm.
+ * darunter Mehrfachbildschirm – Seitenverhaeltnis – Senderliste.
+ * sideInset: Abstand links/rechts, damit Helligkeit/Lautstaerke (Handy) daneben Platz haben.
  */
 @Composable
 fun LiveInfoBar(
@@ -331,6 +332,7 @@ fun LiveInfoBar(
     onFormat: () -> Unit,
     onMultiScreen: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    sideInset: androidx.compose.ui.unit.Dp = 0.dp,
 ) {
     // Fortschritt der laufenden Sendung jede halbe Minute auffrischen
     var now by androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(System.currentTimeMillis()) }
@@ -343,24 +345,24 @@ fun LiveInfoBar(
     Column(
         modifier.fillMaxWidth().background(
             androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, Color(0xCC000000)))
-        ).padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
+        ).padding(start = 16.dp + sideInset, end = 16.dp + sideInset, top = 24.dp, bottom = 8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.size(width = 72.dp, height = 48.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF1B1F2A)),
+                Modifier.size(width = 86.dp, height = 56.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF1B1F2A)),
                 contentAlignment = Alignment.Center,
             ) {
                 if (!logo.isNullOrBlank()) coil.compose.AsyncImage(logo, null, modifier = Modifier.fillMaxSize().padding(4.dp))
                 else androidx.compose.material3.Icon(Icons.Filled.LiveTv, null, tint = Color.White)
             }
-            androidx.compose.foundation.layout.Spacer(Modifier.size(14.dp))
+            androidx.compose.foundation.layout.Spacer(Modifier.size(16.dp))
             Column(Modifier.weight(1f)) {
-                Text("Jetzt: " + line(cur), color = Color.White, fontSize = 16.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text("Jetzt: " + line(cur), color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 val progress = cur?.let { ((now - it.start).toFloat() / (it.end - it.start).coerceAtLeast(1)).coerceIn(0f, 1f) } ?: 0f
-                Box(Modifier.padding(vertical = 6.dp).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.3f))) {
+                Box(Modifier.padding(vertical = 7.dp).fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.3f))) {
                     Box(Modifier.fillMaxHeight().fillMaxWidth(progress).background(com.poweriptv.app.ui.theme.BrandCyan))
                 }
-                Text("Weiter: " + line(next), color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text("Weiter: " + line(next), color = Color.White.copy(alpha = 0.8f), fontSize = 17.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             }
         }
         @Composable
@@ -381,9 +383,9 @@ fun LiveInfoBar(
             horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Chip(Icons.Filled.VideoLibrary, "Senderliste", "", onChannels)
-            Chip(Icons.Filled.AspectRatio, "Seitenverhältnis", formatLabel, onFormat)
             if (onMultiScreen != null) Chip(Icons.Filled.GridView, "Mehrfachbildschirm", "", onMultiScreen)
+            Chip(Icons.Filled.AspectRatio, "Seitenverhältnis", formatLabel, onFormat)
+            Chip(Icons.Filled.VideoLibrary, "Senderliste", "", onChannels)
         }
     }
 }
@@ -395,20 +397,21 @@ fun VerticalLevel(
     value: Float,
     onChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    railHeight: androidx.compose.ui.unit.Dp = 180.dp,
 ) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         androidx.compose.material3.Icon(icon, null, tint = Color.White, modifier = Modifier.size(30.dp))
         androidx.compose.foundation.layout.Spacer(Modifier.size(14.dp))
         androidx.compose.foundation.layout.BoxWithConstraints(
-            Modifier.size(width = 44.dp, height = 180.dp)
+            Modifier.size(width = 44.dp, height = railHeight)
                 .androidx_pointer(onChange),
             contentAlignment = Alignment.BottomCenter,
         ) {
             // Schiene
-            Box(Modifier.fillMaxHeight().size(width = 8.dp, height = 180.dp).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.3f)))
+            Box(Modifier.fillMaxHeight().size(width = 8.dp, height = railHeight).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.3f)))
             // Fuellung
             Box(
-                Modifier.size(width = 8.dp, height = (180 * value.coerceIn(0f, 1f)).dp)
+                Modifier.size(width = 8.dp, height = railHeight * value.coerceIn(0f, 1f))
                     .clip(RoundedCornerShape(4.dp)).background(Color.White),
             )
         }
@@ -449,7 +452,9 @@ fun PlayerSideLevels(activity: android.app.Activity, modifier: Modifier = Modifi
             volume = audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) / maxVol.toFloat()
         }
     }
-    Box(modifier.fillMaxSize().padding(horizontal = 28.dp)) {
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier.fillMaxSize().padding(horizontal = 28.dp)) {
+        // Regler so hoch wie Platz ist (Symbol 30 + Abstand 14 + Prozent ~24), hoechstens 200 dp
+        val rail = (maxHeight - 68.dp).coerceIn(90.dp, 200.dp)
         VerticalLevel(
             Icons.Filled.LightMode, brightness,
             onChange = { v ->
@@ -457,6 +462,7 @@ fun PlayerSideLevels(activity: android.app.Activity, modifier: Modifier = Modifi
                 activity.window.attributes = activity.window.attributes.apply { screenBrightness = v.coerceIn(0.02f, 1f) }
             },
             modifier = Modifier.align(Alignment.CenterStart),
+            railHeight = rail,
         )
         VerticalLevel(
             if (volume <= 0.001f) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
@@ -466,6 +472,7 @@ fun PlayerSideLevels(activity: android.app.Activity, modifier: Modifier = Modifi
                 runCatching { audio.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, (v * maxVol).toInt(), 0) }
             },
             modifier = Modifier.align(Alignment.CenterEnd),
+            railHeight = rail,
         )
     }
 }

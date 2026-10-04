@@ -394,8 +394,9 @@ class PlayerActivity : ComponentActivity() {
                     val liveBar = liveInfoMode()
                     LaunchedEffect(liveBar) { applyLiveChrome() }
                     if (showOverlay && liveBar) {
-                        // Live-TV: links Helligkeit, rechts Lautstaerke, unten Sender-Infos + Senderliste/Format/Mehrfachbildschirm
-                        if (!container.isTvDevice) PlayerSideLevels(this@PlayerActivity, Modifier.padding(top = 72.dp, bottom = 190.dp))
+                        // Live-TV: links Helligkeit, rechts Lautstaerke (nicht bei offener Senderliste),
+                        // unten Sender-Infos + Mehrfachbildschirm/Format/Senderliste
+                        if (!container.isTvDevice && !showChannels) PlayerSideLevels(this@PlayerActivity, Modifier.padding(top = 72.dp, bottom = 16.dp))
                         LiveInfoBar(
                             logo = current()?.item?.logo,
                             epg = epg,
@@ -404,10 +405,11 @@ class PlayerActivity : ComponentActivity() {
                             onFormat = { dialogSection = PlayerSection.FORMAT; showFormatDialog = true; lastInteraction = System.currentTimeMillis() },
                             onMultiScreen = { startActivity(android.content.Intent(this@PlayerActivity, MultiViewActivity::class.java)) },
                             modifier = Modifier.align(Alignment.BottomCenter),
+                            sideInset = if (container.isTvDevice) 0.dp else 80.dp,
                         )
                     } else if (showOverlay) {
                         // Wie gewuenscht: links Helligkeit, rechts Lautstaerke (Handy/Tablet) ...
-                        if (!container.isTvDevice) PlayerSideLevels(this@PlayerActivity, Modifier.padding(top = 72.dp, bottom = 120.dp))
+                        if (!container.isTvDevice && !showChannels) PlayerSideLevels(this@PlayerActivity, Modifier.padding(top = 72.dp, bottom = 120.dp))
                         // ... und unten Seitenverhaeltnis – Geschwindigkeit – Untertitel
                         val live = current()?.live == true || timeshiftActive
                         PlayerQuickBar(
@@ -1266,9 +1268,9 @@ class PlayerActivity : ComponentActivity() {
         when (event.keyCode) {
             KeyEvent.KEYCODE_CHANNEL_UP, KeyEvent.KEYCODE_PAGE_UP -> { next(); return true }
             KeyEvent.KEYCODE_CHANNEL_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> { previous(); return true }
-            // Live: Links = Senderliste, Rechts = letzter Sender
-            KeyEvent.KEYCODE_DPAD_LEFT -> if (live && !controllerVisible) { showChannels = true; return true }
-            KeyEvent.KEYCODE_DPAD_RIGHT -> if (live && !controllerVisible) { zapBack(); return true }
+            // Live: Rechts = Senderliste (sitzt rechts), Links = letzter Sender
+            KeyEvent.KEYCODE_DPAD_RIGHT -> if (live && !controllerVisible) { showChannels = true; return true }
+            KeyEvent.KEYCODE_DPAD_LEFT -> if (live && !controllerVisible) { zapBack(); return true }
             KeyEvent.KEYCODE_LAST_CHANNEL -> if (live) { zapBack(); return true }
             KeyEvent.KEYCODE_DPAD_UP -> if (live && !controllerVisible) { next(); return true }
             KeyEvent.KEYCODE_DPAD_DOWN -> if (live && !controllerVisible) { previous(); return true }

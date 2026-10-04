@@ -449,20 +449,20 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                     }
                 }
 
-                // Links Helligkeit, rechts Lautstaerke (wie Android)
-                Box(Modifier.align(Alignment.CenterStart).padding(start = 28.dp)) {
+                // Links Helligkeit, rechts Lautstaerke (wie Android) – nicht bei offener Senderliste
+                if (!showChannels) Box(Modifier.align(Alignment.CenterStart).padding(start = 28.dp)) {
                     VerticalLevel(Icons.Filled.LightMode, (ctl.brightness - 0.3f) / 1.4f, "${((ctl.brightness - 0.3f) / 1.4f * 100).toInt()}%") { v ->
                         ctl.setBrightnessTo(0.3f + v * 1.4f); poke()
                     }
                 }
-                Box(Modifier.align(Alignment.CenterEnd).padding(end = 28.dp)) {
+                if (!showChannels) Box(Modifier.align(Alignment.CenterEnd).padding(end = 28.dp)) {
                     VerticalLevel(
                         if (ctl.muted || ctl.volume == 0) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
                         ctl.volume / 150f, "${ctl.volume}%", onIcon = { ctl.toggleMute(); poke() },
                     ) { v -> ctl.setVolumeTo((v * 150).toInt()); poke() }
                 }
 
-                // unten – Live-TV: Sender-Infos (Logo, Jetzt/Weiter) + Senderliste – Seitenverhaeltnis – Mehrfachbildschirm
+                // unten – Live-TV: Sender-Infos (Logo, Jetzt/Weiter) + Mehrfachbildschirm – Seitenverhaeltnis – Senderliste
                 if (isLive) LiveInfoBar(
                     app, req, aspect, now, shortEpg,
                     onChannels = if (req.channels.isNotEmpty()) ({ showChannels = !showChannels; poke() }) else null,
@@ -614,7 +614,7 @@ private fun SettingsMenu(
     }
 }
 
-/** Live-TV-Infoleiste unten (wie Android): Senderlogo, Jetzt mit Fortschritt, Weiter, darunter Senderliste – Seitenverhaeltnis – Mehrfachbildschirm. */
+/** Live-TV-Infoleiste unten (wie Android): Senderlogo, Jetzt mit Fortschritt, Weiter, darunter Mehrfachbildschirm – Seitenverhaeltnis – Senderliste. */
 @Composable
 private fun LiveInfoBar(
     app: AppState, req: PlayRequest, aspect: String, now: Long, shortEpg: List<com.poweriptv.app.data.EpgEntry>,
@@ -634,19 +634,19 @@ private fun LiveInfoBar(
             .padding(horizontal = 22.dp, vertical = 14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(width = 84.dp, height = 56.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF1B1F2A)), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(width = 96.dp, height = 64.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF1B1F2A)), contentAlignment = Alignment.Center) {
                 NetImage(req.item.logo, Modifier.fillMaxSize().padding(4.dp), contentScale = androidx.compose.ui.layout.ContentScale.Fit) {
                     Icon(Icons.Filled.LiveTv, null, tint = Color.White)
                 }
             }
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
-                Text("Jetzt: " + line(cur), fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("Jetzt: " + line(cur), fontSize = 19.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val progress = cur?.let { ((now - it.first).toFloat() / (it.second - it.first).coerceAtLeast(1)).coerceIn(0f, 1f) } ?: 0f
-                Box(Modifier.padding(vertical = 6.dp).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.3f))) {
+                Box(Modifier.padding(vertical = 7.dp).fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.3f))) {
                     Box(Modifier.fillMaxHeight().fillMaxWidth(progress).background(BrandCyan))
                 }
-                Text("Weiter: " + line(nxt), color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("Weiter: " + line(nxt), color = Color.White.copy(alpha = 0.8f), fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         @Composable
@@ -667,7 +667,7 @@ private fun LiveInfoBar(
             horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (onChannels != null) Chip(Icons.Filled.VideoLibrary, "Senderliste", onClick = onChannels)
+            Chip(Icons.Filled.GridView, "Mehrfachbildschirm", onClick = onMultiScreen)
             var open by remember { mutableStateOf(false) }
             androidx.compose.runtime.DisposableEffect(open) { onOpenChange(open); onDispose { if (open) onOpenChange(false) } }
             Box {
@@ -676,7 +676,7 @@ private fun LiveInfoBar(
                     AspectModes.forEach { (k, l) -> CheckItem(l, aspect == k) { onAspect(k); open = false } }
                 }
             }
-            Chip(Icons.Filled.GridView, "Mehrfachbildschirm", onClick = onMultiScreen)
+            if (onChannels != null) Chip(Icons.Filled.VideoLibrary, "Senderliste", onClick = onChannels)
         }
     }
 }

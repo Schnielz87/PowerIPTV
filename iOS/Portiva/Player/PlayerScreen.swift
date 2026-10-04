@@ -35,6 +35,8 @@ struct PlayerScreen: View {
                 if overlay { controls(geo.size).transition(.opacity) }
                 if let n = nextCountdown { nextCard(n) }
                 if showSettings { settingsPanel.transition(.move(edge: .trailing)) }
+                // Senderliste rechts ueber allem (Regler sind dann ausgeblendet)
+                if showChannels { channelPanel.transition(.move(edge: .trailing)) }
                 if let t = app.toast { toastView(t) }
             }
             .onAppear { viewSize = geo.size }
@@ -51,7 +53,6 @@ struct PlayerScreen: View {
         .onDisappear { savePosition(); ctl.stop(); UIApplication.shared.isIdleTimerDisabled = false }
         .onReceive(tick) { _ in everySecond() }
         .task(id: entry.url) { await loadEpg() }
-        .sheet(isPresented: $showChannels) { channelSheet }
         .onChange(of: ctl.ended) { if $0 { onEnded() } }
         .sheet(isPresented: $showSend) { SendToDeviceSheet(entry: entry, position: ctl.time, duration: ctl.length) { name in
             showSend = false; savePosition(); app.show("Läuft jetzt auf „\(name)“"); close()
@@ -85,6 +86,7 @@ struct PlayerScreen: View {
                 // Mitte: Helligkeit | -10 | Pause | +10 | Lautstaerke
                 HStack {
                     VerticalLevel(icon: "sun.max", value: brightness) { v in brightness = v; UIScreen.main.brightness = CGFloat(v); touch() }
+                        .opacity(showChannels ? 0 : 1).allowsHitTesting(!showChannels)
                     Spacer()
                     if entry.live {
                         if app.playQueue.count > 1 { roundIcon("backward.end.fill") { zap(-1) } }
@@ -99,6 +101,7 @@ struct PlayerScreen: View {
                     } else { roundIcon("goforward.10") { ctl.seekBy(10_000); touch() } }
                     Spacer()
                     VerticalLevel(icon: ctl.volume < 0.01 ? "speaker.slash.fill" : "speaker.wave.2.fill", value: Double(ctl.volume)) { v in ctl.setVolume(Float(v)); touch() }
+                        .opacity(showChannels ? 0 : 1).allowsHitTesting(!showChannels)
                 }
                 .padding(.horizontal, 28)
                 Spacer()
@@ -153,7 +156,7 @@ struct PlayerScreen: View {
         } label: { chip("aspectratio", "Seitenverhältnis", ctl.aspect.label) }
     }
 
-    /** Live-TV-Infoleiste (wie Android): Senderlogo, Jetzt mit Fortschritt, Weiter; darunter Senderliste – Seitenverhaeltnis. */
+    /** Live-TV-Infoleiste (wie Android): Senderlogo, Jetzt mit Fortschritt, Weiter; darunter Seitenverhaeltnis – Senderliste (Mehrfachbildschirm gibt es auf iOS nicht). */
     private var liveInfo: some View {
         let now = Date().timeIntervalSince1970 * 1000
         let cur = epg.first { $0.start <= now && $0.end > now }
@@ -167,53 +170,71 @@ struct PlayerScreen: View {
                     if let logo = entry.item?.logo, !logo.isEmpty { NetImage(url: logo, contentMode: .fit).padding(4) }
                     else { Image(systemName: "tv").foregroundColor(.white) }
                 }
-                .frame(width: 72, height: 48).clipShape(RoundedRectangle(cornerRadius: 8))
+                .frame(width: 86, height: 56).clipShape(RoundedRectangle(cornerRadius: 8))
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Jetzt: " + line(cur)).foregroundColor(.white).lineLimit(1)
+                    Text("Jetzt: " + line(cur)).font(.body.weight(.semibold)).foregroundColor(.white).lineLimit(1)
                     GeometryReader { g in
                         ZStack(alignment: .leading) {
                             Capsule().fill(Color.white.opacity(0.3))
                             Capsule().fill(Brand.cyan).frame(width: g.size.width * progress)
                         }
-                    }.frame(height: 4)
-                    Text("Weiter: " + line(next)).foregroundColor(.white.opacity(0.8)).lineLimit(1)
+                    }.frame(height: 5)
+                    Text("Weiter: " + line(next)).font(.callout).foregroundColor(.white.opacity(0.8)).lineLimit(1)
                 }
             }
             HStack(spacing: 12) {
                 Spacer()
-                if app.playQueue.count > 1 {
-                    Button { showChannels = true; touch() } label: { chip("list.bullet.rectangle", "Senderliste", "") }
-                }
                 aspectMenu
+                if app.playQueue.count > 1 {
+                    Button { withAnimation { showChannels = true }; touch() } label: { chip("list.bullet.rectangle", "Senderliste", "") }
+                }
                 Spacer()
             }
         }
         .font(.subheadline)
-        .padding(.horizontal, 20).padding(.bottom, 12)
+        .padding(.horizontal, 84).padding(.bottom, 12)
     }
 
-    /** Senderliste zum Umschalten (aktuelle Liste des Players). */
-    private var channelSheet: some View {
-        NavigationStack {
-            ScrollViewReader { proxy in
-                List(app.playQueue) { e in
-                    Button {
-                        showChannels = false
-                        if e.url != entry.url { entry = e; ctl.play(e); withAnimation { overlay = true }; touch() }
-                    } label: {
-                        HStack(spacing: 12) {
-                            NetImage(url: e.item?.logo, contentMode: .fit).frame(width: 56, height: 36)
-                            Text(e.title).foregroundColor(e.url == entry.url ? Brand.cyan : .white).lineLimit(1)
-                        }
-                    }
-                    .id(e.url)
+    /** Senderliste rechts im Bild (wie Android): Antippen schaltet um, daneben tippen schliesst. */
+    private var channelPanel: some View {
+        HStack(spacing: 0) {
+            Color.black.opacity(0.35).ignoresSafeArea().onTapGesture { withAnimation { showChannels = false } }
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text("Senderliste").font(.headline).foregroundColor(.white)
+                    Spacer()
+                    Button { withAnimation { showChannels = false } } label: { Image(systemName: "xmark.circle.fill").font(.title3).foregroundColor(.white) }
                 }
-                .onAppear { proxy.scrollTo(entry.url, anchor: .center) }
+                .padding(.horizontal, 16).padding(.vertical, 12)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 2) {
+                            ForEach(app.playQueue) { e in
+                                Button {
+                                    withAnimation { showChannels = false }
+                                    if e.url != entry.url { entry = e; ctl.play(e); withAnimation { overlay = true }; touch() }
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        NetImage(url: e.item?.logo, contentMode: .fit).frame(width: 56, height: 34)
+                                        Text(e.title).foregroundColor(e.url == entry.url ? Brand.cyan : .white)
+                                            .fontWeight(e.url == entry.url ? .bold : .regular).lineLimit(1)
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 12).padding(.vertical, 8)
+                                    .background(e.url == entry.url ? Brand.cyan.opacity(0.2) : Color.clear)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                }
+                                .id(e.url)
+                            }
+                        }
+                        .padding(.horizontal, 8)
+                    }
+                    .onAppear { proxy.scrollTo(entry.url, anchor: .center) }
+                }
             }
-            .navigationTitle("Senderliste").navigationBarTitleDisplayMode(.inline)
-            .toolbar { Button { showChannels = false } label: { Image(systemName: "xmark.circle.fill") } }
+            .frame(maxWidth: 380).frame(maxHeight: .infinity)
+            .background(Color(red: 0.06, green: 0.09, blue: 0.13).opacity(0.95).ignoresSafeArea())
         }
-        .presentationDetents([.medium, .large])
     }
 
     private func loadEpg() async {
@@ -418,7 +439,8 @@ struct VerticalLevel: View {
                 .contentShape(Rectangle())
                 .gesture(DragGesture(minimumDistance: 0).onChanged { v in onChange(Double(1 - min(max(v.location.y / g.size.height, 0), 1))) })
             }
-            .frame(width: 44, height: 170)
+            .frame(width: 44)
+            .frame(minHeight: 90, maxHeight: 170)
             Text("\(Int(value * 100))%").font(.caption2).foregroundColor(.white.opacity(0.8))
         }
     }

@@ -91,9 +91,9 @@ export default function playerScreen(params) {
     const chip = (icon, label, value, fn) => button(h('span', null, icon + '  ' + label, value ? h('span.val', null, '  ' + value) : null), fn, '.chip-q');
     const asp = ASPECTS.find((a) => a[0] === p.aspect);
     if (isLive()) {
-      // Live-TV (wie Android/Windows): Senderliste – Seitenverhaeltnis (Mehrfachbildschirm kann der Fernseher nicht)
-      quickRow.appendChild(chip('☰', 'Senderliste', '', openChannelList));
+      // Live-TV (wie Android/Windows): Seitenverhaeltnis – Senderliste (Mehrfachbildschirm kann der Fernseher nicht)
       quickRow.appendChild(chip('▭', 'Seitenverhältnis', asp ? asp[1] : '', pickAspect));
+      quickRow.appendChild(chip('☰', 'Senderliste', '', openChannelList));
       return;
     }
     quickRow.appendChild(chip('▭', 'Seitenverhältnis', asp ? asp[1] : '', pickAspect));
@@ -619,7 +619,8 @@ export default function playerScreen(params) {
         if (code === KEY.RIGHT && !isLive()) { seek(10000); return true; }
         if (code === KEY.UP && cur.item.type === T.LIVE && !cur.catchup) { zap(1); return true; }
         if (code === KEY.DOWN && cur.item.type === T.LIVE && !cur.catchup) { zap(-1); return true; }
-        if (code === KEY.LEFT && isLive()) { openChannelList(); return true; }
+        // Live: Rechts = Senderliste (sitzt rechts)
+        if (code === KEY.RIGHT && isLive()) { openChannelList(); return true; }
         showOverlay(false);
         return true;
       }

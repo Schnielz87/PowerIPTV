@@ -224,8 +224,8 @@ input:focus { border-color: #2EE59D; background: #172438; }
 .p-sub { position: absolute; left: 80px; top: 112px; right: 300px; font-size: 26px; color: #CFE4F5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-clock { position: absolute; right: 80px; top: 54px; font-size: 38px; color: #CFE4F5; }
 .p-bottom { position: absolute; left: 80px; right: 80px; bottom: 50px; }
-.p-epg { font-size: 26px; margin-bottom: 14px; }
-.p-epg .next { color: #9FB1C9; margin-top: 6px; font-size: 23px; }
+.p-epg { font-size: 31px; font-weight: 600; margin-bottom: 14px; }
+.p-epg .next { color: #9FB1C9; margin-top: 6px; font-size: 27px; font-weight: 400; }
 .p-bar { height: 10px; border-radius: 5px; background: rgba(255,255,255,.25); position: relative; margin: 18px 0 10px; }
 .p-bar .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: #5EC4F2; }
 .p-bar .knob { position: absolute; top: -9px; width: 28px; height: 28px; border-radius: 50%; background: #fff; margin-left: -14px; }
@@ -247,7 +247,7 @@ input:focus { border-color: #2EE59D; background: #172438; }
 .p-corner .btn { background: rgba(6,11,22,.9); border: 3px solid #5EC4F2; }
 .p-corner .btn.focused { background: #5EC4F2; }
 .p-number { position: absolute; right: 80px; top: 140px; font-size: 80px; font-weight: 800; color: #5EC4F2; text-shadow: 0 0 10px #000; }
-.p-chlist { position: absolute; left: 0; top: 0; width: 640px; height: 1080px; background: rgba(6,11,22,.95); padding: 40px 30px; display: flex; flex-direction: column; }
+.p-chlist { position: absolute; right: 0; top: 0; width: 640px; height: 1080px; background: rgba(6,11,22,.95); padding: 40px 30px; display: flex; flex-direction: column; }
 .p-chlist h3 { font-size: 30px; margin-bottom: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-chlist .scroll-y { flex: 1 1 auto; min-height: 0; }
 .p-chlist .epg-ch { background: transparent; }
@@ -291,6 +291,6 @@ input:focus { border-color: #2EE59D; background: #172438; }
 body.video-mode #toast { bottom: auto; top: 150px; }
 /* Live-Infoleiste unten: Logo + Jetzt/Weiter (wie Android) */
 .p-live { display: flex; flex-direction: row; align-items: center; }
-.p-logo { width: 130px; height: 86px; border-radius: 10px; background-color: #1B1F2A; background-size: contain; background-position: center; background-repeat: no-repeat; margin-right: 26px; flex-shrink: 0; }
+.p-logo { width: 150px; height: 100px; border-radius: 10px; background-color: #1B1F2A; background-size: contain; background-position: center; background-repeat: no-repeat; margin-right: 26px; flex-shrink: 0; }
 .p-live-text { flex: 1; min-width: 0; }
 .p-live-text > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -233,11 +233,6 @@ class VlcPlayerActivity : ComponentActivity() {
                     )
                     if (buffering && error == null) CircularProgressIndicator(Modifier.align(Alignment.Center), color = BrandCyan)
                     CastingBar(container, Modifier.align(Alignment.Center), onStop = { mediaPlayer.play() })
-                    if (showChannels) ChannelListPanel(
-                        container, container.playQueue, container.playIndex,
-                        onSelect = { showChannels = false; if (it != container.playIndex) play(it) },
-                        onDismiss = { showChannels = false },
-                    )
                     FormatBadge(formatBadge) { formatBadge = null }
                     nextCountdown?.let { sec -> NextEpisodeCard(nextTitle(), sec, onPlay = { next() }, onCancel = { cancelNext() }) }
                     if (showSkipIntro && nextCountdown == null) SkipIntroButton { skipIntro() }
@@ -309,8 +304,10 @@ class VlcPlayerActivity : ComponentActivity() {
                         // Wie gewuenscht: links Helligkeit, rechts Lautstaerke (Handy/Tablet)
                         val liveNow = current()?.live == true
                         val liveBar = liveNow && !watchingRecording
-                        if (!container.isTvDevice) PlayerSideLevels(this@VlcPlayerActivity, Modifier.padding(top = 72.dp, bottom = if (liveBar) 190.dp else 130.dp))
-                        // Live-TV: unten Sender-Infos (Logo, Jetzt/Weiter) + Senderliste – Seitenverhaeltnis – Mehrfachbildschirm
+                        // Bei offener Senderliste ausgeblendet (sonst regelt Scrollen in der Liste die Helligkeit)
+                        val levels = !container.isTvDevice && !showChannels
+                        if (levels) PlayerSideLevels(this@VlcPlayerActivity, Modifier.padding(top = 72.dp, bottom = if (liveBar) 16.dp else 130.dp))
+                        // Live-TV: unten Sender-Infos (Logo, Jetzt/Weiter) + Mehrfachbildschirm – Seitenverhaeltnis – Senderliste
                         if (liveBar) LiveInfoBar(
                             logo = current()?.item?.logo,
                             epg = epg,
@@ -319,6 +316,7 @@ class VlcPlayerActivity : ComponentActivity() {
                             onFormat = { dialogSection = PlayerSection.FORMAT; showFormatDialog = true; lastInteraction = System.currentTimeMillis() },
                             onMultiScreen = { startActivity(android.content.Intent(this@VlcPlayerActivity, MultiViewActivity::class.java)) },
                             modifier = Modifier.align(Alignment.BottomCenter),
+                            sideInset = if (container.isTvDevice) 0.dp else 80.dp,
                         ) else androidx.compose.foundation.layout.Column(
                             Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -336,6 +334,12 @@ class VlcPlayerActivity : ComponentActivity() {
                             }
                         }
                     }
+                    // Senderliste (rechts) ueber allem anderen, damit Wischen nur die Liste bewegt
+                    if (showChannels) ChannelListPanel(
+                        container, container.playQueue, container.playIndex,
+                        onSelect = { showChannels = false; if (it != container.playIndex) play(it) },
+                        onDismiss = { showChannels = false },
+                    )
                     // Thumbnail-Scrubbing: Vorschau an der Spulposition
                     val drag = dragging
                     if (drag != null && length > 0) {
@@ -969,9 +973,9 @@ class VlcPlayerActivity : ComponentActivity() {
         when (event.keyCode) {
             KeyEvent.KEYCODE_CHANNEL_UP, KeyEvent.KEYCODE_PAGE_UP -> { next(); return true }
             KeyEvent.KEYCODE_CHANNEL_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> { previous(); return true }
-            // Live: Links = Senderliste, Rechts = letzter Sender
-            KeyEvent.KEYCODE_DPAD_LEFT -> if (live && !showOverlay) { showChannels = true; return true }
-            KeyEvent.KEYCODE_DPAD_RIGHT -> if (live && !showOverlay) { zapBack(); return true }
+            // Live: Rechts = Senderliste (sitzt rechts), Links = letzter Sender
+            KeyEvent.KEYCODE_DPAD_RIGHT -> if (live && !showOverlay) { showChannels = true; return true }
+            KeyEvent.KEYCODE_DPAD_LEFT -> if (live && !showOverlay) { zapBack(); return true }
             KeyEvent.KEYCODE_LAST_CHANNEL -> if (live) { zapBack(); return true }
             KeyEvent.KEYCODE_DPAD_UP -> if (live && !showOverlay) { next(); return true }
             KeyEvent.KEYCODE_DPAD_DOWN -> if (live && !showOverlay) { previous(); return true }
