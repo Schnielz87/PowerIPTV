@@ -138,10 +138,13 @@ class XtreamSource(object):
             return []
         out = []
         for o in r.get("epg_listings") or []:
-            start = _num(o.get("start_timestamp"))
-            end = _num(o.get("stop_timestamp"))
+            start, end = _epg_times(o)
             if end > start:
                 out.append({"start": start, "end": end, "title": _b64(o.get("title")), "desc": _b64(o.get("description"))})
+        now = time.time()
+        if not any(e["end"] > now for e in out):
+            # Manche Anbieter liefern die Kurz-EPG leer -> Jetzt/Weiter aus dem vollen Programm nehmen
+            out = [e for e in self.full_epg(item) if e["end"] > now][:4]
         return sorted(out, key=lambda x: x["start"])
 
     def full_epg(self, item):
@@ -152,8 +155,7 @@ class XtreamSource(object):
             return []
         out = []
         for o in r.get("epg_listings") or []:
-            start = _num(o.get("start_timestamp"))
-            end = _num(o.get("stop_timestamp"))
+            start, end = _epg_times(o)
             if end > start:
                 out.append({"start": start, "end": end, "title": _b64(o.get("title")), "desc": _b64(o.get("description")),
                             "archive": str(o.get("has_archive")) == "1"})
@@ -288,6 +290,20 @@ class M3uSource(object):
 
     def account_text(self):
         return "M3U-Link"
+
+
+def _epg_times(o):
+    """Start/Ende einer Sendung: Unix-Zeit, sonst Text "JJJJ-MM-TT HH:MM:SS" (UTC, wie bei Android)."""
+    def one(ts_key, text_key):
+        v = _num(o.get(ts_key))
+        if v:
+            return v
+        try:
+            import calendar
+            return int(calendar.timegm(time.strptime(str(o.get(text_key) or "")[:19], "%Y-%m-%d %H:%M:%S")))
+        except Exception:
+            return 0
+    return one("start_timestamp", "start"), one("stop_timestamp", "end")
 
 
 def make_source(profile):

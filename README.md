@@ -9,7 +9,7 @@ mit **eingebautem VPN**, **Offline-Downloads** und **eigenen Favoritenlisten**.
 
 | Ordner | Geraete | Datei im Release |
 |---|---|---|
-| `Android/` | Handy, Tablet, Android TV, **Fire TV mit Fire OS** (Fire TV Stick Lite/3. Gen., 4K, 4K Max, 4K Plus, Cube) | `PowerIPTV-v1.1.x.apk` |
+| `Android/` | Handy, Tablet, Android TV, **Fire TV mit Fire OS** (Fire TV Stick Lite/3. Gen., 4K, 4K Max, 4K Plus, Cube) | `PowerIPTV-v1.1.x.apk` · Google Play: Variante `play` (App-Bundle, siehe `Android/Play-Store-Anleitung.docx`) |
 | `Windows/` | Windows-PC | `Portiva-Windows-Setup-v1.1.x.exe` |
 | `Tizen Samsung/` | Samsung Smart TV (Tizen) | `PowerIPTV-Tizen-v1.1.x.zip` |
 | `iOS/` | iPhone, iPad | `Portiva-iOS-v1.1.x.ipa` |
