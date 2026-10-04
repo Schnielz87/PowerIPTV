@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.103 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.104 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -371,11 +371,18 @@ c.push(step('Mit einem FTP-Programm (z. B. FileZilla; Adresse = IP des Receivers
 c.push(step('Am Receiver: Menü → Plugins → „Lokale Erweiterungen installieren“ (je nach Image grüne/blaue Taste) und die Datei wählen. Alternativ per Telnet/SSH: opkg install /tmp/PowerIPTV-Enigma2.ipk', 'n17'));
 c.push(step('GUI neu starten (Menü → Standby/Neustart → GUI neu starten).', 'n17'));
 c.push(step('Menü → Plugins → PowerIPTV öffnen und den Zugang eintragen (Xtream Codes oder M3U-Link). OK bzw. Gelb öffnet die Bildschirmtastatur, Grün prüft und speichert.', 'n17'));
-c.push(h2('Bedienung'));
-c.push(bullet('Startseite: Live TV, Filme, Serien, Favoriten, Suche, Zugänge (rot), Einstellungen (grün), Suche (blau).'));
-c.push(bullet('In den Listen: rechts erscheinen Jetzt/Danach (Sender) bzw. Handlung (Filme). Gelb = Favorit, Blau = Liste filtern.'));
-c.push(bullet('Live-Kategorie mit Grün „Als Bouquet“ übernehmen: Die Sender stehen dann auch in der normalen Senderliste des Receivers.'));
-c.push(bullet('Im Player: Hoch/Runter bzw. CH+/CH- = Sender wechseln, INFO = Jetzt/Danach, Tonspur und Untertitel wie beim Receiver gewohnt, EXIT = zurück. Filme und Folgen merken sich die Stelle (Weiterschauen), die nächste Folge startet automatisch.'));
+c.push(h2('Bedienung (mit der Fernbedienung)'));
+c.push(bullet('Startseite wie bei den anderen Geräten: drei große Bild-Kacheln Live TV, Filme, Serien und darunter Weiterschauen, Suche, TV-Guide, Favoriten, Zuletzt gesehen, Benutzer wechseln, Vom Handy empfangen, Einstellungen, Update und Playlist aktualisieren. Pfeiltasten wählen, OK öffnet. Rot = Benutzer, Grün = Einstellungen, Blau = Suche.'));
+c.push(bullet('Kategorien: oben „♥ Favoriten“, „Zuletzt gesehen“ und „Alle“. Gelb = Sprache filtern (z. B. nur DE), Rot = Kategorie mit PIN sperren/entsperren (Kindersicherung), Grün = Live-Kategorie als Bouquet in die normale Senderliste des Receivers übernehmen.'));
+c.push(bullet('In den Listen: rechts Jetzt/Weiter (Sender) bzw. Handlung, Genre, Bewertung (Filme). Rot = Sortieren, Gelb = Favorit, Blau = Filtern, MENU = mehr (Film herunterladen auf Festplatte/USB, Programm), INFO = Programm des Senders.'));
+c.push(bullet('Live TV: Beim Umschalten erscheint unten die Info-Leiste mit Senderlogo, Name, Uhrzeit, „Jetzt“ mit Fortschrittsbalken und „Weiter“. Hoch/Runter bzw. CH+/CH- = Sender wechseln, Rot = letzter Sender, Gelb = Favorit, Blau = an ein anderes Portiva-Gerät senden.'));
+c.push(bullet('OK im Live TV öffnet rechts die Senderliste; Grün „EPG aktualisieren“ lädt das Programm neu. EXIT schließt die Liste wieder.'));
+c.push(bullet('INFO im Live TV zeigt das ganze Programm des Senders. Sendungen mit ► kann man nachträglich ansehen (Catch-up), wenn der Anbieter ein Archiv hat.'));
+c.push(bullet('Filme und Folgen: Stelle wird gemerkt (Kachel „Weiterschauen“), die nächste Folge startet automatisch. Tonspur (AUDIO) und Untertitel (TEXT) wie beim Receiver gewohnt.'));
+c.push(bullet('Zugänge: Kachel „Vom Handy empfangen“ zeigt einen QR-Code – mit der PowerIPTV-App am Handy scannen, der Zugang wird übertragen. In „Benutzer wechseln“ zeigt Blau den Zugang als QR-Code für ein anderes Gerät (nur dir selbst zeigen – enthält die Zugangsdaten).'));
+c.push(bullet('Portiva Link: Handy, Tablet oder PC finden den Receiver automatisch im Heimnetz („An Gerät senden“) und spielen den laufenden Film/Sender dort weiter.'));
+c.push(bullet('Einstellungen: Player, Live-TV-Format, Gerätename, PIN der Kindersicherung, Erwachseneninhalte automatisch sperren, automatische Update-Prüfung. Kachel „Update“ installiert neue Versionen direkt von GitHub und startet die Oberfläche neu.'));
+c.push(p('Nicht auf dem Receiver: Multi-Screen, Bild-in-Bild, VPN, Vorschaubilder beim Spulen und KI-Empfehlungen – dafür ist die Receiver-Hardware nicht gedacht.'));
 c.push(tip('Ruckelt ein Sender oder fehlt Bild/Ton: Einstellungen → Player „exteplayer3 (5002)“ wählen (dafür das Paket ServiceApp aus dem Image-Feed installieren) oder Live-TV-Format „HLS (m3u8)“ probieren.'));
 
 const doc = new Document({

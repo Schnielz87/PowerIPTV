@@ -4,13 +4,22 @@ Plugin für Enigma2-Receiver (VU+, Dreambox, Gigablue, Octagon, Zgemma … mit O
 
 ## Funktionen
 
-- Zugänge: **Xtream Codes** (Server, Benutzer, Passwort) oder **M3U-Link**, mehrere Zugänge, Verbindungstest
-- **Live TV**, **Filme**, **Serien** (Staffeln/Folgen) nach Kategorien, Filtern (blau), Suche über alles
-- Sender-Info mit **Jetzt/Danach** (EPG des Anbieters), Film-Infos (Handlung, Genre, Bewertung)
-- **Favoriten** (gelb), **Weiterschauen** bei Filmen/Folgen, nächste Folge automatisch
-- Im Player: Hoch/Runter bzw. CH+/CH- = Sender wechseln, INFO = Jetzt/Danach, Tonspur/Untertitel wie gewohnt
-- **Live-Kategorie als Bouquet** (grün) – dann auch in der normalen Senderliste des Receivers
-- Player wählbar: GStreamer (4097) oder – mit installiertem ServiceApp – exteplayer3 (5002, mehr Formate)
+Gedacht für die Bedienung am Fernseher mit der Receiver-Fernbedienung (HD- und FHD-Skins).
+
+- **Startseite mit Kacheln**: Live TV, Filme, Serien (große Bild-Kacheln) + Weiterschauen, Suche, TV-Guide, Favoriten, Zuletzt gesehen, Benutzer wechseln, Vom Handy empfangen, Einstellungen, Update, Playlist aktualisieren
+- Zugänge: **Xtream Codes** oder **M3U-Link**, mehrere Benutzer, Ablaufdatum/Verbindungen
+- Kategorien mit **♥ Favoriten / Zuletzt gesehen / Alle**, **Sprachfilter** (gelb), **Kindersicherung** mit PIN (rot, Erwachseneninhalte automatisch gesperrt), **Bouquet-Export** (grün)
+- Listen: **Sortieren** (rot), **Favorit** (gelb), **Filtern** (blau), MENU = **Download** auf HDD/USB, INFO = Programm
+- **Live TV Info-Leiste**: Logo, Name, Uhr, Jetzt mit Fortschritt, Weiter; ▲▼/CH = umschalten, ROT = letzter Sender
+- **Senderliste** im Player (OK) mit **EPG aktualisieren** (grün)
+- **Programm / Catch-up** (INFO): ganzes EPG des Senders, Archiv-Sendungen (►) nachträglich abspielen
+- **Weiterschauen** für Filme/Folgen, nächste Folge automatisch
+- **Portiva Link**: Receiver ist im Heimnetz als Gerät sichtbar (TCP 47800, UDP 47801) – Handy/PC können Filme/Sender hierher senden; BLAU im Player sendet an ein anderes Portiva-Gerät
+- **QR**: Zugang vom Handy empfangen (Kopplungs-Code) bzw. eigenen Zugang als QR anzeigen (nur selbst ansehen – enthält Zugangsdaten)
+- **Update** direkt von GitHub (opkg, danach GUI-Neustart), automatische Prüfung 1×/Tag
+- Player wählbar: GStreamer (4097) oder – mit ServiceApp – exteplayer3 (5002) bzw. GStreamer über ServiceApp (5001)
+
+Nicht enthalten (passt nicht zur Receiver-Hardware): Multi-Screen, Bild-in-Bild, VPN, Spul-Vorschaubilder, KI-Empfehlungen.
 
 ## Bauen
 

@@ -91,32 +91,90 @@ def toggle_favorite(pid, item):
         lst = [x for x in lst if _fav_key(x) != k]
         added = False
     else:
-        lst.append(dict((key, item.get(key)) for key in ("kind", "id", "name", "logo", "ext", "number", "url", "group", "_kind")))
+        lst.append(slim(item))
         added = True
     all_[pid] = lst
     save("favorites", all_)
     return added
 
 
-# ---------- Weiterschauen (Sekunden je Stream-Adresse) ----------
+ITEM_KEYS = ("kind", "id", "name", "logo", "ext", "number", "url", "group", "_kind", "archive", "series_id", "series_name")
+
+
+def slim(item):
+    return dict((k, item.get(k)) for k in ITEM_KEYS if item.get(k) is not None)
+
+
+# ---------- Weiterschauen (Sekunden je Stream-Adresse, mit Titel fuer die Liste "Weiterschauen") ----------
 def resume_get(url):
-    return load("resume", {}).get(url, 0)
+    v = load("resume", {}).get(url, 0)
+    return v.get("pos", 0) if isinstance(v, dict) else v
 
 
-def resume_set(url, seconds, total):
+def resume_set(url, seconds, total, item=None, pid=None):
     d = load("resume", {})
     if seconds < 30 or (total and seconds > total - 60):
         d.pop(url, None)  # kaum angefangen oder fertig gesehen
     else:
-        d[url] = int(seconds)
+        d[url] = {"pos": int(seconds), "total": int(total or 0), "item": slim(item or {}), "pid": pid, "t": int(time.time())}
     if len(d) > 300:
-        for k in list(d.keys())[:len(d) - 300]:
+        for k in sorted(d.keys(), key=lambda k: (d[k].get("t", 0) if isinstance(d[k], dict) else 0))[:len(d) - 300]:
             d.pop(k, None)
     save("resume", d)
 
 
+def continue_watching(pid):
+    """Angefangene Filme/Folgen dieses Zugangs, zuletzt gesehene zuerst."""
+    d = load("resume", {})
+    out = [v for v in d.values() if isinstance(v, dict) and v.get("pid") == pid and v.get("item")]
+    out.sort(key=lambda v: -v.get("t", 0))
+    return out
+
+
+# ---------- Verlauf (zuletzt gesehen, je Zugang) ----------
+def history(pid):
+    return load("history", {}).get(pid, [])
+
+
+def add_history(pid, item):
+    if not pid:
+        return
+    all_ = load("history", {})
+    lst = [x for x in all_.get(pid, []) if _fav_key(x) != _fav_key(item)]
+    lst.insert(0, slim(item))
+    all_[pid] = lst[:60]
+    save("history", all_)
+
+
 # ---------- Einstellungen ----------
-DEFAULTS = {"player": "auto", "live_format": "ts"}
+DEFAULTS = {"player": "auto", "live_format": "ts", "pin": "", "auto_adult": True, "locked": [],
+            "auto_update": True, "device_name": "Enigma2-Receiver", "sort": "DEFAULT", "language": ""}
+
+
+# ---------- Kindersicherung ----------
+def is_locked(pid, kind, cat):
+    """Kategorie gesperrt (von Hand oder automatisch als Erwachseneninhalt)?"""
+    from .rules import is_adult
+    s = settings()
+    if not s.get("pin"):
+        return False
+    key = "%s|%s|%s" % (pid, kind, cat.get("id"))
+    return key in s.get("locked", []) or (s.get("auto_adult") and is_adult(cat.get("name")))
+
+
+def toggle_lock(pid, kind, cat):
+    s = settings()
+    key = "%s|%s|%s" % (pid, kind, cat.get("id"))
+    locked = s.get("locked", [])
+    if key in locked:
+        locked.remove(key)
+        res = False
+    else:
+        locked.append(key)
+        res = True
+    s["locked"] = locked
+    save_settings(s)
+    return res
 
 
 def settings():

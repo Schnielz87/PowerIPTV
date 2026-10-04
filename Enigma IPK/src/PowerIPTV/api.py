@@ -5,7 +5,10 @@ Laeuft im Hintergrund-Thread (siehe ui.run_async), nie im Bedien-Thread von Enig
 """
 import json
 import re
+import time
 import base64
+
+from .rules import year_of
 
 try:  # Python 3 (OpenATV 7, OpenPLi 9 ...)
     from urllib.request import urlopen, Request
@@ -25,6 +28,10 @@ def http_get(url, timeout=30):
         return data.decode("utf-8")
     except Exception:
         return data.decode("latin-1")
+
+
+def http_get_bytes(url, timeout=15):
+    return urlopen(Request(url, headers={"User-Agent": UA}), timeout=timeout).read()
 
 
 def normalize_server(s):
@@ -57,6 +64,7 @@ class XtreamSource(object):
         self.p = profile
         self.base = normalize_server(profile.get("server"))
         self.cache = {}
+        self.timezone = None
 
     def api(self, action=None, timeout=40, **params):
         q = {"username": self.p.get("username", ""), "password": self.p.get("password", "")}
@@ -75,6 +83,7 @@ class XtreamSource(object):
             raise Exception("Ungültige Antwort vom Server")
         if str(info.get("auth")) != "1":
             raise Exception("Benutzername oder Passwort falsch")
+        self.timezone = ((r or {}).get("server_info") or {}).get("timezone") or self.timezone
         return info
 
     def categories(self, kind):
@@ -94,15 +103,23 @@ class XtreamSource(object):
         data = self.api(action, timeout=90, **params) or []
         out = []
         for o in data:
+            name = o.get("name") or ""
+            try:
+                rating = float(o.get("rating_5based") or 0) * 2 or float(o.get("rating") or 0)
+            except Exception:
+                rating = 0
             if kind == "series":
                 sid = o.get("series_id")
-                out.append({"kind": kind, "id": str(sid), "name": o.get("name") or "", "logo": o.get("cover"),
-                            "plot": o.get("plot"), "year": o.get("releaseDate") or o.get("year"), "rating": o.get("rating")})
+                out.append({"kind": kind, "id": str(sid), "name": name, "logo": o.get("cover"), "cat": str(o.get("category_id")),
+                            "plot": o.get("plot"), "year": year_of(o.get("releaseDate") or o.get("year"), name),
+                            "rating_f": rating, "added": _num(o.get("last_modified"))})
             else:
                 sid = o.get("stream_id")
-                out.append({"kind": kind, "id": str(sid), "name": o.get("name") or "", "logo": o.get("stream_icon"),
+                out.append({"kind": kind, "id": str(sid), "name": name, "logo": o.get("stream_icon"), "cat": str(o.get("category_id")),
                             "number": o.get("num"), "ext": o.get("container_extension") or "mp4",
-                            "epg_id": o.get("epg_channel_id"), "rating": o.get("rating")})
+                            "archive": _num(o.get("tv_archive_duration")) or 1 if str(o.get("tv_archive")) == "1" else 0,
+                            "year": year_of(o.get("year"), name) if kind == "movie" else 0,
+                            "rating_f": rating, "added": _num(o.get("added"))})
         self.cache[key] = out
         return out
 
@@ -126,6 +143,41 @@ class XtreamSource(object):
             if end > start:
                 out.append({"start": start, "end": end, "title": _b64(o.get("title")), "desc": _b64(o.get("description"))})
         return sorted(out, key=lambda x: x["start"])
+
+    def full_epg(self, item):
+        """Programm mehrerer Tage (mit Archiv-Kennzeichen fuer Catch-up)."""
+        try:
+            r = self.api("get_simple_data_table", timeout=30, stream_id=item["id"]) or {}
+        except Exception:
+            return []
+        out = []
+        for o in r.get("epg_listings") or []:
+            start = _num(o.get("start_timestamp"))
+            end = _num(o.get("stop_timestamp"))
+            if end > start:
+                out.append({"start": start, "end": end, "title": _b64(o.get("title")), "desc": _b64(o.get("description")),
+                            "archive": str(o.get("has_archive")) == "1"})
+        return sorted(out, key=lambda x: x["start"])
+
+    def catchup_url(self, item, start, end):
+        """Vergangene Sendung aus dem Archiv des Anbieters (Xtream timeshift)."""
+        days = item.get("archive") or 0
+        now = time.time()
+        if not days or start > now or start < now - days * 86400:
+            return None
+        minutes = max(1, int(round((end - start) / 60.0)))
+        u, p = quote(self.p.get("username", "")), quote(self.p.get("password", ""))
+        return "%s/timeshift/%s/%s/%d/%s/%s.ts" % (self.base, u, p, minutes, self._fmt_zone(start), item["id"])
+
+    def _fmt_zone(self, ts):
+        if self.timezone:
+            try:
+                from zoneinfo import ZoneInfo
+                import datetime
+                return datetime.datetime.fromtimestamp(ts, ZoneInfo(self.timezone)).strftime("%Y-%m-%d:%H-%M")
+            except Exception:
+                pass
+        return time.strftime("%Y-%m-%d:%H-%M", time.localtime(ts))
 
     def vod_info(self, item):
         try:
@@ -221,6 +273,12 @@ class M3uSource(object):
 
     def short_epg(self, item):
         return []
+
+    def full_epg(self, item):
+        return []
+
+    def catchup_url(self, item, start, end):
+        return None
 
     def vod_info(self, item):
         return {}
