@@ -211,7 +211,10 @@ class PortivaHome(Screen):
             except Exception:
                 pass
         self.show_focus()
-        self.refresh()
+        # Erst laden, wenn die Startseite wirklich angezeigt wird: Enigma2 erlaubt das Oeffnen weiterer
+        # Fenster (z. B. "Zugang hinzufuegen" beim ersten Start) nicht waehrend des Aufbaus -> sonst Absturz.
+        self.p_start_timer = make_timer(self.refresh)
+        self.p_start_timer.start(50, True)
         if store.settings().get("auto_update", True):
             from . import update
             run_async(self, update.check_cached, self.update_found, lambda m: None)
