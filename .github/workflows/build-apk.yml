@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       BUILD_NUMBER: ${{ github.run_number }}
     steps:
@@ -72,7 +72,7 @@ jobs:
   # Laeuft getrennt vom Release: ein Play-Fehler blockiert die GitHub-Downloads nicht.
   play:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
       BUILD_NUMBER: ${{ github.run_number }}
@@ -101,7 +101,7 @@ jobs:
 
   # Windows-App (Ordner Windows/): Installer (.exe/.msi) + portable ZIP, VLC wird mitgeliefert
   windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
     env:
       BUILD_NUMBER: ${{ github.run_number }}
     steps:
@@ -154,7 +154,7 @@ jobs:
 
   # Samsung Smart TV (Ordner "Tizen Samsung/"): Web-App fuer Tizen 4.0+ (Chromium M56)
   tizen:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       BUILD_NUMBER: ${{ github.run_number }}
     defaults:
@@ -260,7 +260,7 @@ jobs:
 
   # Enigma2-Receiver (VU+, Dreambox, Gigablue, Octagon ...; OpenATV, OpenPLi, VTi): Python-Plugin als .ipk
   enigma2:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       BUILD_NUMBER: ${{ github.run_number }}
     steps:
@@ -327,7 +327,7 @@ jobs:
     needs: [build, windows, tizen, ios, firetv-vega, enigma2]
     # Die APK erscheint auch dann, wenn der Windows-Build einmal fehlschlaegt
     if: ${{ always() && needs.build.result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -420,7 +420,7 @@ jobs:
   cleanup:
     needs: [release, play]
     if: ${{ always() && needs.release.result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       actions: write
     steps:
