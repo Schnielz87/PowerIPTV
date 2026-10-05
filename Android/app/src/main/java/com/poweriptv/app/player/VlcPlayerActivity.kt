@@ -738,7 +738,7 @@ class VlcPlayerActivity : ComponentActivity() {
                 addOption(":clock-jitter=0")
                 addOption(":clock-synchro=0")
             } else {
-                addOption(":network-caching=3000")
+                addOption(":network-caching=1500") // kuerzer vorpuffern -> Filme starten schneller
                 addOption(":input-fast-seek") // Spulen: naechstes Schluesselbild statt exakt -> deutlich schneller
             }
             // Bricht die Verbindung ab (z.B. beim Spulen), automatisch an derselben Stelle neu verbinden

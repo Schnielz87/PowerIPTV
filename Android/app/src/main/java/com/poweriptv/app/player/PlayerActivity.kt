@@ -211,6 +211,9 @@ class PlayerActivity : ComponentActivity() {
                 .setAudioProcessors(arrayOf(introFp))
                 .build()
         }.setEnableDecoderFallback(true)
+            // FFmpeg-Erweiterung als Reserve: Formate, die das Geraet nicht selbst kann (AC3/DTS-Ton, MPEG-2-Bild),
+            // spielt der Standard-Player damit trotzdem – statt in den langsameren VLC-Player zu wechseln
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
         player = ExoPlayer.Builder(this, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
             // Grosser Puffer gegen Stocken (v.a. Live TV): bis 60 s vorladen, Start nach 2,5 s,

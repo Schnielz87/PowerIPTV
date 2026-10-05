@@ -74,7 +74,7 @@ final class PlayerController: NSObject, ObservableObject, VLCMediaPlayerDelegate
             m.addOption(":network-caching=4000")
             m.addOption(":live-caching=4000")
         } else {
-            m.addOption(":network-caching=3000")
+            m.addOption(":network-caching=1500") // kuerzer vorpuffern -> Filme starten schneller
             m.addOption(":input-fast-seek")
             if self.startAt > 1000 { m.addOption(":start-time=\(Int(self.startAt / 1000))") }
         }

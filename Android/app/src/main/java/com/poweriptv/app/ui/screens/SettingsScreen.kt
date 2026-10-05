@@ -340,8 +340,9 @@ fun SettingsScreen(
             SettingsSection("Player") {
                 val engine by s.playerEngine.collectAsState()
                 Text(
-                    "Wiedergabe-Engine. Bei manchen Sendern (z.B. RTL, ProSieben, VOX in SD/MPEG-2) kann der Standard-Player " +
-                        "nur Ton abspielen – dann hilft VLC.",
+                    "Wiedergabe-Engine. Der Standard-Player (ExoPlayer mit FFmpeg – wie bei IPTV Smarters) startet schnell und spult " +
+                        "flüssig; er spielt auch AC3/DTS-Ton und SD-Sender (MPEG-2). Klappt ein Titel trotzdem nicht, wechselt " +
+                        "„Automatisch“ von selbst zu VLC.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 PlayerEngine.entries.forEach { e ->

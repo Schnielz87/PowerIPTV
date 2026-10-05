@@ -321,6 +321,8 @@ class AppContainer(private val app: Application) {
         // Einmalig: alte VLC-Zuordnungen (ganze Kategorien) zuruecksetzen -> Standard-Player zuerst
         app.getSharedPreferences("migrations", android.content.Context.MODE_PRIVATE).let { m ->
             if (!m.getBoolean("vlc_reset_v2", false)) { settings.clearVlcStreams(); m.edit().putBoolean("vlc_reset_v2", true).apply() }
+            // Standard-Player kann jetzt dank FFmpeg auch AC3/DTS/MPEG-2 -> bisher auf VLC gemerkte Titel neu versuchen
+            if (!m.getBoolean("vlc_reset_v3", false)) { settings.clearVlcStreams(); m.edit().putBoolean("vlc_reset_v3", true).apply() }
         }
         activate(profiles.get(settings.lastProfileId.value))
         if (BuildConfigInfo.SELF_UPDATE) updates.startAutoCheck()  // Play-Variante: Updates ueber den Play Store

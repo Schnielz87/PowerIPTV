@@ -99,11 +99,14 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.8.0")
 
     // Player
-    val media3 = "1.4.1"
+    val media3 = "1.9.0"
     implementation("androidx.media3:media3-exoplayer:$media3")
     implementation("androidx.media3:media3-exoplayer-hls:$media3")
     implementation("androidx.media3:media3-ui:$media3")
     implementation("androidx.media3:media3-datasource-okhttp:$media3")
+    // FFmpeg-Decoder fuer den Standard-Player (wie bei IPTV Smarters): AC3/E-AC3/DTS/TrueHD-Ton und
+    // MPEG-2/H.264/HEVC als Software-Reserve, wenn das Geraet ein Format nicht selbst kann -> kaum noch VLC noetig
+    implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1")
 
     // Netzwerk / JSON / Bilder
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

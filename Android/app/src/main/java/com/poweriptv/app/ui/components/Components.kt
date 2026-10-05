@@ -269,10 +269,9 @@ fun startPlayback(context: Context, container: AppContainer, entries: List<PlayE
     val useVlc = when (container.settings.playerEngineEnum()) {
         PlayerEngine.VLC -> true
         PlayerEngine.EXO -> false
-        // Automatisch: VLC ist der gemeinsame Player (Android, Windows, iOS) fuer Filme & Serien
-        // (spielt jedes Ton-/Bildformat, z.B. DTS). Live TV bleibt beim Standard-Player wegen Live-Pause/Timeshift;
-        // kann der Standard-Player einen Sender nicht, wechselt er wie bisher automatisch auf VLC.
-        PlayerEngine.AUTO -> !entries[container.playIndex].live || container.settings.needsVlc(url)
+        // Automatisch: Standard-Player (ExoPlayer + FFmpeg, wie IPTV Smarters) fuer alles – startet schnell und spult
+        // fluessig. Nur wenn er einen Titel wirklich nicht kann, wechselt er automatisch zu VLC (und merkt sich das).
+        PlayerEngine.AUTO -> container.settings.needsVlc(url)
     }
     context.startActivity(Intent(context, if (useVlc) VlcPlayerActivity::class.java else PlayerActivity::class.java).apply {
         // Start ohne Activity (z.B. Wiedergabe von einem anderen Geraet uebernommen)

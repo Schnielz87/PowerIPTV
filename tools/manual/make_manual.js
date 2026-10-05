@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.116 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.117 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -389,6 +389,8 @@ c.push(bullet('Einstellungen: Player, Live-TV-Format, Gerätename, PIN der Kinde
 c.push(p('Nicht auf dem Receiver: Multi-Screen, Bild-in-Bild, VPN, Vorschaubilder beim Spulen und KI-Empfehlungen – dafür ist die Receiver-Hardware nicht gedacht.'));
 c.push(tip('Ruckelt ein Sender oder fehlt Bild/Ton: Einstellungen → Player „exteplayer3 (5002)“ wählen (dafür das Paket ServiceApp aus dem Image-Feed installieren) oder Live-TV-Format „HLS (m3u8)“ probieren.'));
 
+c.push(h2('Player auf Android: Standard-Player mit FFmpeg'));
+c.push(p('Seit Version 1.1.117 spielt die Android-App Live TV, Filme und Serien standardmäßig mit dem Standard-Player (ExoPlayer) plus FFmpeg-Erweiterung – dieselbe Technik wie bei IPTV Smarters. Er startet schnell, spult flüssig und kann jetzt auch AC3-/DTS-Ton und SD-Sender (MPEG-2). Nur wenn ein Titel trotzdem nicht läuft, wechselt die Einstellung „Automatisch“ von selbst zum VLC-Player. Unter Einstellungen → Player lässt sich weiterhin „Immer VLC“ wählen.'));
 c.push(h1('20. Android aus dem Google Play Store'));
 c.push(p('Neben der APK von GitHub gibt es eine eigene Variante für den Google Play Store. Sie wird bei jeder Änderung automatisch mitgebaut (App-Bundle .aab) und kann – einmal eingerichtet – automatisch an Google Play gesendet werden. Die Schritt-für-Schritt-Anleitung steht im Ordner „Android“: „Play-Store-Anleitung.docx“.'));
 c.push(bullet('Play-Version: Updates kommen über den Play Store; es gibt dort keine eigene Update-Kachel und kein VPN (Google-Richtlinie). Alle anderen Funktionen sind gleich.'));
