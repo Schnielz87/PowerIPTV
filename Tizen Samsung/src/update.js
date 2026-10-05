@@ -17,7 +17,8 @@ export const updates = {
     const tag = (r && r.tag_name) || '';
     const asset = isVega() ? (r.assets || []).find((a) => /\.vpkg$/i.test(a.name))
       : (r.assets || []).find((a) => /\.wgt$/i.test(a.name)) || (r.assets || []).find((a) => /tizen/i.test(a.name));
-    state.available = newer(tag, VERSION) ? { tag, notes: r.body || '', pageUrl: r.html_url, asset: asset ? asset.browser_download_url : null } : null;
+    // Nur melden, wenn das Release auch eine Datei fuer dieses Geraet enthaelt (GitHub-Build kann einzeln ausfallen)
+    state.available = asset && newer(tag, VERSION) ? { tag, notes: r.body || '', pageUrl: r.html_url, asset: asset.browser_download_url } : null;
     storage.set('update.available', state.available);
     return state.available;
   },

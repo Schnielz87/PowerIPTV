@@ -354,7 +354,10 @@ struct UpdateView: View {
         guard let url = URL(string: "https://api.github.com/repos/Schnielz87/PowerIPTV/releases/latest"),
               let d = try? await Net.data(url, timeout: 20),
               let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any], let tag = o["tag_name"] as? String else { latest = "?"; return }
-        latest = tag.replacingOccurrences(of: "v", with: "")
+        // Nur melden, wenn das Release auch eine iPhone-Datei enthaelt (GitHub-Build kann einzeln ausfallen)
+        let assets = (o["assets"] as? [[String: Any]]) ?? []
+        let hasIpa = assets.contains { (($0["name"] as? String) ?? "").lowercased().hasSuffix(".ipa") }
+        latest = hasIpa ? tag.replacingOccurrences(of: "v", with: "") : current
     }
 
     private func newer(_ a: String, _ b: String) -> Bool {
