@@ -4,6 +4,9 @@
   `tools/manual/make_manual.js` anpassen und mit `node tools/manual/make_manual.js` die Datei
   `docs/PowerIPTV-Anleitung.docx` neu erzeugen (Versionsnummer auf der Titelseite aktualisieren).
 - Releases entstehen automatisch per GitHub Actions bei jedem Push (Version 1.1.<Run-Nummer>).
+  Die Versionsnummer = Laufnummer von `.github/workflows/build-apk.yml` – diese Datei nie umbenennen/ersetzen (sonst beginnt die Zaehlung neu und Updates/Play-Store brechen).
+- Actions-Speicher (GitHub Free: 500 MB): Build-Zwischendateien (Artifacts) haben `retention-days: 1` und werden nach dem Release vom Job `cleanup` geloescht;
+  `.github/workflows/cleanup-artifacts.yml` raeumt taeglich Reste weg. Dauerhaft liegt alles in den Releases (inkl. Play-Bundle .aab).
 - Signierschluessel liegt nur in den GitHub-Secrets – niemals ins Repo committen.
 - **Alle Varianten gleich halten:** Jede Aenderung (Funktion, Optik, Bedienung) immer in ALLEN
   Software-Varianten umsetzen – Android-App (`Android/`, Handy/Tablet/TV), Windows-App (`Windows/`)

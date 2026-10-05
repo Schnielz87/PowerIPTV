@@ -118,12 +118,10 @@ c.push(p('Danach zeigt dir die Play Console im „Dashboard“ eine Aufgabenlist
 c.push(h1('5. Schritt 4: Das App-Bundle (.aab) von GitHub holen'));
 c.push(p('Das erste Hochladen muss einmal von Hand passieren – erst danach darf GitHub automatisch hochladen.'));
 c.push(...steps([
-  [t('Öffne '), link('github.com/Schnielz87/PowerIPTV/actions', `${REPO}/actions`), t(' (du musst bei GitHub angemeldet sein).')],
-  'Den obersten Eintrag mit grünem Haken anklicken.',
-  [t('Ganz unten bei „Artifacts“ auf '), b('PowerIPTV-Play-Bundle'), t(' klicken – es lädt eine ZIP-Datei herunter.')],
-  [t('ZIP entpacken. Darin liegt '), code('PowerIPTV-Play-v1.1.XXX.aab'), t('.')],
+  [t('Öffne '), link('github.com/Schnielz87/PowerIPTV/releases/latest', `${REPO}/releases/latest`), t('.')],
+  [t('Unten bei „Assets“ auf '), code('PowerIPTV-Play-v1.1.XXX.aab'), t(' klicken – die Datei wird heruntergeladen.')],
 ]));
-c.push(tip('Artefakte hebt GitHub 90 Tage auf. Brauchst du ein frisches, sag mir einfach Bescheid – jede kleine Änderung erzeugt ein neues.'));
+c.push(tip('Das App-Bundle hängt an jedem Release, genau wie die APK. Es ist nur für Google Play gedacht – auf dem Handy installiert man weiterhin die APK.'));
 
 // ---------- 6. Store-Eintrag ----------
 c.push(h1('6. Schritt 5: Store-Eintrag (Texte & Bilder)'));

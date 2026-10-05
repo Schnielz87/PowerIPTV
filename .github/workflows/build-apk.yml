@@ -58,12 +58,14 @@ jobs:
         with:
           name: PowerIPTV-APK
           path: out/*.apk
+          retention-days: 1
 
       # App-Bundle fuer Google Play (zum manuellen Hochladen in der Play Console oder fuer den Job "play")
       - uses: actions/upload-artifact@v4
         with:
           name: PowerIPTV-Play-Bundle
           path: play/*.aab
+          retention-days: 1
 
   # Automatisch an Google Play senden – nur wenn das Secret PLAY_SERVICE_ACCOUNT_JSON gesetzt ist
   # (Anleitung: Android/Play-Store-Anleitung.docx). Spur/Status ueber Repository-Variablen PLAY_TRACK / PLAY_STATUS.
@@ -148,6 +150,7 @@ jobs:
         with:
           name: Portiva-Windows
           path: out/*
+          retention-days: 1
 
   # Samsung Smart TV (Ordner "Tizen Samsung/"): Web-App fuer Tizen 4.0+ (Chromium M56)
   tizen:
@@ -207,6 +210,7 @@ jobs:
         with:
           name: Portiva-Tizen
           path: out/*
+          retention-days: 1
 
   # Neue Amazon-Sticks mit Vega OS (kein Android: Fire TV Stick 4K Select, Fire TV Stick HD 2026, Fire TV Stick 4K 2026)
   # Ordner "Fire TV Vega/": React-Native-Huelle + Hardware-Player, Oberflaeche aus "Tizen Samsung/".
@@ -252,6 +256,7 @@ jobs:
         with:
           name: Portiva-FireTV-Vega
           path: out/*
+          retention-days: 1
 
   # Enigma2-Receiver (VU+, Dreambox, Gigablue, Octagon ...; OpenATV, OpenPLi, VTi): Python-Plugin als .ipk
   enigma2:
@@ -273,6 +278,7 @@ jobs:
         with:
           name: Portiva-Enigma2
           path: out/*
+          retention-days: 1
 
   # iPhone/iPad (Ordner iOS/): SwiftUI + VLC (MobileVLCKit), unsignierte .ipa zum Aufspielen mit Sideloadly/AltStore
   ios:
@@ -315,6 +321,7 @@ jobs:
         with:
           name: Portiva-iOS
           path: out/*
+          retention-days: 1
 
   release:
     needs: [build, windows, tizen, ios, firetv-vega, enigma2]
@@ -325,6 +332,12 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: PowerIPTV-APK
+          path: out
+
+      # App-Bundle fuer Google Play (.aab) – dauerhaft am Release statt als Zwischendatei
+      - uses: actions/download-artifact@v4
+        with:
+          name: PowerIPTV-Play-Bundle
           path: out
 
       - uses: actions/download-artifact@v4
@@ -398,4 +411,35 @@ jobs:
             📱 **iPhone/iPad:** `Portiva-iOS-v1.1.${{ github.run_number }}.ipa` am PC/Mac mit Sideloadly (oder AltStore) und deiner Apple-ID aufspielen.
             Genaue Schritte: Bedienungsanleitung, Kapitel „iPhone & iPad“.
 
+            🛒 `PowerIPTV-Play-v1.1.${{ github.run_number }}.aab` ist nur fuer die Google Play Console (nicht zum Installieren).
+
             Commit: ${{ github.sha }}
+
+  # Zwischendateien (Artifacts) nach dem Release sofort loeschen: alles Wichtige liegt jetzt dauerhaft im Release.
+  # Spart den Actions-Speicher (GitHub Free: 500 MB). Releases, Tags und Quellcode werden NICHT angefasst.
+  cleanup:
+    needs: [release, play]
+    if: ${{ always() && needs.release.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Zwischendateien dieses und aelterer Laeufe loeschen
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const names = new Set(["PowerIPTV-APK", "PowerIPTV-Play-Bundle", "Portiva-Windows", "Portiva-Tizen",
+                                   "Portiva-FireTV-Vega", "Portiva-Enigma2", "Portiva-iOS"]);
+            // aeltere Laeufe nur, wenn sie aelter als 3 Stunden sind (ein parallel laufender Build braucht seine noch)
+            const cutoff = Date.now() - 3 * 3600 * 1000;
+            const all = await github.paginate(github.rest.actions.listArtifactsForRepo,
+                                              { owner: context.repo.owner, repo: context.repo.repo, per_page: 100 });
+            let n = 0, bytes = 0;
+            for (const a of all) {
+              if (a.expired || !names.has(a.name)) continue;
+              const own = a.workflow_run && a.workflow_run.id === context.runId;
+              if (!own && Date.parse(a.created_at) > cutoff) continue;
+              await github.rest.actions.deleteArtifact({ owner: context.repo.owner, repo: context.repo.repo, artifact_id: a.id });
+              n++; bytes += a.size_in_bytes;
+            }
+            core.notice(`${n} Zwischendateien geloescht (${(bytes / 1048576).toFixed(1)} MB). Releases bleiben unveraendert.`);

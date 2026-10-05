@@ -1,0 +1,42 @@
+name: Zwischendateien (Artifacts) aufraeumen
+
+# Loescht alte Build-Zwischendateien (GitHub-Actions-Artifacts), die beim Bauen zwischen den Schritten
+# weitergereicht werden. Alles Wichtige liegt dauerhaft in den Releases – die werden hier NICHT angefasst
+# (keine Releases, keine Tags, kein Quellcode). Laeuft einmal beim Anlegen/Aendern dieser Datei,
+# taeglich als Sicherheitsnetz und auf Knopfdruck (Actions → diesen Workflow → "Run workflow").
+on:
+  push:
+    paths:
+      - ".github/workflows/cleanup-artifacts.yml"
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Alte Zwischendateien loeschen
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const names = new Set(["PowerIPTV-APK", "PowerIPTV-Play-Bundle", "Portiva-Windows", "Portiva-Tizen",
+                                   "Portiva-FireTV-Vega", "Portiva-Enigma2", "Portiva-iOS"]);
+            // Zwischendateien eines gerade laufenden Builds (juenger als 3 Stunden) bleiben stehen
+            const cutoff = Date.now() - 3 * 3600 * 1000;
+            const all = await github.paginate(github.rest.actions.listArtifactsForRepo,
+                                              { owner: context.repo.owner, repo: context.repo.repo, per_page: 100 });
+            // das neueste Play-Bundle (.aab) behalten, bis es auch am Release haengt
+            const play = all.filter(a => a.name === "PowerIPTV-Play-Bundle" && !a.expired)
+                            .sort((x, y) => Date.parse(y.created_at) - Date.parse(x.created_at))[0];
+            let n = 0, bytes = 0, kept = 0;
+            for (const a of all) {
+              if (a.expired || !names.has(a.name)) continue;
+              if (Date.parse(a.created_at) > cutoff || (play && a.id === play.id)) { kept++; continue; }
+              await github.rest.actions.deleteArtifact({ owner: context.repo.owner, repo: context.repo.repo, artifact_id: a.id });
+              n++; bytes += a.size_in_bytes;
+            }
+            core.notice(`${n} alte Zwischendateien geloescht (${(bytes / 1073741824).toFixed(2)} GB), ${kept} behalten. Releases unveraendert.`);
