@@ -280,6 +280,13 @@ class MultiViewActivity : ComponentActivity() {
         val source = container.source ?: run { pickerFor = null; return }
         var categories by remember { mutableStateOf<List<Category>>(emptyList()) }
         var cat by remember { mutableStateOf<String?>(null) }
+        // Sprache (DE, EN, ...) wie in der Kategorie-Spalte – gemerkte Auswahl gilt auch hier
+        var lang by remember { mutableStateOf(container.settings.categoryLanguage.value) }
+        val languages = remember(categories) { com.poweriptv.app.ui.components.detectLanguages(categories) }
+        val shownCats = remember(categories, lang, languages) {
+            if (lang.isEmpty() || lang !in languages) categories
+            else categories.filter { com.poweriptv.app.ui.components.categoryLanguage(it.name) == lang }
+        }
         var channels by remember { mutableStateOf<List<ContentItem>>(emptyList()) }
         LaunchedEffect(Unit) {
             val all = runCatching { source.categories(ContentType.LIVE) }.getOrDefault(emptyList())
@@ -296,10 +303,23 @@ class MultiViewActivity : ComponentActivity() {
             title = { Text("Kanal fuer Fenster ${slot + 1}") },
             text = {
                 Column {
+                    if (languages.isNotEmpty()) {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            item {
+                                FilterChip(selected = lang.isEmpty() || lang !in languages,
+                                    onClick = { lang = ""; container.settings.setCategoryLanguage("") }, label = { Text("Alle Sprachen") })
+                            }
+                            items(languages, key = { it }) { l ->
+                                FilterChip(selected = lang == l, onClick = { lang = l; container.settings.setCategoryLanguage(l) }, label = { Text(l) })
+                            }
+                        }
+                        Spacer(Modifier.height(6.dp))
+                    }
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        item { FilterChip(selected = cat == "__fav__", onClick = { cat = "__fav__" }, label = { Text("★ Favoriten") }) }
-                        items(categories, key = { it.id }) { c ->
-                            FilterChip(selected = cat == c.id, onClick = { cat = c.id }, label = { Text(c.name, maxLines = 1) })
+                        item { FilterChip(selected = cat == "__fav__", onClick = { cat = "__fav__" }, label = { Text("♥ Favoriten") }) }
+                        items(shownCats, key = { it.id }) { c ->
+                            val name = if (lang.isNotEmpty() && lang in languages) com.poweriptv.app.ui.components.stripLanguage(c.name) else c.name
+                            FilterChip(selected = cat == c.id, onClick = { cat = c.id }, label = { Text(name, maxLines = 1) })
                         }
                     }
                     Spacer(Modifier.height(8.dp))

@@ -1040,7 +1040,8 @@ private fun scrubPreviewMode(app: AppState, req: PlayRequest): ScrubMode {
     return when (s.scrubPreview) {
         "OFF" -> ScrubMode.OFF
         "ALWAYS" -> ScrubMode.PARALLEL
-        else -> if (!s.scrubBlocked && (app.maxConnections ?: 1) - app.recordings.running().size >= 2) ScrubMode.PARALLEL else ScrubMode.EXCLUSIVE
+        // Automatisch: Vorschau nur mit freier 2. Verbindung – sonst direkt springen (kein Anhalten + Neuverbinden)
+        else -> if (!s.scrubBlocked && (app.maxConnections ?: 1) - app.recordings.running().size >= 2) ScrubMode.PARALLEL else ScrubMode.OFF
     }
 }
 

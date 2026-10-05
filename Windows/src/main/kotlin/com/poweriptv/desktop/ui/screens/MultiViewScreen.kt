@@ -227,6 +227,22 @@ fun ChannelPicker(app: AppState, onDismiss: () -> Unit, onPick: (ContentItem) ->
         title = { Text("Sender wählen") },
         text = {
             Column(Modifier.width(720.dp).height(560.dp)) {
+                // Sprache (DE, EN, ...) waehlen – gleiche Auswahl wie in der Kategorie-Spalte
+                if (languages.isNotEmpty()) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        item {
+                            FilterChip(selected = lang.isEmpty(), onClick = { app.settings.update { it.copy(categoryLanguage = "") } },
+                                label = { Text("Alle Sprachen") }, modifier = Modifier.handCursor())
+                        }
+                        items(languages, key = { it }) { l ->
+                            FilterChip(selected = lang == l, onClick = {
+                                app.settings.update { it.copy(categoryLanguage = l) }
+                                cats.firstOrNull { c -> categoryLanguage(c.name) == l }?.let { c -> cat = c.id }
+                            }, label = { Text(l) }, modifier = Modifier.handCursor())
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                }
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(cats.filter { lang.isEmpty() || categoryLanguage(it.name) == lang }, key = { it.id }) { c ->
                         FilterChip(selected = c.id == cat, onClick = { cat = c.id }, label = { Text(c.name, maxLines = 1) }, modifier = Modifier.handCursor())

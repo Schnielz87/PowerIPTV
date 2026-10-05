@@ -36,7 +36,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 /** Vorschaubilder beim Spulen: Automatisch / Immer / Aus. */
 enum class ScrubPreviewMode(val label: String) {
-    AUTO("Automatisch (bei nur 1 erlaubten Verbindung haelt der Film beim Spulen kurz an)"),
+    AUTO("Automatisch (nur wenn eine 2. Verbindung frei ist – sonst springt der Film direkt, ohne Vorschau)"),
     ALWAYS("Immer parallel (Film laeuft beim Spulen weiter, braucht eine 2. Verbindung)"),
     OFF("Aus"),
 }
@@ -128,10 +128,11 @@ class ScrubPreview private constructor(
             val parallelOk = local || (!container.settings.scrubBlocked.value &&
                 ((container.maxConnections ?: 1) - container.recordings.running().size) >= 2)
             val allowed = mode != ScrubPreviewMode.OFF
-            val exclusive = when (mode) {
-                ScrubPreviewMode.ALWAYS -> false
-                else -> !parallelOk
-            }
+            // Automatisch: Vorschau nur mit freier 2. Verbindung. Bei nur 1 Verbindung KEINE Vorschau – sonst muesste der
+            // Film fuers Spulen angehalten und neu verbunden werden (dauert bei vielen Anbietern 10–20 s). Wie bei IPTV
+            // Smarters springt der Film dann einfach direkt an die gewaehlte Stelle.
+            if (mode == ScrubPreviewMode.AUTO && !parallelOk) return null
+            val exclusive = false
             if (!allowed) return null
             // Vorschau laeuft nicht ueber den VPN-Tunnel-Schutz der App -> bei Pflicht-VPN ohne Tunnel nicht laden
             if (!local && container.settings.vpnRequired.value && !container.vpn.isProtected()) return null
