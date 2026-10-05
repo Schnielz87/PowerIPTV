@@ -19,6 +19,9 @@ export default function settingsScreen() {
   add(selectRow('Puffer', 'Größer = weniger Stocken, dafür etwas späterer Start',
     [['normal', 'Normal'], ['gross', 'Groß'], ['sehr_gross', 'Sehr groß']], () => settings.buffer,
     (v) => { saveSettings({ buffer: v }); app.player.buffer = v; }));
+  add(selectRow('Stabil-Modus (gegen Stocken)', 'Automatisch: nach erkanntem Stocken 24 Stunden lang mit größerem Puffer',
+    [['auto', 'Automatisch'], ['on', 'Immer an'], ['off', 'Aus']], () => settings.stableMode,
+    (v) => saveSettings({ stableMode: v })));
   add(selectRow('Bildformat', 'Im Player auch mit der blauen Taste',
     [['auto', 'Original'], ['fill', 'Zoom (ausfüllen)'], ['stretch', 'Strecken']], () => settings.aspect,
     (v) => { saveSettings({ aspect: v }); app.player.aspect = v; }));

@@ -101,7 +101,21 @@ fun SettingsScreen(app: AppState) {
                         FilterChip(selected = s.scrubPreview == k, onClick = { app.settings.update { it.copy(scrubPreview = k, scrubBlocked = false) } }, label = { Text(l) }, modifier = Modifier.handCursor())
                     }
                 }
-                Text("„Automatisch“: Erlaubt dein Zugang nur 1 Stream, hält der Film beim Spulen kurz an, damit nie zwei Verbindungen offen sind. „Immer parallel“ braucht eine zweite Verbindung.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("„Automatisch“: Vorschaubilder nur, wenn dein Zugang eine zweite Verbindung frei hat – sonst springt der Film direkt. „Immer parallel“ braucht eine zweite Verbindung.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Stabil-Modus (gegen Stocken)")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("AUTO" to "Automatisch", "ON" to "Immer an", "OFF" to "Aus").forEach { (k, l) ->
+                        FilterChip(selected = s.stableMode == k, onClick = { app.settings.update { it.copy(stableMode = k) } }, label = { Text(l) }, modifier = Modifier.handCursor())
+                    }
+                }
+                Text("Größerer Puffer: der Sender startet etwas später, läuft dafür auch bei Aussetzern weiter. „Automatisch“ schaltet ihn nach erkanntem Stocken für 24 Stunden zu.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Bildschärfe")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("OFF" to "Aus", "LIGHT" to "Leicht", "STRONG" to "Stark").forEach { (k, l) ->
+                        FilterChip(selected = s.sharpen == k, onClick = { app.settings.update { it.copy(sharpen = k) } }, label = { Text(l) }, modifier = Modifier.handCursor())
+                    }
+                }
+                Text("Dezenter Schärfe-Filter, vor allem für SD-Sender. Wirkt beim nächsten Sender/Film.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Live-TV-Format (Xtream)")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("ts" to "MPEG-TS (.ts)", "m3u8" to "HLS (.m3u8)").forEach { (k, l) ->

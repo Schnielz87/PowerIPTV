@@ -52,6 +52,15 @@ struct PlayerScreen: View {
         .persistentSystemOverlays(.hidden)
         .onAppear {
             ctl.subtitleScale = ["KLEIN": 75, "NORMAL": 100, "GROSS": 135, "SEHR_GROSS": 170][app.settings.subtitleSize] ?? 100
+            // Stabil-Modus, Bildschaerfe, Mobile Daten (wie Android)
+            let settings = app.settings
+            ctl.tuning = { (settings.stableActive, settings.sharpen, settings.dataSaverActive) }
+            ctl.queue = app.playQueue
+            ctl.onStutter = {
+                guard settings.stableMode == "AUTO", !settings.stableActive else { return }
+                settings.stutterAt = Date().timeIntervalSince1970
+                app.show("Stocken erkannt – Stabil-Modus mit größerem Puffer ist ab dem nächsten Sender aktiv")
+            }
             ctl.play(entry)
             ctl.setAspect(AspectMode(rawValue: app.settings.aspect) ?? .FIT, viewSize: viewSize)
             UIApplication.shared.isIdleTimerDisabled = true

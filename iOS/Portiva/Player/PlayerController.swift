@@ -54,6 +54,13 @@ final class PlayerController: NSObject, ObservableObject, VLCMediaPlayerDelegate
     private var userPaused = false
     private var startAt: Double = 0
     var subtitleScale = 100
+    /** Stabil-Modus, Bildschaerfe ("OFF"/"LIGHT"/"STRONG"), Mobile-Daten-Modus – gelesen bei jedem Start. */
+    var tuning: () -> (stable: Bool, sharpen: String, saver: Bool) = { (false, "OFF", false) }
+    /** Senderliste (fuer die SD-Version eines Senders im Mobile-Daten-Modus). */
+    var queue: [PlayEntry] = []
+    /** Stocken mitten in der Wiedergabe erkannt (Bild steht > 3 s). */
+    var onStutter: (() -> Void)?
+    private var stutterReported = false
 
     override init() {
         super.init()
@@ -68,13 +75,23 @@ final class PlayerController: NSObject, ObservableObject, VLCMediaPlayerDelegate
         time = startAt ?? e.startAt; length = 0
         self.startAt = startAt ?? e.startAt
         pendingSeek = nil; userPaused = false; lastTick = -1; stallSince = nil
-        guard let url = URL(string: e.url) else { error = "Ungültige Stream-Adresse"; return }
+        let t = tuning()
+        // Mobile Daten (automatisch im Mobilfunknetz): SD-Version des Senders, falls vorhanden. Im WLAN volle Qualitaet.
+        let sd = t.saver ? Tuning.sdVariant(e, in: queue) : nil
+        guard let url = URL(string: sd?.url ?? e.url) else { error = "Ungültige Stream-Adresse"; return }
         let m = VLCMedia(url: url)
+        if t.saver { m.addOption(":adaptive-maxheight=480") }
+        // Bildschaerfe (dezenter VLC-Filter, v.a. fuer SD-Sender)
+        if t.sharpen != "OFF" {
+            m.addOption(":video-filter=sharpen")
+            m.addOption(":sharpen-sigma=\(t.sharpen == "STRONG" ? "0.18" : "0.08")")
+        }
         if e.live {
-            m.addOption(":network-caching=4000")
-            m.addOption(":live-caching=4000")
+            // Stabil-Modus: groesserer Puffer gegen Stocken
+            m.addOption(":network-caching=\(t.stable ? 8000 : 4000)")
+            m.addOption(":live-caching=\(t.stable ? 8000 : 4000)")
         } else {
-            m.addOption(":network-caching=1500") // kuerzer vorpuffern -> Filme starten schneller
+            m.addOption(":network-caching=\(t.stable ? 4000 : 1500)") // normal kurz vorpuffern -> Filme starten schneller
             m.addOption(":input-fast-seek")
             if self.startAt > 1000 { m.addOption(":start-time=\(Int(self.startAt / 1000))") }
         }
@@ -180,8 +197,10 @@ final class PlayerController: NSObject, ObservableObject, VLCMediaPlayerDelegate
             Task { @MainActor in
                 guard let self, let e = self.entry, !self.userPaused, self.error == nil, self.pendingSeek == nil else { self?.stallSince = nil; return }
                 let t = Double(self.player.time.intValue)
-                if t != self.lastTick && t > 0 { self.lastTick = t; self.stallSince = nil; return }
+                if t != self.lastTick && t > 0 { self.lastTick = t; self.stallSince = nil; self.stutterReported = false; return }
                 if self.stallSince == nil { self.stallSince = Date(); return }
+                // Bild steht seit > 3 s mitten in der Wiedergabe -> Stocken melden (Automatik: Stabil-Modus)
+                if t > 5000, !self.stutterReported, Date().timeIntervalSince(self.stallSince!) >= 3 { self.stutterReported = true; self.onStutter?() }
                 if Date().timeIntervalSince(self.stallSince!) < (e.live ? 12 : 10) { return }
                 self.stallSince = nil
                 self.play(e, startAt: e.live ? 0 : self.time)

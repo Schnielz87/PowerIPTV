@@ -11,6 +11,8 @@ const defaults = {
   autoNext: true,
   categoryLanguage: '',
   buffer: 'normal',        // normal | gross | sehr_gross
+  stableMode: 'auto',      // Stabil-Modus gegen Stocken: auto (nach erkanntem Stocken 24 h) | on | off
+  stutterAt: 0,            // zuletzt erkanntes Stocken (fuer die Automatik)
   subtitlesOn: false,
 };
 

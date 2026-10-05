@@ -44,6 +44,12 @@ data class DesktopSettings(
     val hardwareDecoding: Boolean = true,
     /** Netzwerk-Puffer in ms (VLC). */
     val networkCaching: Int = 3000,
+    /** Stabil-Modus gegen Stocken: AUTO (schaltet sich bei erkanntem Stocken fuer 24 h zu) / ON / OFF. */
+    val stableMode: String = "AUTO",
+    /** Zeitpunkt des zuletzt erkannten Stockens (fuer den automatischen Stabil-Modus). */
+    val stutterAt: Long = 0L,
+    /** Bildschaerfe: OFF / LIGHT / STRONG. */
+    val sharpen: String = "OFF",
     val autoNextEpisode: Boolean = true,
     val startFullscreen: Boolean = false,
     /** Bevorzugte Kategorie-Sprache (z.B. "DE"), leer = alle – wie in der Android-App. */
