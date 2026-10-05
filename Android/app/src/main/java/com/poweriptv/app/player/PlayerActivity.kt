@@ -217,10 +217,14 @@ class PlayerActivity : ComponentActivity() {
         player = ExoPlayer.Builder(this, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
             // Grosser Puffer gegen Stocken (v.a. Live TV): bis 60 s vorladen, Start nach 2,5 s,
-            // nach einem Aussetzer erst mit 6 s Vorrat weiter (verhindert Dauer-Ruckeln)
+            // nach einem Aussetzer erst mit 6 s Vorrat weiter (verhindert Dauer-Ruckeln).
+            // Stabil-Modus (Mobilfunk oder erkanntes Stocken): noch mehr Vorrat – Start ~2 s spaeter, dafuer ruhiger.
             .setLoadControl(
                 androidx.media3.exoplayer.DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(30_000, 60_000, 2_500, 6_000)
+                    .apply {
+                        if (stableMode) setBufferDurationsMs(40_000, 90_000, 5_000, 12_000)
+                        else setBufferDurationsMs(30_000, 60_000, 2_500, 6_000)
+                    }
                     .setPrioritizeTimeOverSizeThresholds(true)
                     .build(),
             )
@@ -229,8 +233,22 @@ class PlayerActivity : ComponentActivity() {
             .setSeekBackIncrementMs(10_000)
             .setSeekForwardIncrementMs(10_000)
             .build()
+        // Bildschaerfe (Einstellungen → Bild): dezenter GPU-Filter, v.a. fuer SD-Sender
+        PlaybackTuning.sharpenAmount(container).takeIf { it > 0f }?.let { amount ->
+            runCatching { player.setVideoEffects(listOf(SharpenEffect(amount))); sharpenOn = true }
+        }
+        player.addListener(stutterWatch)
         player.addListener(object : Player.Listener {
             override fun onPlayerError(e: PlaybackException) {
+                // Schaerfe-Filter laeuft auf diesem Geraet nicht -> ohne Filter weiter
+                if (sharpenOn && (e.errorCode == PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED ||
+                        e.errorCode == PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED)) {
+                    sharpenOn = false
+                    runCatching { player.setVideoEffects(emptyList()) }
+                    toast = "Bildschärfe ist auf diesem Gerät nicht möglich – Wiedergabe ohne Filter"
+                    lifecycleScope.launch { delay(300); play(container.playIndex) }
+                    return
+                }
                 // Film bricht ab, waehrend die Spul-Vorschau lief -> Anbieter erlaubt keine 2. Verbindung
                 if (scrubPreview?.recentlyUsed() == true && scrubPreview?.exclusive == false && container.settings.scrubPreviewEnum() == ScrubPreviewMode.AUTO) {
                     // Ab jetzt Ein-Verbindungs-Modus: Vorschau bleibt, der Film haelt beim Spulen nur kurz an
@@ -679,6 +697,40 @@ class PlayerActivity : ComponentActivity() {
     /** Automatische Neuverbindungen bei Netzwerk-Aussetzern (wird bei laufendem Bild zurueckgesetzt). */
     private var netRetries = 0
 
+    // ---------- Stabil-Modus / Mobile Daten / Schaerfe ----------
+    /** Groesserer Puffer (bei Mobilfunk, erkanntem Stocken oder fest eingeschaltet). */
+    private val stableMode by lazy { PlaybackTuning.stableActive(container, this) }
+    private var sharpenOn = false
+    private var lastSeekAt = 0L
+    private var wasReady = false
+    private val stutters = ArrayDeque<Long>()
+
+    /** Erkennt Stocken (Puffern mitten in der Wiedergabe, nicht nach dem Spulen) und schaltet den Stabil-Modus zu. */
+    private val stutterWatch = object : Player.Listener {
+        override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
+            if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) lastSeekAt = System.currentTimeMillis()
+        }
+
+        override fun onPlaybackStateChanged(state: Int) {
+            val now = System.currentTimeMillis()
+            if (state == Player.STATE_READY) { wasReady = true; return }
+            if (state != Player.STATE_BUFFERING || !wasReady || switchingSource || now - lastSeekAt < 3_000) return
+            stutters.addLast(now)
+            while (stutters.isNotEmpty() && now - stutters.first() > 5 * 60_000L) stutters.removeFirst()
+            // 2x Stocken in 5 Minuten -> Automatik schaltet den Stabil-Modus fuer 24 Stunden zu
+            if (stutters.size >= 2 && !stableMode && container.settings.stableMode.value == "AUTO") {
+                container.settings.markStutter()
+                stutters.clear()
+                if (current()?.live == true) {
+                    toast = "Stocken erkannt – Stabil-Modus mit größerem Puffer wird eingeschaltet …"
+                    lifecycleScope.launch { delay(1200); recreate() } // Player mit groesserem Puffer neu aufbauen
+                } else {
+                    toast = "Stocken erkannt – ab dem nächsten Titel mit größerem Puffer (Stabil-Modus)"
+                }
+            }
+        }
+    }
+
     /** Wann das erste Bild kam (0 = noch keins) und seit wann der Ton laeuft – fuer "nur Ton, kein Bild". */
     private var firstFrameAt = 0L
     private var playingSince = 0L
@@ -1106,7 +1158,16 @@ class PlayerActivity : ComponentActivity() {
                 return
             }
         }
-        val uri = if (isLocal(entry.url)) Uri.fromFile(File(entry.url)) else Uri.parse(entry.url)
+        // Mobile Daten (automatisch im Mobilfunknetz): SD-Version des Senders, falls vorhanden; mehrstufige
+        // Streams (HLS) in kleinerer Stufe. Im WLAN unveraendert volle Qualitaet.
+        val saver = !isLocal(entry.url) && PlaybackTuning.dataSaverActive(container, this)
+        val sd = if (saver) PlaybackTuning.sdVariant(entry, container.playQueue) else null
+        if (sd != null) toast = "Mobile Daten: SD-Version von ${entry.title}"
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().apply {
+            if (saver) setMaxVideoSizeSd() else clearVideoSizeConstraints()
+        }.build()
+        val playUrl = sd?.url ?: entry.url
+        val uri = if (isLocal(entry.url)) Uri.fromFile(File(entry.url)) else Uri.parse(playUrl)
         val builder = MediaItem.Builder().setUri(uri)
         if (entry.url.contains(".m3u8", ignoreCase = true)) builder.setMimeType(MimeTypes.APPLICATION_M3U8)
         // Filme/Serien: an der zuletzt gesehenen Stelle weitermachen

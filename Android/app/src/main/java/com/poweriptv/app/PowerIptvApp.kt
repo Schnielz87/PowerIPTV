@@ -68,6 +68,8 @@ class PowerIptvApp : Application(), ImageLoaderFactory {
 
 /** Einfache manuelle Dependency Injection. */
 class AppContainer(private val app: Application) {
+    /** App-Kontext (z.B. fuer die Netz-Erkennung im Mobile-Daten-Modus). */
+    val appContext: android.content.Context get() = app
     val json = Json { ignoreUnknownKeys = true; isLenient = true }
     val secure = SecureStore(app)
     val settings = SettingsRepository(app)

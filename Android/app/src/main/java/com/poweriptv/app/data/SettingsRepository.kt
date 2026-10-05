@@ -62,6 +62,22 @@ class SettingsRepository(context: Context) {
     private val _scrubBlocked = bool(K_SCRUB_BLOCKED, false)
     private val _resize = str(K_RESIZE, VideoScale.FIT.name)
     private val _aiBaseUrl = str(K_AI_URL, DEFAULT_AI_URL)
+    private val _dataSaver = str(K_DATA_SAVER, "AUTO")
+    private val _stable = str(K_STABLE, "AUTO")
+    private val _sharpen = str(K_SHARPEN, "OFF")
+
+    /** Mobile-Daten-Modus: AUTO = automatisch im Mobilfunknetz (im WLAN volle Qualitaet), ON = immer, OFF = nie. */
+    val dataSaver: StateFlow<String> = _dataSaver
+    fun setDataSaver(v: String) = putStr(K_DATA_SAVER, v, _dataSaver)
+    /** Stabil-Modus (groesserer Puffer gegen Stocken): AUTO = bei Mobilfunk oder erkanntem Stocken, ON, OFF. */
+    val stableMode: StateFlow<String> = _stable
+    fun setStableMode(v: String) = putStr(K_STABLE, v, _stable)
+    /** Bildschaerfe: OFF, LIGHT, STRONG. */
+    val sharpen: StateFlow<String> = _sharpen
+    fun setSharpen(v: String) = putStr(K_SHARPEN, v, _sharpen)
+    /** Stocken erkannt -> Stabil-Modus (Automatik) fuer die naechsten 24 Stunden aktiv. */
+    fun markStutter() { prefs.edit().putLong(K_STUTTER_AT, System.currentTimeMillis()).apply() }
+    fun stutterRecently(): Boolean = System.currentTimeMillis() - prefs.getLong(K_STUTTER_AT, 0L) < 24 * 3600_000L
 
     /** Kill-Switch: Kein Datenverkehr der App ohne aktives VPN. */
     // Play-Variante ohne VPN: Kill-Switch/Auto-Verbinden nie aktiv (auch nicht nach Backup-Wiederherstellung)
@@ -166,6 +182,10 @@ class SettingsRepository(context: Context) {
         const val DEFAULT_AI_MODEL = "gpt-4o-mini"
         const val DEFAULT_AI_URL = "https://api.openai.com/v1"
         private const val K_AI_MODEL = "ai_model"
+        private const val K_DATA_SAVER = "data_saver"
+        private const val K_STABLE = "stable_mode"
+        private const val K_SHARPEN = "sharpen"
+        private const val K_STUTTER_AT = "stutter_at"
         private const val K_ORIENTATION = "orientation"
         private const val K_AFR = "auto_frame_rate"
         private const val K_ENGINE = "player_engine"

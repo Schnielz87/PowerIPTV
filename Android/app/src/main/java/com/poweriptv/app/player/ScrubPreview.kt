@@ -132,6 +132,8 @@ class ScrubPreview private constructor(
             // Film fuers Spulen angehalten und neu verbunden werden (dauert bei vielen Anbietern 10–20 s). Wie bei IPTV
             // Smarters springt der Film dann einfach direkt an die gewaehlte Stelle.
             if (mode == ScrubPreviewMode.AUTO && !parallelOk) return null
+            // Mobile Daten: keine zusaetzliche Vorschau-Verbindung (spart Datenvolumen)
+            if (!local && mode == ScrubPreviewMode.AUTO && PlaybackTuning.dataSaverActive(container, container.appContext)) return null
             val exclusive = false
             if (!allowed) return null
             // Vorschau laeuft nicht ueber den VPN-Tunnel-Schutz der App -> bei Pflicht-VPN ohne Tunnel nicht laden

@@ -416,6 +416,30 @@ fun SettingsScreen(
                 }
             }
 
+            SettingsSection("Bild & Verbindung") {
+                val saver by s.dataSaver.collectAsState()
+                SettingChoice(
+                    "Mobile-Daten-Modus",
+                    "Spart Datenvolumen unterwegs: nimmt die SD-Version eines Senders (falls vorhanden) und bei mehrstufigen " +
+                        "Streams die kleinere Stufe. Im WLAN bleibt die volle Qualität.",
+                    saver, listOf("AUTO" to "Automatisch (nur im Mobilfunknetz)", "ON" to "Immer an", "OFF" to "Aus"),
+                ) { s.setDataSaver(it) }
+                val stable by s.stableMode.collectAsState()
+                SettingChoice(
+                    "Stabil-Modus (gegen Stocken)",
+                    "Größerer Puffer: der Sender startet etwa 2 Sekunden später, läuft dafür auch bei Aussetzern weiter. " +
+                        "Automatisch: im Mobilfunknetz und wenn Stocken erkannt wird (dann 24 Stunden lang).",
+                    stable, listOf("AUTO" to "Automatisch", "ON" to "Immer an", "OFF" to "Aus"),
+                ) { s.setStableMode(it) }
+                val sharp by s.sharpen.collectAsState()
+                SettingChoice(
+                    "Bildschärfe",
+                    "Dezenter Schärfe-Filter, vor allem für SD-Sender. Wirkt beim nächsten Start des Players. " +
+                        "Auf schwachen TV-Sticks ggf. ausschalten, falls es ruckelt.",
+                    sharp, listOf("OFF" to "Aus", "LIGHT" to "Leicht", "STRONG" to "Stark"),
+                ) { s.setSharpen(it) }
+            }
+
             SettingsSection("Info") {
                 Text("PowerIPTV ${container.updates.currentVersion}")
                 Text(
@@ -424,6 +448,22 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+    }
+}
+
+/** Auswahl mit Titel, Erklaerung und Optionen (Einstellungen → Bild & Verbindung). */
+@Composable
+private fun SettingChoice(title: String, hint: String, value: String, options: List<Pair<String, String>>, onPick: (String) -> Unit) {
+    Text(title)
+    Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    options.forEach { (k, label) ->
+        Row(
+            Modifier.fillMaxWidth().tvFocus().clickable { onPick(k) },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RadioButton(selected = value == k, onClick = { onPick(k) })
+            Text(label)
         }
     }
 }

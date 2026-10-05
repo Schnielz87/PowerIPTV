@@ -107,6 +107,8 @@ dependencies {
     // FFmpeg-Decoder fuer den Standard-Player (wie bei IPTV Smarters): AC3/E-AC3/DTS/TrueHD-Ton und
     // MPEG-2/H.264/HEVC als Software-Reserve, wenn das Geraet ein Format nicht selbst kann -> kaum noch VLC noetig
     implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1")
+    // Bildschaerfe-Filter (GPU) fuer den Standard-Player
+    implementation("androidx.media3:media3-effect:$media3")
 
     // Netzwerk / JSON / Bilder
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
