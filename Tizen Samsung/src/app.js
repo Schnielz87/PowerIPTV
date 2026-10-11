@@ -6,6 +6,7 @@ import { isVega } from './vega';
 import { settings, saveSettings, profiles, Library, parental } from './store';
 import { createSource } from './sources';
 import { Player } from './player';
+import { itemMenu } from './ui/lists';
 
 export const app = {
   root: null,
@@ -26,6 +27,7 @@ export function init(root) {
   app.player.buffer = settings.buffer;
   app.player.aspect = settings.aspect;
   document.addEventListener('keydown', onKey, true);
+  document.addEventListener('keyup', onKeyUp, true);
 }
 
 export function activateProfile(p) {
@@ -191,6 +193,11 @@ function onKey(e) {
     return;
   }
   e.preventDefault();
+  // OK wird nach dem Oeffnen des Lang-Druck-Menues noch gehalten: Wiederholungen schlucken
+  if (code === KEY.ENTER && hold && hold.fired) {
+    if (Date.now() - hold.last < 400) { hold.last = Date.now(); return; }
+    hold = null;
+  }
   // Dialog offen: nur Navigation + Zurueck (schliesst Dialog)
   if (app.dialogOpen > 0) {
     if (isBack(code)) {
@@ -209,7 +216,65 @@ function onKey(e) {
   navKey(code);
 }
 
+// ---------------- Langes OK-Druecken ----------------
+// Auf einem Sender/Film/einer Serie (Element mit _item) oeffnet langes Druecken von OK das Menue
+// (Favorit, Zu Liste hinzufuegen) – wie langes Tippen in der Android-App. Kurzes Druecken bleibt "Oeffnen".
+const LONG_MS = 700;
+let hold = null;      // { el, timer, fired, last, repeats }
+let keyupSeen = false; // manche Fernbedienungen/WebViews senden kein keyup -> dann zaehlen Tasten-Wiederholungen
+
+function startHold(el) {
+  const now = Date.now();
+  if (hold && hold.el === el && now - hold.last < 650) {
+    // Tasten-Wiederholung waehrend des Haltens
+    hold.last = now;
+    hold.repeats++;
+    if (!hold.fired && hold.repeats >= 2) fireHold();
+    return;
+  }
+  if (hold) clearTimeout(hold.timer);
+  hold = { el, fired: false, last: now, repeats: 0, timer: setTimeout(() => {
+    if (!hold || hold.fired) return;
+    if (keyupSeen) fireHold();
+    else { const h = hold; hold = null; if (h.el === getFocus()) activate(); }
+  }, LONG_MS) };
+}
+
+function fireHold() {
+  const h = hold;
+  if (!h) return;
+  h.fired = true;
+  clearTimeout(h.timer);
+  if (h.el !== getFocus() || !h.el._item) return;
+  const page = top();
+  itemMenu(h.el._item, () => {
+    if (page && page.onItemChanged) page.onItemChanged(h.el._item);
+  });
+}
+
+function onKeyUp(e) {
+  if (e.keyCode !== KEY.ENTER) return;
+  keyupSeen = true;
+  const h = hold;
+  if (!h) return;
+  hold = null;
+  clearTimeout(h.timer);
+  if (!h.fired && h.el === getFocus()) activate();
+}
+
+/** Blaue Taste / Menue-Taste: gleiches Menue direkt (ohne Halten). */
+export function openItemMenu(el) {
+  if (!el || !el._item) return false;
+  const page = top();
+  itemMenu(el._item, () => { if (page && page.onItemChanged) page.onItemChanged(el._item); });
+  return true;
+}
+
 function navKey(code) {
+  if (code === KEY.ENTER && app.dialogOpen === 0) {
+    const f = getFocus();
+    if (f && f._item) { startHold(f); return; }
+  }
   switch (code) {
     case KEY.LEFT: move('left'); break;
     case KEY.RIGHT: move('right'); break;

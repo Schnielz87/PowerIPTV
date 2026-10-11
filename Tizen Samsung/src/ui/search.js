@@ -1,7 +1,8 @@
 // Suche ueber Sender, Filme und Serien (alle Woerter muessen vorkommen – wie Android).
 import { h, clear, debounce } from '../util';
-import { setFocus } from '../focus';
-import { app, go } from '../app';
+import { setFocus, getFocus } from '../focus';
+import { app, go, openItemMenu } from '../app';
+import { KEY } from '../keys';
 import { parental } from '../store';
 import { T } from '../sources';
 import { matchesQuery } from '../rules';
@@ -50,7 +51,7 @@ export default function search(params = {}) {
       any = true;
       results.appendChild(h('div.section-title', null, `${LABEL[t]} (${found[t].length}${found[t].length === 60 ? '+' : ''})`));
       const g = h('div.grid-inner');
-      found[t].forEach((i) => g.appendChild(itemCard(i, () => open(i, found[t]))));
+      found[t].forEach((i) => g.appendChild(itemCard(i, () => open(i, found[t]), { extra: { _item: i } })));
       results.appendChild(g);
     });
     if (!any) results.appendChild(empty(`Nichts gefunden für „${text}“`));
@@ -63,5 +64,12 @@ export default function search(params = {}) {
   }
 
   renderFilters();
-  return { el };
+  return {
+    el,
+    onKey(code) {
+      const f = getFocus();
+      if (code === KEY.BLUE && f && f._item) { openItemMenu(f); return true; }
+      return false;
+    },
+  };
 }

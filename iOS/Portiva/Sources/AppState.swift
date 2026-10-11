@@ -87,6 +87,7 @@ final class Library: ObservableObject {
     let pid: String
     @Published private(set) var favorites: [ContentItem] = []
     @Published private(set) var history: [HistoryEntry] = []
+    @Published private(set) var lists: [FavoriteList] = []
     private var positions: [String: Double] = [:]
     private var watched: Set<String> = []
     private let d = UserDefaults.standard
@@ -95,6 +96,7 @@ final class Library: ObservableObject {
         pid = profileId
         favorites = load("fav") ?? []
         history = load("hist") ?? []
+        lists = load("lists") ?? []
         positions = load("pos") ?? [:]
         watched = Set(load("watched") ?? [String]())
         purgeHistory()
@@ -121,6 +123,42 @@ final class Library: ObservableObject {
         if isFavorite(i) { favorites.removeAll { $0.key == i.key } } else { favorites.insert(i, at: 0) }
         store("fav", favorites)
         return isFavorite(i)
+    }
+
+    // ---------- Eigene Listen ----------
+    func isInList(_ listId: String, _ i: ContentItem) -> Bool {
+        lists.first { $0.id == listId }?.items.contains { $0.key == i.key } ?? false
+    }
+
+    /** Legt den Titel in die Liste bzw. nimmt ihn heraus. Liefert true, wenn er jetzt drin ist. */
+    @discardableResult
+    func toggleInList(_ listId: String, _ i: ContentItem) -> Bool {
+        guard let idx = lists.firstIndex(where: { $0.id == listId }) else { return false }
+        let had = lists[idx].items.contains { $0.key == i.key }
+        if had { lists[idx].items.removeAll { $0.key == i.key } } else { lists[idx].items.insert(i, at: 0) }
+        store("lists", lists)
+        return !had
+    }
+
+    @discardableResult
+    func createList(_ name: String) -> String {
+        let id = UUID().uuidString
+        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        lists.append(FavoriteList(id: id, name: n.isEmpty ? "Neue Liste" : n))
+        store("lists", lists)
+        return id
+    }
+
+    func renameList(_ listId: String, _ name: String) {
+        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !n.isEmpty, let idx = lists.firstIndex(where: { $0.id == listId }) else { return }
+        lists[idx].name = n
+        store("lists", lists)
+    }
+
+    func deleteList(_ listId: String) {
+        lists.removeAll { $0.id == listId }
+        store("lists", lists)
     }
 
     static func positionKey(_ e: PlayEntry) -> String { e.episode.map { "EPISODE:\($0.id)" } ?? e.item?.key ?? e.url }
@@ -179,6 +217,8 @@ final class AppState: ObservableObject {
     @Published var playing: PlayEntry?
     @Published var playQueue: [PlayEntry] = []
     @Published var toast: String?
+    /** Titel, fuer den gerade die Listen-Auswahl offen ist ("Zu Liste hinzufuegen"). */
+    @Published var listPickerFor: ContentItem?
     let settings = Settings()
     private(set) var source: ContentSource?
     lazy var link: LinkService = LinkService(app: self)

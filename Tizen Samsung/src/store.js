@@ -46,6 +46,7 @@ export class Library {
     this.positions = storage.get(`pos.${profileId}`, {});
     this.watched = storage.get(`watched.${profileId}`, {});
     this.intros = storage.get(`intro.${profileId}`, {});
+    this.lists = storage.get(`lists.${profileId}`, []);    // eigene Listen: [{id, name, items}]
     this.purgeHistory();
   }
 
@@ -60,6 +61,33 @@ export class Library {
     storage.set(`fav.${this.pid}`, this.favorites);
     return this.isFavorite(item);
   }
+
+  // ---------- Eigene Listen (wie Android/Windows: Sender, Filme und Serien gemischt) ----------
+  saveLists() { storage.set(`lists.${this.pid}`, this.lists); }
+  isInList(listId, item) {
+    const l = this.lists.find((x) => x.id === listId);
+    return !!l && l.items.some((i) => this.key(i) === this.key(item));
+  }
+  toggleInList(listId, item) {
+    const l = this.lists.find((x) => x.id === listId);
+    if (!l) return false;
+    const k = this.key(item);
+    const had = l.items.some((i) => this.key(i) === k);
+    l.items = had ? l.items.filter((i) => this.key(i) !== k) : [slim(item)].concat(l.items);
+    this.saveLists();
+    return !had;
+  }
+  createList(name) {
+    const id = uid();
+    this.lists.push({ id, name: String(name || '').trim() || 'Neue Liste', items: [] });
+    this.saveLists();
+    return id;
+  }
+  renameList(listId, name) {
+    const l = this.lists.find((x) => x.id === listId);
+    if (l && String(name || '').trim()) { l.name = String(name).trim(); this.saveLists(); }
+  }
+  deleteList(listId) { this.lists = this.lists.filter((x) => x.id !== listId); this.saveLists(); }
 
   // Erwachseneninhalte landen nie in "Zuletzt gesehen"
   isExcluded(item) { return parental.isAdultItem(this.pid, item); }

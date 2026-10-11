@@ -3,7 +3,7 @@
 import { h, clear, toast, clock, weekday, dateDE, debounce } from '../util';
 import { focusable, setFocus } from '../focus';
 import { KEY } from '../keys';
-import { app, go, choose } from '../app';
+import { app, go, choose, openItemMenu } from '../app';
 import { settings, categoryPrefs, parental } from '../store';
 import { T } from '../sources';
 import { CAT_FAV, CAT_ALL, categoryLanguage, stripLanguage } from '../rules';
@@ -23,7 +23,7 @@ export default function epg() {
   const el = h('div.page', null,
     topbar('TV-Guide', [catBtn]),
     h('div.epg', null, chBox, progBox),
-    legend([['r', 'Favorit'], ['y', 'Kategorie']]),
+    legend([['r', 'Favorit'], ['y', 'Kategorie'], ['b', 'Zu Liste']]),
   );
 
   async function init() {
@@ -144,6 +144,7 @@ export default function epg() {
     el,
     onKey(code) {
       if (code === KEY.YELLOW) { pickCategory(); return true; }
+      if (code === KEY.BLUE && selected) { openItemMenu({ _item: selected }); return true; }
       if (code === KEY.RED && selected) {
         const f = app.library.toggleFavorite(selected);
         toast(f ? `„${selected.name}“ zu Favoriten hinzugefügt` : `„${selected.name}“ aus Favoriten entfernt`);

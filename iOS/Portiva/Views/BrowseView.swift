@@ -70,11 +70,7 @@ struct BrowseView: View {
                                     NavigationLink(value: Route.detail(i)) { card(i) }
                                 }
                             }
-                            .contextMenu {
-                                Button { app.library?.toggleFavorite(i); app.objectWillChange.send() } label: {
-                                    Label(app.library?.isFavorite(i) == true ? "Aus Favoriten entfernen" : "Zu Favoriten", systemImage: "heart")
-                                }
-                            }
+                            .contextMenu { ItemMenuButtons(item: i) }
                             .onAppear { if type == .LIVE { loadEpg(i) } }
                         }
                     }.padding(12)

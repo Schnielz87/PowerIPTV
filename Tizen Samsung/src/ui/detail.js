@@ -7,6 +7,7 @@ import { Library } from '../store';
 import { T } from '../sources';
 import { fskOf } from '../rules';
 import { topbar, button, loading, empty, imgDiv } from './common';
+import { listPicker } from './lists';
 
 export default function detail({ item }) {
   const lib = app.library;
@@ -65,6 +66,7 @@ export default function detail({ item }) {
         buttons.appendChild(button('▶ Abspielen', () => go('player', { item: playItem }), '.primary.autofocus'));
       }
       buttons.appendChild(favBtn);
+      buttons.appendChild(button('☰ Zu Liste', () => listPicker(item)));
       const watched = lib.isWatched(key);
       buttons.appendChild(button(watched ? 'Als ungesehen markieren' : 'Als gesehen markieren', () => { lib.setWatched(key, !watched); renderButtons(); }));
     } else {
@@ -75,6 +77,7 @@ export default function detail({ item }) {
           () => playEpisode(next, pos), '.primary.autofocus'));
       }
       buttons.appendChild(favBtn);
+      buttons.appendChild(button('☰ Zu Liste', () => listPicker(item)));
     }
     const f = buttons.querySelector('.autofocus');
     const g = getFocus();

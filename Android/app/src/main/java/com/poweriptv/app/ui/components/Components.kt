@@ -44,6 +44,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -377,7 +378,7 @@ fun PinGateDialog(container: AppContainer) {
 }
 
 /**
- * Menue beim langen Druecken: Favorit, Teilen und (optional) aus einer Liste entfernen.
+ * Menue beim langen Druecken: Favorit, zu eigener Liste hinzufuegen, Teilen und (optional) aus einer Liste entfernen.
  * Geteilt wird nur der Titel – niemals der Stream-Link (der enthaelt die Zugangsdaten).
  */
 @Composable
@@ -392,6 +393,8 @@ fun ItemActionsDialog(
     val favs by container.favorites.favorites.collectAsState()
     val isFav = favs.any { it.key == item.key }
     val btn = Modifier.fillMaxWidth().tvFocus(RoundedCornerShape(50))
+    var listOpen by remember { mutableStateOf(false) }
+    if (listOpen) { AddToListDialog(container, item, onDismiss); return }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(item.name, maxLines = 2, overflow = TextOverflow.Ellipsis) },
@@ -400,6 +403,10 @@ fun ItemActionsDialog(
                 androidx.compose.material3.OutlinedButton(onClick = { toggleFavorite(context, container, item); onDismiss() }, modifier = btn) {
                     Icon(androidx.compose.material.icons.Icons.Filled.Favorite, null, tint = androidx.compose.ui.graphics.Color(0xFFFF5370))
                     Spacer(Modifier.width(8.dp)); Text(if (isFav) "Aus Favoriten entfernen" else "Zu Favoriten hinzufuegen")
+                }
+                androidx.compose.material3.OutlinedButton(onClick = { listOpen = true }, modifier = btn) {
+                    Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.PlaylistAdd, null)
+                    Spacer(Modifier.width(8.dp)); Text("Zu Liste hinzufuegen")
                 }
                 androidx.compose.material3.OutlinedButton(onClick = { shareItem(context, item); onDismiss() }, modifier = btn) {
                     Icon(androidx.compose.material.icons.Icons.Filled.Share, null)

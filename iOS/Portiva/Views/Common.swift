@@ -155,3 +155,69 @@ struct QRScannerView: UIViewControllerRepresentable {
         }
     }
 }
+
+/** Menue beim langen Druecken (wie Android): Favorit und "Zu Liste hinzufuegen". */
+struct ItemMenuButtons: View {
+    @EnvironmentObject var app: AppState
+    let item: ContentItem
+
+    var body: some View {
+        Button { app.library?.toggleFavorite(item); app.objectWillChange.send() } label: {
+            Label(app.library?.isFavorite(item) == true ? "Aus Favoriten entfernen" : "Zu Favoriten", systemImage: "heart")
+        }
+        Button { app.listPickerFor = item } label: { Label("Zu Liste hinzufügen …", systemImage: "text.badge.plus") }
+    }
+}
+
+/** Auswahl der eigenen Listen: antippen legt hinein bzw. nimmt heraus, unten neue Liste anlegen. */
+struct ListPickerSheet: View {
+    @EnvironmentObject var app: AppState
+    @Environment(\.dismiss) private var dismiss
+    let item: ContentItem
+    @State private var newName = ""
+    @State private var tick = 0
+
+    var body: some View {
+        NavigationStack {
+            List {
+                let _ = tick
+                if let lib = app.library {
+                    Section {
+                        ForEach(lib.lists) { l in
+                            Button {
+                                let added = lib.toggleInList(l.id, item)
+                                app.show(added ? "Zu „\(l.name)“ hinzugefügt" : "Aus „\(l.name)“ entfernt")
+                                tick += 1
+                            } label: {
+                                HStack {
+                                    Image(systemName: lib.isInList(l.id, item) ? "checkmark.circle.fill" : "circle").foregroundColor(Brand.cyan)
+                                    Text("\(l.name) (\(l.items.count))").foregroundColor(.white)
+                                }
+                            }
+                        }
+                        if lib.lists.isEmpty { Text("Noch keine eigene Liste – unten eine anlegen.").foregroundColor(.secondary) }
+                    } header: { Text(item.name) }
+                    Section("Neue Liste") {
+                        HStack {
+                            TextField("z.B. Sport, Kinder, Nachrichten", text: $newName)
+                            Button("Anlegen") {
+                                let id = lib.createList(newName)
+                                lib.toggleInList(id, item)
+                                app.show("Zur neuen Liste „\(newName.trimmingCharacters(in: .whitespaces))“ hinzugefügt")
+                                newName = ""
+                                tick += 1
+                            }
+                            .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
+                        }
+                    }
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(Brand.background.ignoresSafeArea())
+            .navigationTitle("Zu Liste hinzufügen")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
+        }
+        .preferredColorScheme(.dark)
+    }
+}

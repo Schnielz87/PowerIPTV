@@ -139,7 +139,7 @@ fun SearchScreen(container: AppContainer, onBack: () -> Unit, onOpenDetail: (Con
                         }
                         if (t == ContentType.LIVE) {
                             items(list.take(30), key = { "l_" + it.key }) { ch ->
-                                ChannelRow(ch, favorites.any { it.key == ch.key }, { container.favorites.toggle(ch) }) { open(ch, list) }
+                                ChannelRow(ch, favorites.any { it.key == ch.key }, { container.favorites.toggle(ch) }, onLongClick = { actionsFor = ch }) { open(ch, list) }
                             }
                         } else {
                             item(key = "r_$t") {

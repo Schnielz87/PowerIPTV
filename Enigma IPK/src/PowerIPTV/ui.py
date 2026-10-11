@@ -35,6 +35,7 @@ except Exception:
     pass
 
 FAV, RECENT, ALL = "__fav__", "__recent__", "__all__"
+LIST = "__list__:"  # eigene Liste (Praefix + Listen-ID)
 TITLES = {"live": "Live TV", "movie": "Filme", "series": "Serien", "episode": "Folgen"}
 
 # ---------- Skin (HD-Masse, bei Full-HD automatisch x1,5; Grafiken aus tools/make_skin.py) ----------
@@ -351,8 +352,22 @@ class PortivaHome(Screen):
             self.session.open(CategoryScreen, self.source, "live", True)
         elif key == "fav":
             favs = store.favorites(pid())
+            own = store.lists(pid())
+            if own:
+                def chosen(c):
+                    if not c:
+                        return
+                    if c[1] == FAV:
+                        self.session.open(ItemScreen, self.source, None, None, "Favoriten", store.favorites(pid()))
+                    else:
+                        l = next((x for x in store.lists(pid()) if x.get("id") == c[1]), None)
+                        if l:
+                            self.session.open(ItemScreen, self.source, None, None, l.get("name", ""), l.get("items", []), list_id=l.get("id"))
+                rows = [("♥  Favoriten (%d)" % len(favs), FAV)] + [("☰  %s (%d)" % (l.get("name", ""), len(l.get("items", []))), l.get("id")) for l in own]
+                self.session.openWithCallback(chosen, ChoiceBox, title="Favoriten & Listen", list=rows)
+                return
             if not favs:
-                self["status"].setText("Noch keine Favoriten – in einer Liste mit GELB hinzufügen")
+                self["status"].setText("Noch keine Favoriten – in einer Liste mit GELB hinzufügen (MENU → Zu Liste hinzufügen)")
                 return
             self.session.open(ItemScreen, self.source, None, None, "Favoriten", favs)
         elif key == "recent":
@@ -436,7 +451,12 @@ class CategoryScreen(Base):
     def build(self):
         p = pid()
         shown = [c for c in self.cats if not self.lang or rules.category_language(c["name"]) in (self.lang, None)]
-        rows = [("♥  Favoriten", FAV), ("Zuletzt gesehen", RECENT), ("Alle Sender" if self.kind == "live" else "Alle", ALL)]
+        rows = [("♥  Favoriten", FAV)]
+        for l in store.lists(p):
+            n = len([i for i in l.get("items", []) if i.get("kind") == self.kind])
+            if n:
+                rows.append(("☰  %s (%d)" % (l.get("name", ""), n), LIST + l.get("id", "")))
+        rows += [("Zuletzt gesehen", RECENT), ("Alle Sender" if self.kind == "live" else "Alle", ALL)]
         for c in shown:
             name = rules.strip_language(c["name"]) if self.lang else c["name"]
             rows.append((name + ("   (gesperrt)" if store.is_locked(p, self.kind, c) else ""), c["id"]))
@@ -474,6 +494,13 @@ class CategoryScreen(Base):
             items = [i for i in store.favorites(p) if i.get("kind") == self.kind]
             self.session.open(ItemScreen, self.source, self.kind, None, TITLES[self.kind] + " – Favoriten", items)
             return
+        if cid.startswith(LIST):
+            lid = cid[len(LIST):]
+            l = next((x for x in store.lists(p) if x.get("id") == lid), None)
+            if l:
+                items = [i for i in l.get("items", []) if i.get("kind") == self.kind]
+                self.session.openWithCallback(lambda *a: self.build(), ItemScreen, self.source, self.kind, None, l.get("name", ""), items, list_id=lid)
+            return
         if cid == RECENT:
             items = [i for i in store.history(p) if i.get("kind") == self.kind]
             self.session.open(ItemScreen, self.source, self.kind, None, TITLES[self.kind] + " – Zuletzt gesehen", items)
@@ -509,7 +536,7 @@ class CategoryScreen(Base):
     def bouquet(self):
         """Live-Kategorie als Bouquet in die normale Senderliste von Enigma2 uebernehmen."""
         cur = self["list"].getCurrent()
-        if self.kind != "live" or not cur or cur[1] in (FAV, RECENT):
+        if self.kind != "live" or not cur or cur[1] in (FAV, RECENT) or cur[1].startswith(LIST):
             return
         from .bouquet import export_bouquet
         name, cid = cur[0].replace("   (gesperrt)", ""), cur[1]
@@ -522,7 +549,8 @@ class CategoryScreen(Base):
 
 # ---------- Sender / Filme / Serien ----------
 class ItemScreen(Base):
-    def __init__(self, session, source, kind, cat_id, title, items=None):
+    def __init__(self, session, source, kind, cat_id, title, items=None, list_id=None):
+        self.list_id = list_id  # geoeffnet aus einer eigenen Liste -> "Aus dieser Liste entfernen"
         self.p_live = kind == "live"
         Base.__init__(self, session, "PortivaItemsLive" if self.p_live else "PortivaItemsMedia", title,
                       layout="live" if self.p_live else "media")
@@ -839,7 +867,9 @@ class ItemScreen(Base):
         n, item = self.current()
         if item is None:
             return
-        opts = [("Abspielen", "play"), ("Favorit an/aus", "fav")]
+        opts = [("Abspielen", "play"), ("Favorit an/aus", "fav"), ("Zu Liste hinzufügen …", "list")]
+        if self.list_id:
+            opts.append(("Aus dieser Liste entfernen", "unlist"))
         if item.get("kind") in ("movie", "episode"):
             opts.append(("Herunterladen (auf Festplatte/USB des Receivers)", "download"))
         if item.get("kind") == "live":
@@ -854,6 +884,13 @@ class ItemScreen(Base):
                 self.ok()
             elif k == "fav":
                 self.fav()
+            elif k == "list":
+                self.list_picker(item)
+            elif k == "unlist":
+                store.toggle_in_list(self.pid, self.list_id, item)
+                self["status"].setText("„%s“ aus der Liste entfernt" % item.get("name", ""))
+                self.all = [i for i in self.all if store._fav_key(i) != store._fav_key(item)]
+                self.apply()
             elif k == "programme":
                 self.programme()
             elif k == "sort":
@@ -865,6 +902,36 @@ class ItemScreen(Base):
                 url = item.get("url") or self.source.stream_url(item)
                 self["status"].setText(download.start(item.get("name", "Film"), url, item.get("ext") or "mp4"))
         self.session.openWithCallback(done, ChoiceBox, title=item.get("name", ""), list=opts)
+
+
+    def list_picker(self, item, index=0):
+        """Eigene Listen: OK legt hinein bzw. nimmt heraus, oben "Neue Liste anlegen" (wie Android)."""
+        if not self.pid:
+            return
+        rows = [("＋  Neue Liste anlegen …", None)]
+        for l in store.lists(self.pid):
+            mark = "✓" if store.in_list(self.pid, l.get("id"), item) else "○"
+            rows.append(("%s  %s (%d)" % (mark, l.get("name", ""), len(l.get("items", []))), l.get("id")))
+
+        def new_name(text):
+            if text is None or not text.strip():
+                return
+            lid = store.create_list(self.pid, text)
+            store.toggle_in_list(self.pid, lid, item)
+            self["status"].setText("„%s“ zur neuen Liste „%s“ hinzugefügt" % (item.get("name", ""), text.strip()))
+
+        def done(c):
+            if not c:
+                return
+            if c[1] is None:
+                self.session.openWithCallback(new_name, VirtualKeyBoard, title="Name der neuen Liste", text="")
+                return
+            added = store.toggle_in_list(self.pid, c[1], item)
+            name = next((l.get("name", "") for l in store.lists(self.pid) if l.get("id") == c[1]), "")
+            self["status"].setText(("„%s“ zu „%s“ hinzugefügt" if added else "„%s“ aus „%s“ entfernt") % (item.get("name", ""), name))
+            # offen lassen, damit mehrere Listen gewaehlt werden koennen
+            self.list_picker(item, rows.index(c) if c in rows else 0)
+        self.session.openWithCallback(done, ChoiceBox, title="Zu Liste hinzufügen: " + item.get("name", ""), list=rows, selection=index)
 
 
 # ---------- Weiterschauen ----------

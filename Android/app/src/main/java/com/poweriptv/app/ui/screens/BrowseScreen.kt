@@ -2,6 +2,10 @@ package com.poweriptv.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -364,6 +368,7 @@ fun BrowseScreen(
                                     item = item,
                                     isFavorite = favorites.any { it.key == item.key },
                                     onToggleFavorite = { container.favorites.toggle(item) },
+                                    onLongClick = { actionsFor = item },
                                     onClick = {
                                         val entries = shown.map { PlayEntry(it.name, source.streamUrl(it), it, live = true) }
                                         startPlayback(context, container, entries, index)
@@ -432,15 +437,23 @@ fun BrowseScreen(
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun ChannelRow(item: ContentItem, isFavorite: Boolean, onToggleFavorite: () -> Unit, onClick: () -> Unit) {
+fun ChannelRow(
+    item: ContentItem, isFavorite: Boolean, onToggleFavorite: () -> Unit,
+    onLongClick: (() -> Unit)? = null, onClick: () -> Unit,
+) {
     Row(
         Modifier
             .fillMaxWidth()
             .padding(vertical = 3.dp)
             .clip(RoundedCornerShape(10.dp))
             .tvFocus(RoundedCornerShape(10.dp), 1.02f)
-            .clickable(onClick = onClick)
+            // Fernbedienung: Menue-Taste wirkt wie langes Druecken
+            .then(if (onLongClick != null) Modifier.onPreviewKeyEvent { e ->
+                if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && e.key == androidx.compose.ui.input.key.Key.Menu) { onLongClick(); true } else false
+            } else Modifier)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .background(MaterialTheme.colorScheme.surface)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,

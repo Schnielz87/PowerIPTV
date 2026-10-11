@@ -3,7 +3,7 @@
 import { h, clear, toast, debounce, clock } from '../util';
 import { focusable, setFocus, getFocus } from '../focus';
 import { KEY } from '../keys';
-import { app, go, choose, askPin } from '../app';
+import { app, go, choose, askPin, openItemMenu } from '../app';
 import { settings, saveSettings, categoryPrefs, parental } from '../store';
 import { T } from '../sources';
 import { CAT_FAV, CAT_RECENT, CAT_ALL, categoryLanguage, stripLanguage, detectLanguages, SORTS, applySort } from '../rules';
@@ -36,7 +36,7 @@ export default function browse(params) {
   const el = h('div.page', null,
     topbar(TITLES[type], [iconButton(ICON.search, null, () => go('search', { type }))].concat(type === T.LIVE ? [iconButton(ICON.epg, 'TV-Guide', () => go('epg'))] : [])),
     h('div.browse', null, sidebar, content),
-    legend([['r', 'Favorit'], ['g', type === T.LIVE ? 'TV-Guide' : 'Sortieren'], ['y', 'Kategorie-Menü']]),
+    legend([['r', 'Favorit'], ['g', type === T.LIVE ? 'TV-Guide' : 'Sortieren'], ['y', 'Kategorie-Menü'], ['b', 'Zu Liste (oder OK lange drücken)']]),
   );
 
   function label(s) { const o = SORTS.find((x) => x[0] === s); return o ? o[1] : ''; }
@@ -241,6 +241,12 @@ export default function browse(params) {
     if (!item) return;
     const fav = app.library.toggleFavorite(item);
     toast(fav ? `„${item.name}“ zu Favoriten hinzugefügt` : `„${item.name}“ aus Favoriten entfernt`);
+    markFavorite(card, fav);
+  }
+
+  /** Herz auf der Karte an die Favoriten anpassen (z.B. nach dem Lang-Druck-Menue). */
+  function markFavorite(card, fav) {
+    const item = card._item;
     if (item.type === T.LIVE) {
       const n = card.querySelector('.n');
       const dot = n.querySelector('.fav-dot');
@@ -262,9 +268,16 @@ export default function browse(params) {
     onShow(fresh) {
       if (!fresh && (active === CAT_FAV || active === CAT_RECENT)) loadItems(false);
     },
+    onItemChanged(item) {
+      const card = Array.prototype.find.call(el.querySelectorAll('.focusable'), (c) => c._item === item);
+      const fav = app.library.isFavorite(item);
+      if (card) markFavorite(card, fav);
+      if (active === CAT_FAV && !fav) loadItems(false);
+    },
     onKey(code) {
       const f = getFocus();
       if (code === KEY.RED && f && f._item) { toggleFavorite(f); return true; }
+      if (code === KEY.BLUE && f && f._item) { openItemMenu(f); return true; }
       if (code === KEY.YELLOW && f && f._catId) { categoryMenu(f); return true; }
       if (code === KEY.YELLOW) { const a = catList.querySelector('.cat.active'); if (a) { setFocus(a); categoryMenu(a); } return true; }
       if (code === KEY.GREEN) { if (type === T.LIVE) go('epg'); else pickSort(); return true; }

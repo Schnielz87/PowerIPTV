@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.122 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.123 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -106,7 +106,7 @@ c.push(bullet([b('Benutzer wechseln (Kachel): '), t('zeigt alle Zugänge zum Bea
 
 // 5
 c.push(h1('5. Live TV, Filme & Serien durchsuchen'));
-c.push(bullet([b('Kategorie-Spalte links: '), t('Favoriten, Zuletzt gesehen, Alle und die Kategorien des Anbieters.')]));
+c.push(bullet([b('Kategorie-Spalte links: '), t('Favoriten, Zuletzt gesehen, Alle und die Kategorien des Anbieters. Eigene Listen findest du unter „Favoriten & Listen“ auf der Startseite.')]));
 c.push(bullet([b('Sprache (Globus): '), t('zeigt nur Kategorien einer Sprache, z.B. DE.')]));
 c.push(bullet([b('Filter (Trichter): '), t('Sortierung, Genre, Bewertung, Jahr – bleibt gespeichert.')]));
 c.push(bullet([b('Suche: '), t('sucht in der gewählten Kategorie („Nur hier“) oder überall.')]));
@@ -176,8 +176,8 @@ c.push(bullet('Aufnahme planen'));
 // 10
 c.push(h1('10. Favoriten, Listen, Downloads'));
 c.push(bullet([b('Favoriten: '), t('Überall möglich: Herz auf der Detailseite und im Player (oben), oder lange drücken (TV: OK halten) auf ein Poster, einen Sender, im Programmführer, in der Suche, bei „Weiterschauen“/„Zuletzt gesehen“. Favoriten tragen ein rotes Herz.')]));
-c.push(bullet([b('Menü bei langem Drücken: '), t('Zu Favoriten hinzufügen/entfernen, Teilen (WhatsApp & Co. – geteilt wird nur der Titel, nie der Stream-Link mit deinen Zugangsdaten) und bei „Weiterschauen“/„Zuletzt gesehen“ zusätzlich „Aus Liste entfernen“ (der Titel selbst bleibt erhalten).')]));
-c.push(bullet([b('Eigene Listen: '), t('„Liste“ auf der Detailseite, z.B. „Filmabend“ oder „Kinder“.')]));
+c.push(bullet([b('Menü bei langem Drücken: '), t('Zu Favoriten hinzufügen/entfernen, Zu Liste hinzufügen (neue Liste anlegen oder vorhandene wählen – auch für Live-TV-Sender), Teilen (WhatsApp & Co. – geteilt wird nur der Titel, nie der Stream-Link mit deinen Zugangsdaten) und bei „Weiterschauen“/„Zuletzt gesehen“ zusätzlich „Aus Liste entfernen“ (der Titel selbst bleibt erhalten).')]));
+c.push(bullet([b('Eigene Listen: '), t('„Liste“ auf der Detailseite, z.B. „Filmabend“ oder „Kinder“ – oder lange auf einen Film, eine Serie oder einen Live-TV-Sender drücken (TV: OK halten) → „Zu Liste hinzufügen“. Dort eine neue Liste anlegen oder den Titel in eine vorhandene Liste legen (Häkchen = schon drin). Sender, Filme und Serien können in derselben Liste stehen, z.B. „Sport“ mit Sport-Sendern und Sport-Filmen.')]));
 c.push(bullet([b('Downloads: '), t('„Offline“ lädt Filme und Folgen herunter (mehrere Verbindungen parallel, wenn der Zugang es erlaubt).')]));
 
 // 11
@@ -232,7 +232,7 @@ c.push(bullet([b('Linke Leiste: '), t('Start, Live TV, Filme, Serien, Favoriten,
 c.push(bullet([b('Startseite: '), t('wie am Handy: große Kacheln, darunter die kleinen Kacheln (Suche, Playlist aktualisieren, Favoriten, Benutzer wechseln, Einstellungen …), Weiterschauen und „Zuletzt gesehen“ für Live TV, Filme und Serien. Oben rechts das Benutzer-Männchen zum schnellen Wechseln. Mit „bald“ markierte Kacheln folgen mit den nächsten Updates.')]));
 c.push(bullet([b('Kategorien: '), t('genau wie in der Android-App – Sprache (Globus, z.B. DE/EN), Kategorie-Filter (Trichter), Favoriten, Zuletzt gesehen, Alle. Rechtsklick auf eine Kategorie: oben anheften oder ausblenden. Rechts daneben: Suche („Nur hier“/„Überall“), Filter & Sortierung (Bewertung, Jahr, Genre).')]));
 c.push(bullet([b('Vollbild: '), t('F, F11 oder Doppelklick – deckt den ganzen Bildschirm ab (ohne Titel- und Taskleiste). Esc beendet das Vollbild. Kino-Filme haben oben und unten schwarze Balken; Taste Z (Zoomen) füllt den Bildschirm.')]));
-c.push(bullet([b('Rechtsklick '), t('auf Sender, Film, Serie oder Folge: Favorit, gesehen markieren, aus „Weiterschauen“ entfernen.')]));
+c.push(bullet([b('Rechtsklick '), t('auf Sender, Film, Serie oder Folge: Favorit, „Zu Liste hinzufügen …“ (neue Liste oder vorhandene), gesehen markieren, aus „Weiterschauen“ entfernen.')]));
 
 c.push(bullet([b('Player: '), t('Klick = Pause, Doppelklick = Vollbild. Mausrad verstellt Helligkeit/Lautstärke nur direkt über dem jeweiligen Regler (sonst nichts – z. B. beim Blättern in der Senderliste). Zahnrad: Bildformat, Tonspur, Untertitel, Geschwindigkeit. Bei Serien „Nächste Folge“ 40 Sekunden vor Schluss.')]));
 c.push(table(['Taste', 'Funktion'], [
@@ -273,7 +273,7 @@ c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(h1('15. PowerIPTV für Samsung Smart TV (Tizen)'));
 c.push(p('Für Samsung-Fernseher ab Baujahr 2018 (Tizen 4.0, z. B. UE49NU8009) gibt es eine eigene App mit dem Samsung-Videoplayer des Fernsehers. Sie wird einmalig vom PC aus installiert. Samsung erlaubt Apps außerhalb des Samsung-Stores nur mit einem eigenen, kostenlosen Samsung-Zertifikat, das an deinen Fernseher gebunden ist.'));
 c.push(h2('Was die TV-Version kann'));
-c.push(p('Zugänge (Xtream/M3U, mehrere Benutzer), Live TV, Filme und Serien mit Kategorien und Sprachauswahl, Favoriten, Verlauf, Weiterschauen, TV-Guide mit Catch-up und Erinnerungen, Suche, Kindersicherung, KI-Empfehlungen, Tonspur, Untertitel, Bildformat, Sleep-Timer, nächste Folge und „Intro überspringen“. Nicht möglich auf dem Fernseher: Aufnahmen, Downloads, VPN und Multi-Screen.'));
+c.push(p('Zugänge (Xtream/M3U, mehrere Benutzer), Live TV, Filme und Serien mit Kategorien und Sprachauswahl, Favoriten, Verlauf, Weiterschauen, TV-Guide mit Catch-up und Erinnerungen, Suche, Kindersicherung, KI-Empfehlungen, eigene Listen, Tonspur, Untertitel, Bildformat, Sleep-Timer, nächste Folge und „Intro überspringen“. Nicht möglich auf dem Fernseher: Aufnahmen, Downloads, VPN und Multi-Screen.'));
 c.push(tip('Ton: Samsung-Fernseher ab 2018 können kein DTS mehr abspielen. Hat ein Film mehrere Tonspuren, mit der grünen Taste eine andere wählen (z. B. AC3).'));
 c.push(h2('1. Software am PC installieren'));
 c.push(step([b('Tizen Studio herunterladen: '), t('https://developer.tizen.org/development/tizen-studio/download (Variante „with IDE installer“ für Windows, Mac oder Linux) und installieren.')], 'n6'));
@@ -306,6 +306,7 @@ c.push(table(['Taste', 'Funktion'], [
   ['CH LIST, INFO, GUIDE', 'Senderliste, Infoleiste, Programm des Senders'],
 ], [3000, 6000]));
 c.push(h2('Updates'));
+c.push(p('Eigene Listen: OK auf einem Sender, Film oder einer Serie lange gedrückt halten (oder die blaue Taste) → „Zu Liste hinzufügen …“ → „Neue Liste anlegen“ oder eine vorhandene Liste wählen (✓ = schon drin, nochmal OK nimmt den Titel wieder heraus). Die Listen stehen auf der Seite „Favoriten & Listen“: Rot = aus der Liste entfernen, Grün = neue Liste, Gelb = Liste umbenennen oder löschen. Auf der Detailseite eines Films/einer Serie gibt es dafür den Knopf „☰ Zu Liste“. Gilt genauso für die Fire-TV-Vega-App.'));
 c.push(p('Die Kachel „Update“ prüft alle 24 Stunden bei GitHub und leuchtet bei einer neuen Version. Installiert wird wie oben (Schritt 4) mit derselben Zertifikat-Datei – Zugänge, Favoriten und Verlauf bleiben erhalten.'));
 c.push(tip('Die Zertifikat-Dateien (author.p12, distributor.p12) gut aufheben und nie weitergeben. Mit einem neuen Zertifikat muss die App vorher deinstalliert werden.'));
 
@@ -330,7 +331,7 @@ c.push(tip('Portiva muss auf dem Zielgerät geöffnet sein (Android ab Version 1
 // 17 iPhone & iPad
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(h1('17. PowerIPTV für iPhone & iPad'));
-c.push(p('Die iOS-Version nutzt denselben Player wie Android und Windows: VLC. Damit laufen auch DTS-, AC3- und MKV-Filme. Sie kann Zugänge (auch per QR-Code), Live TV, Filme und Serien mit Sprachauswahl, Weiterschauen, Favoriten, Suche, TV-Guide mit Catch-up, Player mit Helligkeit/Lautstärke, Seitenverhältnis, Geschwindigkeit, Untertiteln und Einstellungsleiste sowie „An Gerät senden“.'));
+c.push(p('Die iOS-Version nutzt denselben Player wie Android und Windows: VLC. Damit laufen auch DTS-, AC3- und MKV-Filme. Sie kann Zugänge (auch per QR-Code), Live TV, Filme und Serien mit Sprachauswahl, Weiterschauen, Favoriten und eigene Listen (lange auf einen Sender, Film oder eine Serie drücken → „Zu Liste hinzufügen …“; verwalten unter „Favoriten & Listen“ mit ＋ und ⋯), Suche, TV-Guide mit Catch-up, Player mit Helligkeit/Lautstärke, Seitenverhältnis, Geschwindigkeit, Untertiteln und Einstellungsleiste sowie „An Gerät senden“.'));
 c.push(tip('Apple erlaubt Apps außerhalb des App Stores nur mit einer Apple-ID-Signatur. Mit einer kostenlosen Apple-ID läuft die App 7 Tage und muss dann neu aufgespielt werden (Zugänge bleiben erhalten). Mit einem Apple-Entwicklerkonto (99 €/Jahr) gilt sie 1 Jahr.'));
 c.push(h2('Installation mit Sideloadly (Windows oder Mac)'));
 c.push(step('Am PC: Sideloadly von https://sideloadly.io herunterladen und installieren. Unter Windows zusätzlich iTunes und iCloud von der Apple-Webseite (nicht aus dem Microsoft Store).', 'n13'));
@@ -374,8 +375,8 @@ c.push(step('GUI neu starten (Menü → Standby/Neustart → GUI neu starten).',
 c.push(step('Menü → Plugins → PowerIPTV öffnen und den Zugang eintragen (Xtream Codes oder M3U-Link). OK bzw. Gelb öffnet die Bildschirmtastatur, Grün prüft und speichert.', 'n17'));
 c.push(h2('Bedienung (mit der Fernbedienung)'));
 c.push(bullet('Startseite wie bei den anderen Geräten: drei große Bild-Kacheln Live TV, Filme, Serien und darunter Weiterschauen, Suche, TV-Guide, Favoriten, Zuletzt gesehen, Benutzer wechseln, Vom Handy empfangen, Einstellungen, Update und Playlist aktualisieren. Pfeiltasten wählen, OK öffnet. Rot = Benutzer, Grün = Einstellungen, Blau = Suche.'));
-c.push(bullet('Kategorien: oben „♥ Favoriten“, „Zuletzt gesehen“ und „Alle“. Gelb = Sprache filtern (z. B. nur DE), Rot = Kategorie mit PIN sperren/entsperren (Kindersicherung), Grün = Live-Kategorie als Bouquet in die normale Senderliste des Receivers übernehmen.'));
-c.push(bullet('In den Listen: rechts Jetzt/Weiter (Sender) bzw. Handlung, Genre, Bewertung (Filme). Rot = Sortieren, Gelb = Favorit, Blau = Filtern, MENU = mehr (Film herunterladen auf Festplatte/USB, Programm), INFO = Programm des Senders.'));
+c.push(bullet('Kategorien: oben „♥ Favoriten“, deine eigenen Listen (☰), „Zuletzt gesehen“ und „Alle“. Gelb = Sprache filtern (z. B. nur DE), Rot = Kategorie mit PIN sperren/entsperren (Kindersicherung), Grün = Live-Kategorie als Bouquet in die normale Senderliste des Receivers übernehmen.'));
+c.push(bullet('In den Listen: rechts Jetzt/Weiter (Sender) bzw. Handlung, Genre, Bewertung (Filme). Rot = Sortieren, Gelb = Favorit, Blau = Filtern, MENU = mehr (Zu Liste hinzufügen – neue Liste anlegen oder vorhandene wählen, auch für Sender; Film herunterladen auf Festplatte/USB, Programm), INFO = Programm des Senders.'));
 c.push(bullet('Live TV: Beim Umschalten erscheint unten die Info-Leiste mit Senderlogo, Name, Uhrzeit, „Jetzt“ mit Fortschrittsbalken und „Weiter“. Hoch/Runter bzw. CH+/CH- = Sender wechseln, Rot = letzter Sender, Gelb = Favorit, Blau = an ein anderes Portiva-Gerät senden.'));
 c.push(bullet('Neues Design: dunkle Glas-Optik mit Bild-Kacheln, leuchtendem Auswahlrahmen und Symbolen. In der Senderliste läuft nach kurzem Verweilen rechts oben eine Live-Vorschau des markierten Senders, darunter Jetzt/Danach mit Fortschrittsbalken. Filme und Serien zeigen das Cover. Die Vorschau lässt sich in den Einstellungen („Live-Vorschau in der Senderliste“) abschalten; beim Verlassen der Liste läuft wieder das vorherige Programm.'));
 c.push(bullet('Zoom-Effekt: Läuft ein Sender in der Vorschau und du drückst OK, zieht das kleine Bild flüssig zum Vollbild auf – ohne neue Verbindung. Beim Verlassen des Players schrumpft es wieder ins kleine Fenster, und die Liste steht auf dem Sender, den du zuletzt gesehen hast.'));

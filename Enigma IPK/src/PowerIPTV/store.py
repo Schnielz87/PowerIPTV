@@ -98,6 +98,59 @@ def toggle_favorite(pid, item):
     return added
 
 
+# ---------- Eigene Listen (je Zugang, wie Android/Windows: Sender, Filme und Serien gemischt) ----------
+def lists(pid):
+    return load("lists", {}).get(pid, [])
+
+
+def _save_lists(pid, lst):
+    all_ = load("lists", {})
+    all_[pid] = lst
+    save("lists", all_)
+
+
+def in_list(pid, list_id, item):
+    k = _fav_key(item)
+    return any(l.get("id") == list_id and any(_fav_key(x) == k for x in l.get("items", [])) for l in lists(pid))
+
+
+def toggle_in_list(pid, list_id, item):
+    lst = lists(pid)
+    k = _fav_key(item)
+    added = False
+    for l in lst:
+        if l.get("id") != list_id:
+            continue
+        items = l.get("items", [])
+        if any(_fav_key(x) == k for x in items):
+            l["items"] = [x for x in items if _fav_key(x) != k]
+        else:
+            l["items"] = [slim(item)] + items
+            added = True
+    _save_lists(pid, lst)
+    return added
+
+
+def create_list(pid, name):
+    lst = lists(pid)
+    lid = "%x" % int(time.time() * 1000)
+    lst.append({"id": lid, "name": (name or "").strip() or "Neue Liste", "items": []})
+    _save_lists(pid, lst)
+    return lid
+
+
+def rename_list(pid, list_id, name):
+    lst = lists(pid)
+    for l in lst:
+        if l.get("id") == list_id and (name or "").strip():
+            l["name"] = name.strip()
+    _save_lists(pid, lst)
+
+
+def delete_list(pid, list_id):
+    _save_lists(pid, [l for l in lists(pid) if l.get("id") != list_id])
+
+
 ITEM_KEYS = ("kind", "id", "name", "logo", "ext", "number", "url", "group", "_kind", "cat", "archive", "series_id", "series_name")
 
 

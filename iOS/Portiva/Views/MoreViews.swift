@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 /** Detailseite fuer Filme und Serien (Staffeln, Folgen, Fortsetzen). */
@@ -53,6 +54,9 @@ struct DetailView: View {
         .background(Brand.background.ignoresSafeArea())
         .portivaToolbar(item.type == .SERIES ? "Serie" : "Film")
         .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button { app.listPickerFor = item } label: { Image(systemName: "text.badge.plus") }
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button { app.library?.toggleFavorite(item); tick += 1 } label: {
                     Image(systemName: app.library?.isFavorite(item) == true ? "heart.fill" : "heart")
@@ -146,11 +150,14 @@ struct SearchView: View {
                 if let r = results[t], !r.isEmpty {
                     Section("\(t.title) (\(r.count))") {
                         ForEach(r) { i in
-                            if i.type == .LIVE || app.source?.supportsDetails == false {
-                                Button { app.play([app.entry(for: i)]) } label: { row(i) }
-                            } else {
-                                NavigationLink(value: Route.detail(i)) { row(i) }
+                            Group {
+                                if i.type == .LIVE || app.source?.supportsDetails == false {
+                                    Button { app.play([app.entry(for: i)]) } label: { row(i) }
+                                } else {
+                                    NavigationLink(value: Route.detail(i)) { row(i) }
+                                }
                             }
+                            .contextMenu { ItemMenuButtons(item: i) }
                         }
                     }
                 }
@@ -180,10 +187,13 @@ struct SearchView: View {
     }
 }
 
-/** Favoriten & Verlauf. */
+/** Favoriten, eigene Listen & Verlauf. */
 struct FavoritesView: View {
     @EnvironmentObject var app: AppState
     @State private var tick = 0
+    @State private var nameAsk: String? = nil   // "" = neue Liste, sonst listId zum Umbenennen
+    @State private var nameInput = ""
+    @State private var deleteAsk: FavoriteList? = nil
 
     var body: some View {
         List {
@@ -193,8 +203,25 @@ struct FavoritesView: View {
                     let favs = lib.favorites.filter { $0.type == t }
                     if !favs.isEmpty {
                         Section("❤ \(t.title)") {
-                            ForEach(favs) { i in entryRow(i) }
+                            ForEach(favs) { i in entryRow(i, list: favs) }
                                 .onDelete { idx in idx.map { favs[$0] }.forEach { lib.toggleFavorite($0) }; tick += 1 }
+                        }
+                    }
+                }
+                // Eigene Listen (Sender, Filme und Serien gemischt)
+                ForEach(lib.lists) { l in
+                    Section {
+                        ForEach(l.items) { i in entryRow(i, list: l.items) }
+                            .onDelete { idx in idx.map { l.items[$0] }.forEach { lib.toggleInList(l.id, $0) }; tick += 1 }
+                        if l.items.isEmpty { Text("Noch leer – lange auf einen Sender, Film oder eine Serie drücken → „Zu Liste hinzufügen“.").font(.footnote).foregroundColor(.secondary) }
+                    } header: {
+                        HStack {
+                            Text("☰ \(l.name) (\(l.items.count))")
+                            Spacer()
+                            Menu {
+                                Button { nameInput = l.name; nameAsk = l.id } label: { Label("Umbenennen", systemImage: "pencil") }
+                                Button(role: .destructive) { deleteAsk = l } label: { Label("Liste löschen", systemImage: "trash") }
+                            } label: { Image(systemName: "ellipsis.circle") }
                         }
                     }
                 }
@@ -204,21 +231,49 @@ struct FavoritesView: View {
                             Button {
                                 if let ep = h.episode { app.play([app.entry(for: ep, series: h.item)]) } else { app.play([app.entry(for: h.item)]) }
                             } label: { HStack { NetImage(url: h.item.logo, contentMode: .fit).frame(width: 44, height: 44); Text(h.item.name).foregroundColor(.white) } }
+                            .contextMenu { ItemMenuButtons(item: h.item) }
                         }
                     }
                 }
-                if lib.favorites.isEmpty && lib.history.isEmpty { Text("Noch keine Favoriten – lange auf einen Eintrag drücken.").foregroundColor(.secondary) }
+                if lib.favorites.isEmpty && lib.history.isEmpty && lib.lists.isEmpty { Text("Noch keine Favoriten – lange auf einen Eintrag drücken.").foregroundColor(.secondary) }
             }
         }
         .scrollContentBackground(.hidden)
         .background(Brand.background.ignoresSafeArea())
-        .portivaToolbar("Favoriten & Verlauf")
+        .portivaToolbar("Favoriten & Listen")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button { nameInput = ""; nameAsk = "" } label: { Image(systemName: "plus") }
+            }
+        }
+        .onReceive(app.library?.objectWillChange.eraseToAnyPublisher() ?? Empty<Void, Never>().eraseToAnyPublisher()) { _ in tick += 1 }
+        .alert(nameAsk == "" ? "Neue Liste" : "Liste umbenennen", isPresented: Binding(get: { nameAsk != nil }, set: { if !$0 { nameAsk = nil } })) {
+            TextField("Name", text: $nameInput)
+            Button("Speichern") {
+                if let target = nameAsk, let lib = app.library {
+                    if target.isEmpty { lib.createList(nameInput) } else { lib.renameList(target, nameInput) }
+                }
+                nameAsk = nil; tick += 1
+            }
+            Button("Abbrechen", role: .cancel) { nameAsk = nil }
+        }
+        .alert("Liste löschen?", isPresented: Binding(get: { deleteAsk != nil }, set: { if !$0 { deleteAsk = nil } })) {
+            Button("Löschen", role: .destructive) { if let l = deleteAsk { app.library?.deleteList(l.id) }; deleteAsk = nil; tick += 1 }
+            Button("Abbrechen", role: .cancel) { deleteAsk = nil }
+        } message: { Text("„\(deleteAsk?.name ?? "")“ wird gelöscht. Die Inhalte selbst bleiben erhalten.") }
     }
 
-    @ViewBuilder private func entryRow(_ i: ContentItem) -> some View {
+    @ViewBuilder private func entryRow(_ i: ContentItem, list: [ContentItem]) -> some View {
         let label = HStack { NetImage(url: i.logo, contentMode: .fit).frame(width: 44, height: 44); Text(i.name).foregroundColor(.white) }
-        if i.type == .LIVE || app.source?.supportsDetails == false { Button { app.play([app.entry(for: i)]) } label: { label } }
-        else { NavigationLink(value: Route.detail(i)) { label } }
+        Group {
+            if i.type == .LIVE {
+                // Sender der Liste als Senderliste im Player (hoch/runter wechselt innerhalb der Liste)
+                let live = list.filter { $0.type == .LIVE }
+                Button { app.play(live.map { app.entry(for: $0) }, index: live.firstIndex(where: { $0.key == i.key }) ?? 0) } label: { label }
+            } else if app.source?.supportsDetails == false { Button { app.play([app.entry(for: i)]) } label: { label } }
+            else { NavigationLink(value: Route.detail(i)) { label } }
+        }
+        .contextMenu { ItemMenuButtons(item: i) }
     }
 }
 
@@ -233,6 +288,7 @@ struct EpgView: View {
         HStack(spacing: 0) {
             List(channels, selection: Binding(get: { selected?.id }, set: { id in selected = channels.first { $0.id == id }; Task { await loadProgramme() } })) { c in
                 Text((c.number.map { "\($0)  " } ?? "") + c.name + (c.archiveDays > 0 ? "  ↺" : "")).tag(c.id)
+                    .contextMenu { ItemMenuButtons(item: c) }
             }
             .frame(maxWidth: 280)
             List(programme) { p in

@@ -27,6 +27,13 @@ struct Category: Codable, Identifiable, Hashable {
     let name: String
 }
 
+/** Eigene Liste (wie Android/Windows): Sender, Filme und Serien gemischt. */
+struct FavoriteList: Codable, Identifiable, Hashable {
+    let id: String
+    var name: String
+    var items: [ContentItem] = []
+}
+
 struct ContentItem: Codable, Identifiable, Hashable {
     let id: String
     let name: String

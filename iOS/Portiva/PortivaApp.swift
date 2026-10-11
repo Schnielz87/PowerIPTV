@@ -58,6 +58,7 @@ struct RootView: View {
             }
             .environment(\.goHome) { path = NavigationPath() }
             .fullScreenCover(item: $app.playing) { e in PlayerScreen(entry: e).environmentObject(app) }
+            .sheet(item: $app.listPickerFor) { i in ListPickerSheet(item: i).environmentObject(app) }
             .onReceive(app.link.$received) { r in
                 // Zugang vom Handy empfangen -> aktivieren und zur Startseite
                 if let p = r { app.activate(p); app.link.received = nil; path = NavigationPath(); app.show("Zugang „\(p.name)“ übernommen") }
