@@ -93,6 +93,29 @@ def data_tar(tar):
     add_bytes(tar, "./%s/version.txt" % TARGET, VERSION.encode())
 
 
+def check_encoding():
+    """Python 2 (z. B. OpenPLi 7.x) bricht ab, wenn eine .py-Datei Umlaute/Sonderzeichen enthaelt,
+    aber keine Kodierungszeile in Zeile 1 oder 2 hat ("Non-ASCII character ... PEP 263")."""
+    bad = []
+    for root, dirs, files in os.walk(SRC):
+        for name in files:
+            if not name.endswith(".py"):
+                continue
+            path = os.path.join(root, name)
+            with open(path, "rb") as f:
+                data = f.read()
+            try:
+                data.decode("ascii")
+                continue
+            except UnicodeDecodeError:
+                pass
+            head = b"\n".join(data.splitlines()[:2])
+            if b"coding" not in head:
+                bad.append(os.path.relpath(path, HERE))
+    if bad:
+        sys.exit("Kodierungszeile '# -*- coding: utf-8 -*-' fehlt (Python 2 bricht sonst ab): " + ", ".join(bad))
+
+
 def ar(members):
     out = io.BytesIO()
     out.write(b"!<arch>\n")
@@ -106,6 +129,7 @@ def ar(members):
 
 
 def main():
+    check_encoding()
     os.makedirs(os.path.join(HERE, "out"), exist_ok=True)
     ipk = ar([("debian-binary", b"2.0\n"), ("control.tar.gz", targz(control_tar)), ("data.tar.gz", targz(data_tar))])
     path = os.path.join(HERE, "out", "%s_%s_all.ipk" % (PKG, VERSION))
