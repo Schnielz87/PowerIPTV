@@ -272,6 +272,9 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
 
     // --- Lebenszyklus ---
     LaunchedEffect(req.url) {
+        // Senderwechsel durch den Nutzer -> Rettungsleiter von vorn; Wechsel auf Ausweich-Sender -> weiterzaehlen
+        if (!ctl.rescuing) { ctl.rescueAttempts = 0; ctl.rescueTried.clear() }
+        ctl.rescuing = false
         // Beim Wechsel Fenster <-> Vollbild laeuft der Stream einfach weiter
         if (ctl.currentUrl != req.url) ctl.play(req.url, req.startAt, live = req.isLive)
         poke()
@@ -283,6 +286,47 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
             val info = withContext(Dispatchers.IO) { runCatching { app.source?.seriesInfo(req.item) }.getOrNull() }
             info?.episodes?.values?.flatten()?.let { episodes = it }
         }
+    }
+    // Stream abgebrochen: 1.-2. neu verbinden, 3.-4. (Live) anderes Format bzw. Ausweich-Sender gleichen Namens,
+    // 5. nochmal neu verbinden, danach Fehler – mit Hinweis, falls alle Verbindungen des Zugangs belegt sind
+    val rescueScope = androidx.compose.runtime.rememberCoroutineScope()
+    ctl.onBroken = handler@{
+        val r = current
+        val n = ++ctl.rescueAttempts
+        val cur = ctl.currentUrl ?: r.url
+        ctl.rescueTried += cur
+        if (r.isLive && n in 3..4) {
+            com.poweriptv.app.player.StreamRules.altFormatUrl(cur)?.takeIf { it !in ctl.rescueTried }?.let { alt ->
+                ctl.rescueTried += alt
+                toast = com.poweriptv.app.player.StreamRules.MSG_FORMAT
+                rescueScope.launch { delay(800); ctl.play(alt, 0L, true) }
+                return@handler true
+            }
+            val key = com.poweriptv.app.player.StreamRules.baseName(r.item.name)
+            val src = app.source
+            val backup = if (key.isEmpty() || src == null) null else r.channels.firstOrNull { ch ->
+                ch.key != r.item.key && com.poweriptv.app.player.StreamRules.baseName(ch.name) == key &&
+                    (ch.url ?: runCatching { src.streamUrl(ch) }.getOrNull()) !in ctl.rescueTried
+            }
+            if (backup != null) {
+                (backup.url ?: runCatching { src?.streamUrl(backup) }.getOrNull())?.let { ctl.rescueTried += it }
+                toast = com.poweriptv.app.player.StreamRules.msgBackup(backup.name)
+                ctl.rescuing = true
+                rescueScope.launch { delay(800); app.play(backup, channels = r.channels) }
+                return@handler true
+            }
+        }
+        if (n <= 5) {
+            toast = com.poweriptv.app.player.StreamRules.msgReconnect(n)
+            val at = if (r.isLive) 0L else ctl.time
+            rescueScope.launch { delay(1500); ctl.play(cur, at, r.isLive) }
+            return@handler true
+        }
+        rescueScope.launch {
+            val info = withContext(Dispatchers.IO) { runCatching { app.source?.accountInfo() }.getOrNull() }
+            com.poweriptv.app.player.StreamRules.connectionsFullText(info?.activeConnections, info?.maxConnections)?.let { ctl.showError(it) }
+        }
+        false
     }
     ctl.onFinished = {
         if (current.episode != null && nextEpisode() != null && app.settings.value.autoNextEpisode) playNext()

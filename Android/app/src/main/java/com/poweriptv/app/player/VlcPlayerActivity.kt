@@ -173,6 +173,7 @@ class VlcPlayerActivity : ComponentActivity() {
                 MediaPlayer.Event.Buffering -> buffering = event.buffering < 100f
                 MediaPlayer.Event.Playing -> {
                     playing = true; buffering = false; error = null
+                    rescue.recovered()
                     runOnUiThread { updatePip() }
                     if (mediaPlayer.length > 0) applyResume()
                     // Nach dem Spulen im Ein-Verbindungs-Modus: vorher gewaehlte Tonspur wieder setzen
@@ -187,12 +188,19 @@ class VlcPlayerActivity : ComponentActivity() {
                         scrubPreview?.release(); scrubPreview = ScrubPreview.create(container, current())
                         toast = "Dein Anbieter erlaubt nur 1 Verbindung – Vorschau beim Spulen pausiert den Film jetzt kurz"
                         lifecycleScope.launch { delay(1500); play(container.playIndex) }
-                    } else {
+                    } else if (!rescueStep()) {
                         error = "Wiedergabe fehlgeschlagen (VLC)"; buffering = false
+                        lifecycleScope.launch { StreamRescue.connectionsFullMessage(container)?.let { error = it } }
                     }
                 }
                 MediaPlayer.Event.EndReached -> if (current()?.live == true && watchingRecording) runOnUiThread {
                     play(container.playIndex) // Aufnahme beendet -> wieder normal live
+                } else if (current()?.live == true) runOnUiThread {
+                    // Live-Stream hat aufgehoert (Server hat die Verbindung beendet) -> neu verbinden / Ausweich-Sender
+                    if (!rescueStep()) {
+                        error = "Sender nicht erreichbar"; buffering = false
+                        lifecycleScope.launch { StreamRescue.connectionsFullMessage(container)?.let { error = it } }
+                    }
                 } else if (current()?.live != true) runOnUiThread {
                     current()?.let { container.resume.markWatched(it.url, true) } // zu Ende gesehen
                     resumeTarget = -1L
@@ -660,6 +668,24 @@ class VlcPlayerActivity : ComponentActivity() {
     private fun current(): PlayEntry? = container.playQueue.getOrNull(container.playIndex)
     private fun hasNext() = container.playIndex < container.playQueue.lastIndex
 
+    private val rescue by lazy { StreamRescue(container) }
+    private var rescuing = false
+
+    /** Naechster Rettungsschritt nach Abbruch. false = aufgeben (Fehler anzeigen). */
+    private fun rescueStep(): Boolean {
+        val step = rescue.next()
+        if (step == StreamRescue.Step.GiveUp) return false
+        toast = StreamRescue.message(step)
+        buffering = true
+        val idx = if (step is StreamRescue.Step.Backup) step.index else container.playIndex
+        lifecycleScope.launch {
+            delay(if (step is StreamRescue.Step.Reconnect) 1500 else 800)
+            rescuing = true
+            try { play(idx) } finally { rescuing = false }
+        }
+        return true
+    }
+
     private fun play(index: Int) {
         saveResume()
         val queue = container.playQueue
@@ -668,6 +694,7 @@ class VlcPlayerActivity : ComponentActivity() {
         container.playIndex = (index + queue.size) % queue.size
         if (prev != container.playIndex && queue.getOrNull(prev)?.live == true) lastChannel = prev
         val entry = queue[container.playIndex]
+        if (!rescuing) rescue.reset()
         title = entry.title
         error = null
         buffering = true

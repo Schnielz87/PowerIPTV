@@ -40,6 +40,12 @@ class PlayerController(
     var tuning: () -> Pair<Boolean, String> = { false to "OFF" }
     /** Wird gemeldet, wenn mitten in der Wiedergabe gestockt wurde (nicht nach dem Spulen). */
     var onStutter: (() -> Unit)? = null
+    /** Stream abgebrochen: true = die Oberflaeche kuemmert sich (neu verbinden/Ausweich-Sender), false = Fehler zeigen. */
+    var onBroken: (() -> Boolean)? = null
+    /** Rettungsleiter: Versuche seit dem letzten laufenden Bild und bereits probierte Adressen. */
+    var rescueAttempts = 0
+    val rescueTried = mutableSetOf<String>()
+    var rescuing = false
     private var lastSeekAt = 0L
 
     private val mediaOptions: Array<String>
@@ -125,12 +131,18 @@ class PlayerController(
                         System.currentTimeMillis() - lastSeekAt > 3000) onStutter?.invoke()
                     buffering = newCache < 100f
                 }
-                override fun playing(mediaPlayer: MediaPlayer) = ui { playing = true; buffering = false }
+                override fun playing(mediaPlayer: MediaPlayer) = ui { playing = true; buffering = false; rescueAttempts = 0 }
                 override fun paused(mediaPlayer: MediaPlayer) = ui { playing = false }
                 override fun stopped(mediaPlayer: MediaPlayer) = ui { playing = false }
-                override fun finished(mediaPlayer: MediaPlayer) = ui { playing = false; ended = true; onFinished?.invoke() }
+                override fun finished(mediaPlayer: MediaPlayer) = ui {
+                    playing = false
+                    // Live-Stream hat aufgehoert (Server hat die Verbindung beendet) -> neu verbinden / Ausweich-Sender
+                    if (live && currentUrl?.startsWith("file:") == false && onBroken?.invoke() == true) { buffering = true; return@ui }
+                    ended = true; onFinished?.invoke()
+                }
                 override fun error(mediaPlayer: MediaPlayer) = ui {
                     playing = false; buffering = false
+                    if (currentUrl?.startsWith("file:") == false && onBroken?.invoke() == true) { buffering = true; return@ui }
                     error = "Stream konnte nicht abgespielt werden"
                 }
                 override fun timeChanged(mediaPlayer: MediaPlayer, newTime: Long) = ui {
@@ -237,6 +249,9 @@ class PlayerController(
         p.audio().setMute(muted)
         if (rate != 1f) p.controls().setRate(rate)
     }
+
+    /** Fehlertext von aussen (z.B. "alle Verbindungen belegt"). */
+    fun showError(text: String) { error = text; buffering = false }
 
     fun retry() {
         val url = currentUrl ?: return

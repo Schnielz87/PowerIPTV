@@ -60,6 +60,13 @@ final class PlayerController: NSObject, ObservableObject, VLCMediaPlayerDelegate
     var queue: [PlayEntry] = []
     /** Stocken mitten in der Wiedergabe erkannt (Bild steht > 3 s). */
     var onStutter: (() -> Void)?
+    /** Auf Ausweich-Sender gewechselt (Anzeige aktualisieren) bzw. Hinweis zeigen. */
+    var onSwitch: ((PlayEntry) -> Void)?
+    var onNotice: ((String) -> Void)?
+    /** Prueft, ob alle Verbindungen des Zugangs belegt sind (Hinweistext oder nil). */
+    var connectionCheck: (() async -> String?)?
+    private var tried = Set<String>()
+    private var rescuing = false
     private var stutterReported = false
 
     override init() {
@@ -70,6 +77,7 @@ final class PlayerController: NSObject, ObservableObject, VLCMediaPlayerDelegate
     // ---------------- Abspielen ----------------
 
     func play(_ e: PlayEntry, startAt: Double? = nil) {
+        if !rescuing { tried.removeAll(); retries = 0 }
         entry = e
         error = nil; ended = false; buffering = true; playing = false
         time = startAt ?? e.startAt; length = 0
@@ -171,22 +179,47 @@ final class PlayerController: NSObject, ObservableObject, VLCMediaPlayerDelegate
         }
     }
 
-    /** Verbindung weg -> automatisch neu verbinden (Live: neu starten, Filme: gleiche Stelle). */
+    /**
+     * Verbindung weg -> Rettungsleiter: 1.-2. neu verbinden (Live: neu starten, Filme: gleiche Stelle),
+     * 3.-4. Live: anderes Format (.ts <-> .m3u8) bzw. Ausweich-Sender gleichen Namens, 5. nochmal neu verbinden,
+     * danach Fehler – mit Hinweis, falls alle Verbindungen des Zugangs belegt sind.
+     */
     private func reconnect() {
         guard let e = entry else { return }
-        if retries < 5 {
-            retries += 1
-            error = nil
-            let pos = e.live ? 0 : time
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
-                guard let self, self.entry?.url == e.url else { return }
-                let r = self.retries
-                self.play(e, startAt: pos)
-                self.retries = r
+        retries += 1
+        tried.insert(e.url)
+        var next: PlayEntry? = nil
+        var notice = ""
+        if e.live && (3...4).contains(retries) {
+            if let alt = Tuning.altFormatUrl(e.url), !tried.contains(alt) {
+                tried.insert(alt)
+                next = PlayEntry(title: e.title, url: alt, live: true, item: e.item)
+                notice = "Sender hakt – versuche es im anderen Format (HLS/TS) …"
+            } else if let b = Tuning.backup(e, in: queue, tried: tried) {
+                tried.insert(b.url)
+                next = b
+                notice = "Sender fällt aus – wechsle auf „\(b.title)“"
+                onSwitch?(b)
             }
-        } else {
+        }
+        if next == nil && retries <= 5 {
+            next = e
+            notice = "Verbindung unterbrochen – verbinde neu (\(retries)/5) …"
+        }
+        guard let target = next else {
             error = "Keine Verbindung zum Stream (Anbieter erreichbar? Stream-Limit?)"
             buffering = false
+            if let check = connectionCheck { Task { @MainActor in if let m = await check() { self.error = m } } }
+            return
+        }
+        error = nil
+        onNotice?(notice)
+        let pos = e.live ? 0 : time
+        DispatchQueue.main.asyncAfter(deadline: .now() + (target.url == e.url ? 1.5 : 0.8)) { [weak self] in
+            guard let self, self.entry?.url == e.url else { return }
+            self.rescuing = true
+            self.play(target, startAt: pos)
+            self.rescuing = false
         }
     }
 

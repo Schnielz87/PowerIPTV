@@ -59,3 +59,23 @@ def apply_sort(items, sort):
     if key:
         l.sort(key=key[0], reverse=key[1])
     return l
+
+
+# ---------- Abgebrochene Streams (wie Android/Windows/iOS/Samsung) ----------
+_QUALITY_TAG = re.compile(r"(?i)(\b|_)(f?hd|uhd|4k|8k|hevc|h\.?265|1080[pi]?|720p|2160p|50fps)(\b|_)|[\s*+]*\b(raw|backup)\b")
+_XTREAM_LIVE = re.compile(r"(?i)(/live/[^/]+/[^/]+/[^/.?]+)\.(ts|m3u8)(\?.*)?$")
+
+
+def base_name(name):
+    """Sendername ohne Qualitaets-/Backup-Zusatz ("Sky Sport 1 HD" und "Sky Sport 1 RAW" -> gleich)."""
+    s = _QUALITY_TAG.sub(" ", name or "").lower()
+    return " ".join(re.sub(r"[\W_]+", " ", s, flags=re.UNICODE).split())
+
+
+def alt_format_url(url):
+    """Xtream-Live-Adresse im jeweils anderen Format (.ts <-> .m3u8), sonst None."""
+    m = _XTREAM_LIVE.search(url or "")
+    if not m:
+        return None
+    ext = "m3u8" if m.group(2).lower() == "ts" else "ts"
+    return url[:m.start()] + m.group(1) + "." + ext + (m.group(3) or "")

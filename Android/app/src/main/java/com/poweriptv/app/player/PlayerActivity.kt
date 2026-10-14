@@ -269,21 +269,38 @@ class PlayerActivity : ComponentActivity() {
                 // Netzwerk-Aussetzer: automatisch neu verbinden (Live: an den aktuellen Live-Punkt, Filme: gleiche Stelle)
                 val behindLive = e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW
                 val network = e.errorCode in 2000..2999 || behindLive
-                if (cause == null && network && netRetries < 5) {
-                    netRetries++
-                    toast = "Verbindung unterbrochen – verbinde neu ($netRetries/5) …"
-                    lifecycleScope.launch {
-                        delay(1500)
-                        if (behindLive || current()?.live == true) player.seekToDefaultPosition()
-                        player.prepare(); player.play()
+                // Live-Stream kaputt geliefert (Format/Parser) -> anderes Format/Ausweich-Sender lohnen sich auch hier
+                val liveBroken = current()?.live == true && e.errorCode in 3000..3999
+                if (cause == null && (network || liveBroken)) {
+                    if (liveBroken) while (rescue.attempts < 2) rescue.next()  // gleich zu Format/Ausweich-Sender
+                    when (val step = rescue.next()) {
+                        is StreamRescue.Step.Reconnect -> {
+                            toast = StreamRescue.message(step)
+                            lifecycleScope.launch {
+                                delay(1500)
+                                if (behindLive || current()?.live == true) player.seekToDefaultPosition()
+                                player.prepare(); player.play()
+                            }
+                            return
+                        }
+                        is StreamRescue.Step.Format, is StreamRescue.Step.Backup -> {
+                            toast = StreamRescue.message(step)
+                            val idx = if (step is StreamRescue.Step.Backup) step.index else container.playIndex
+                            lifecycleScope.launch { delay(800); rescuing = true; try { play(idx) } finally { rescuing = false } }
+                            return
+                        }
+                        StreamRescue.Step.GiveUp -> Unit
                     }
-                    return
+                }
+                if (cause == null && (network || liveBroken)) {
+                    // Alle Verbindungen belegt? Dann klarer Hinweis statt allgemeinem Fehler
+                    lifecycleScope.launch { StreamRescue.connectionsFullMessage(container)?.let { error = it } }
                 }
                 error = cause?.message ?: "Wiedergabe fehlgeschlagen: ${e.errorCodeName}"
             }
 
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_READY) { error = null; netRetries = 0 }
+                if (state == Player.STATE_READY) { error = null; rescue.recovered() }
                 // Aufnahme ist zu Ende -> wieder normal live schauen
                 if (state == Player.STATE_ENDED && current()?.live == true && watchingRecording) { play(container.playIndex); return }
                 if (state == Player.STATE_ENDED && current()?.live != true) {
@@ -695,7 +712,8 @@ class PlayerActivity : ComponentActivity() {
      */
     private var switchedToVlc = false
     /** Automatische Neuverbindungen bei Netzwerk-Aussetzern (wird bei laufendem Bild zurueckgesetzt). */
-    private var netRetries = 0
+    private val rescue by lazy { StreamRescue(container) }
+    private var rescuing = false
 
     // ---------- Stabil-Modus / Mobile Daten / Schaerfe ----------
     /** Groesserer Puffer (bei Mobilfunk, erkanntem Stocken oder fest eingeschaltet). */
@@ -1122,6 +1140,7 @@ class PlayerActivity : ComponentActivity() {
         container.playIndex = (index + queue.size) % queue.size
         if (prev != container.playIndex && queue.getOrNull(prev)?.live == true) lastChannel = prev
         val entry = queue[container.playIndex]
+        if (!rescuing) rescue.reset()
         title = entry.title
         firstFrameAt = 0L; playingSince = 0L
         // Live-TV: beim Umschalten immer kurz die Sender-Infos zeigen

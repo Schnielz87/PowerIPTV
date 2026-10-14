@@ -6,7 +6,7 @@ import { KEY, isBack, isDigit } from '../keys';
 import { app, back, go, choose, dialog } from '../app';
 import { settings, saveSettings, Library } from '../store';
 import { T } from '../sources';
-import { EPISODE } from '../rules';
+import { EPISODE, baseName, connectionsFullText } from '../rules';
 import { button, imgDiv } from './common';
 import { sendToDevice } from './link';
 
@@ -134,7 +134,7 @@ export default function playerScreen(params) {
     return app.source.streamUrl(cur.item);
   }
 
-  function start(startAt) {
+  function start(startAt, keepRetries) {
     saveNow();
     nextShownFor = null; nextCancelled = false; introDone = false; seekOrigin = null;
     clearInterval(countdownTimer); clear(corner);
@@ -148,7 +148,7 @@ export default function playerScreen(params) {
     buildQuick();
     let at = startAt;
     if (at == null && !isLive()) at = lib.position(posKey()) || 0;
-    p.play(urlFor(), { startAt: at || 0, live: isLive() });
+    p.play(urlFor(), { startAt: at || 0, live: isLive(), keepRetries: !!keepRetries });
     if (cur.item.type === T.LIVE && !cur.catchup) lib.addHistory({ item: cur.item });
     if (isLive()) loadEpg();
     started = true;
@@ -557,9 +557,25 @@ export default function playerScreen(params) {
     p.on('subtitle', onSubtitle);
     p.on('tracks', onTracks);
     p.on('info', (m) => toast(m));
-    p.on('error', () => showOverlay(true));
+    p.on('error', () => {
+      showOverlay(true);
+      // Alle Verbindungen des Zugangs belegt? Dann klarer Hinweis statt allgemeinem Fehler
+      app.source.accountInfo().then((acc) => { const m = connectionsFullText(acc); if (m && p.state.error) p.set({ error: m }); }).catch(() => {});
+    });
+    // Sender faellt aus -> Ausweich-Sender gleichen Namens aus der Senderliste (z.B. "… HD" -> "… RAW")
+    p.onRescue = (tried) => {
+      if (!list || !list.length || cur.catchup || cur.episode || cur.item.type !== T.LIVE) return false;
+      const key = baseName(cur.item.name);
+      if (!key) return false;
+      const b = list.find((x) => x.id !== cur.item.id && baseName(x.name) === key && tried.indexOf(app.source.streamUrl(x)) < 0);
+      if (!b) return false;
+      tried.push(app.source.streamUrl(b));
+      toast(`Sender fällt aus – wechsle auf „${b.name}“`);
+      setTimeout(() => { cur = { item: b, episode: null, catchup: null }; start(null, true); }, 800);
+      return true;
+    };
   }
-  function detach() { ['state', 'time', 'ended', 'subtitle', 'tracks', 'info', 'error'].forEach((e) => p.off(e)); }
+  function detach() { ['state', 'time', 'ended', 'subtitle', 'tracks', 'info', 'error'].forEach((e) => p.off(e)); p.onRescue = null; }
 
   const clockTimer = setInterval(() => { clockEl.textContent = clock(Date.now()); }, 15000);
 

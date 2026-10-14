@@ -84,3 +84,26 @@ export function fskOf(age) {
   const us = { G: 0, PG: 6, 'PG-13': 12, R: 16, 'NC-17': 18 };
   return us[a] != null ? us[a] : null;
 }
+
+// ---------- Abgebrochene Streams (wie Android/Windows/iOS) ----------
+const QUALITY_TAG = /(\b|_)(f?hd|uhd|4k|8k|hevc|h\.?265|1080[pi]?|720p|2160p|50fps)(\b|_)|[\s*+]*\b(raw|backup)\b/gi;
+
+/** Sendername ohne Qualitaets-/Backup-Zusatz ("Sky Sport 1 HD" und "Sky Sport 1 RAW" -> gleich). */
+export function baseName(name) {
+  return String(name || '').replace(QUALITY_TAG, ' ').toLowerCase().replace(/[^a-z0-9äöüßéèàçñ]+/g, ' ').trim();
+}
+
+/** Xtream-Live-Adresse im jeweils anderen Format (.ts <-> .m3u8), sonst null. */
+export function altFormatUrl(url) {
+  const m = /(\/live\/[^/]+\/[^/]+\/[^/.?]+)\.(ts|m3u8)(\?.*)?$/i.exec(url || '');
+  if (!m) return null;
+  return url.slice(0, m.index) + m[1] + '.' + (m[2].toLowerCase() === 'ts' ? 'm3u8' : 'ts') + (m[3] || '');
+}
+
+/** Hinweis, wenn der Zugang keine freie Verbindung hat (Xtream active_cons >= max_connections), sonst null. */
+export function connectionsFullText(acc) {
+  const max = parseInt(acc && acc.maxConnections, 10);
+  const active = parseInt(acc && acc.activeConnections, 10);
+  if (!(max > 0) || isNaN(active) || active < max) return null;
+  return `Zugang wird gerade woanders genutzt (${active}/${max} Verbindungen belegt) – dort beenden oder kurz warten. Am Server liegt es nicht.`;
+}

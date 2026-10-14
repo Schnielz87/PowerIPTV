@@ -61,6 +61,14 @@ struct PlayerScreen: View {
                 settings.stutterAt = Date().timeIntervalSince1970
                 app.show("Stocken erkannt – Stabil-Modus mit größerem Puffer ist ab dem nächsten Sender aktiv")
             }
+            ctl.onSwitch = { e in entry = e }
+            ctl.onNotice = { app.show($0) }
+            let src = app.source
+            ctl.connectionCheck = {
+                guard let acc = try? await src?.authenticate(), let max = acc.maxConnections, let active = acc.activeConnections,
+                      max > 0, active >= max else { return nil }
+                return "Zugang wird gerade woanders genutzt (\(active)/\(max) Verbindungen belegt) – dort beenden oder kurz warten. Am Server liegt es nicht."
+            }
             ctl.play(entry)
             ctl.setAspect(AspectMode(rawValue: app.settings.aspect) ?? .FIT, viewSize: viewSize)
             UIApplication.shared.isIdleTimerDisabled = true

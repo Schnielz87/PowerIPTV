@@ -47,6 +47,7 @@ sourceSets {
                 "com/poweriptv/app/ui/components/ContentFilter.kt",
                 "com/poweriptv/app/ui/components/QrCode.kt",
                 "com/poweriptv/app/link/PortivaLink.kt",
+                "com/poweriptv/app/player/StreamRules.kt",
             )
         }
     }

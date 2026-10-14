@@ -21,7 +21,7 @@ from Components.Pixmap import Pixmap
 from Components.MenuList import MenuList
 from Components.ProgressBar import ProgressBar
 
-from . import store
+from . import store, rules
 from .common import scale, run_async, make_timer, fmt_time, fmt_day, fetch_image, show_image, px, PList, stream_switch
 
 
@@ -114,6 +114,16 @@ class PortivaPlayer(MoviePlayer):
         self["portivaActions"] = ActionMap(
             ["OkCancelActions", "ColorActions", "InfobarEPGActions", "EPGSelectActions", "DirectionActions",
              "InfobarChannelSelection", "ChannelSelectBaseActions"], actions, -2)
+        # Rettungsleiter bei Abbruch (wie die anderen Portiva-Apps)
+        self.p_attempts = 0          # Versuche seit dem letzten stabilen Lauf
+        self.p_tried = set()         # bereits probierte Adressen (anderes Format / Ausweich-Sender)
+        self.p_last_pos = None       # Position beim letzten Tick (None = Receiver meldet keine Position)
+        self.p_stall = 0             # Sekunden ohne Fortschritt
+        self.p_moving = False        # Position ist seit dem Start schon einmal weitergelaufen (sonst kein Waechter)
+        self.p_rescued = False       # nach erfolgreicher Rettung die normale Hinweiszeile zurueckholen
+        self.p_ok_since = time.time()
+        self.p_rescue_timer = make_timer(self.p_rescue_go)
+        self.p_rescue_ref = None
         self.p_timer = make_timer(self.p_tick)
         self.p_seek_timer = make_timer(self.p_apply_resume)
         self.onLayoutFinish.append(self.p_layout)
@@ -121,6 +131,7 @@ class PortivaPlayer(MoviePlayer):
     def _p_closed(self):
         self.p_closed = True
         self.p_timer.stop()
+        self.p_rescue_timer.stop()
 
     def _url(self, item):
         if item.get("url"):
@@ -178,6 +189,7 @@ class PortivaPlayer(MoviePlayer):
         self.p_cur = cur[0] if cur else None
 
     def p_tick(self):
+        self.p_watchdog()
         if self.p_live:
             cur = getattr(self, "p_cur", None)
             if cur:
@@ -223,10 +235,128 @@ class PortivaPlayer(MoviePlayer):
         pos, total = self.p_position()
         store.resume_set(self.p_url, total if ended else pos, total, item, self.p_pid)
 
+    # ---------- Abbruch erkennen und retten ----------
+    def p_watchdog(self):
+        """Bild steht (Position laeuft nicht weiter, nicht pausiert) -> neu verbinden. Nur wenn der Receiver
+        ueberhaupt eine Position meldet (sonst wuerde staendig neu verbunden)."""
+        if self.p_rescue_timer.isActive():
+            return
+        try:
+            paused = self.seekstate != self.SEEK_STATE_PLAY
+        except Exception:
+            paused = False
+        pos = None
+        try:
+            r = self.session.nav.getCurrentService().seek().getPlayPosition()
+            pos = None if r[0] else r[1]
+        except Exception:
+            pos = None
+        if pos is None or paused:
+            self.p_stall = 0
+            return
+        if self.p_last_pos is None or pos != self.p_last_pos:
+            if self.p_last_pos is not None:
+                self.p_moving = True
+                if self.p_rescued:
+                    self.p_rescued = False
+                    self.p_refresh_info()
+                if self.p_attempts and time.time() - self.p_ok_since > 30:
+                    self.p_attempts = 0  # laeuft wieder stabil -> neue Aussetzer bekommen wieder 5 Versuche
+            self.p_last_pos = pos
+            self.p_stall = 0
+            return
+        if not self.p_moving:
+            return
+        self.p_stall += 1
+        if self.p_stall >= (12 if self.p_live else 10):
+            self.p_stall = 0
+            self.p_rescue()
+
+    def p_rescue(self):
+        """1.-2. neu verbinden, 3.-4. (Live) anderes Format (.ts <-> .m3u8) bzw. Ausweich-Sender gleichen Namens,
+        5. nochmal neu verbinden, danach Hinweis – auch wenn alle Verbindungen des Zugangs belegt sind."""
+        self.p_attempts += 1
+        n = self.p_attempts
+        self.p_tried.add(self.p_url)
+        item = self.p_item()
+        if self.p_live and 3 <= n <= 4:
+            alt = rules.alt_format_url(self.p_url)
+            if alt and alt not in self.p_tried:
+                self.p_tried.add(alt)
+                self.p_url = alt
+                return self.p_rescue_start("Sender hakt – versuche es im anderen Format (HLS/TS) …", item)
+            key = rules.base_name(item.get("name"))
+            if key:
+                for i, other in enumerate(self.p_list):
+                    if i == self.p_index or rules.base_name(other.get("name")) != key:
+                        continue
+                    url = self._url(other)
+                    if url in self.p_tried:
+                        continue
+                    self.p_tried.add(url)
+                    self.p_last = self.p_index
+                    self.p_index = i
+                    self.p_url = url
+                    return self.p_rescue_start("Sender fällt aus – wechsle auf „%s“" % other.get("name", ""), other)
+        if n <= 5:
+            return self.p_rescue_start("Verbindung unterbrochen – verbinde neu (%d/5) …" % n, item)
+        self["p_hint"].setText("Keine Verbindung zum Stream – Anbieter erreichbar? (EXIT = zurück)")
+        self.p_show()
+
+        def done(res):
+            active, maximum = res
+            if maximum and active is not None and active >= maximum and not self.p_closed:
+                self["p_hint"].setText("Zugang wird gerade woanders genutzt (%d/%d Verbindungen belegt) – dort beenden oder kurz warten" % (active, maximum))
+                self.p_show()
+        if hasattr(self.p_source, "connections"):
+            run_async(self, self.p_source.connections, done, lambda m: None)
+
+    def p_rescue_start(self, text, item):
+        self["p_hint"].setText(text)
+        self.p_refresh_title(item)
+        self.p_show()
+        if not self.p_live:
+            pos, _total = self.p_position()
+            if pos > 0:
+                self.p_start_at = pos
+        self.p_rescue_ref = make_ref(self.p_url, item.get("name", ""))
+        stream_switch(self.session).stop()
+        self.p_rescue_timer.start(1500, True)
+
+    def p_rescue_go(self):
+        if self.p_closed or self.p_rescue_ref is None:
+            return
+        stream_switch(self.session).play(self.p_rescue_ref)
+        self.p_rescue_ref = None
+        self.p_last_pos = None
+        self.p_moving = False
+        self.p_rescued = True
+        self.p_ok_since = time.time()
+        if not self.p_live and self.p_start_at > 0:
+            self.p_seek_timer.start(2500, True)
+
+    def p_refresh_title(self, item):
+        num = ("%s  " % item["number"]) if self.p_live and item.get("number") else ""
+        self["p_title"].setText(num + (item.get("name") or ""))
+
+    def p_show(self):
+        try:
+            self.doShow()
+        except Exception:
+            pass
+
     # ---------- Live TV ----------
     def p_play_index(self, index):
         if index == self.p_index:
             return
+        # Senderwechsel durch den Nutzer -> Rettungsleiter von vorn
+        self.p_rescue_timer.stop()
+        self.p_rescue_ref = None
+        self.p_attempts = 0
+        self.p_tried = set()
+        self.p_last_pos = None
+        self.p_moving = False
+        self.p_ok_since = time.time()
         self.p_last = self.p_index
         self.p_index = index % len(self.p_list)
         item = self.p_item()
@@ -332,7 +462,12 @@ class PortivaPlayer(MoviePlayer):
         self.leavePlayer()
 
     def doEofInternal(self, playing):
-        if not playing or self.p_live:
+        if self.p_live:
+            # Live-Stream hat aufgehoert (Server hat die Verbindung beendet) -> neu verbinden / Ausweich-Sender
+            if not self.p_closed and not self.p_rescue_timer.isActive():
+                self.p_rescue()
+            return
+        if not playing:
             return
         self.p_save(ended=True)
         # Serien: naechste Folge automatisch

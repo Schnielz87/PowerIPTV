@@ -120,7 +120,8 @@ final class XtreamSource: ContentSource {
         return AccountInfo(
             status: str(info["status"]),
             expiresAt: num(info["exp_date"]).map { Date(timeIntervalSince1970: $0) },
-            maxConnections: num(info["max_connections"]).map { Int($0) }
+            maxConnections: num(info["max_connections"]).map { Int($0) },
+            activeConnections: num(info["active_cons"]).map { Int($0) }
         )
     }
 

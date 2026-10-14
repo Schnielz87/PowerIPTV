@@ -52,8 +52,7 @@ object PlaybackTuning {
         else -> 0f
     }
 
-    private val qualityTag = Regex("""(?i)(\b|_)(f?hd|uhd|4k|8k|hevc|h\.?265|1080[pi]?|720p|2160p|50fps|ᴴᴰ|ᶠᴴᴰ|ᵁᴴᴰ)(\b|_)|[\s*+]*\b(raw|backup)\b""")
-    private fun base(name: String) = qualityTag.replace(name, " ").replace(Regex("""[^\p{L}\p{Nd}]+"""), " ").trim().lowercase()
+    private fun base(name: String) = StreamRules.baseName(name)
     private fun isHigh(name: String) = Regex("""(?i)\b(f?hd|uhd|4k|8k|hevc|h\.?265|1080|2160)\b|ᴴᴰ|ᶠᴴᴰ|ᵁᴴᴰ""").containsMatchIn(name)
 
     /**

@@ -4,6 +4,7 @@
 
 import { isVega, VegaVideo } from './vega';
 import { settings, saveSettings } from './store';
+import { altFormatUrl } from './rules';
 
 const hasAvPlay = () => !!(window.webapis && window.webapis.avplay);
 
@@ -52,6 +53,8 @@ export class Player {
     this.userPaused = false;
     this.pendingSeek = null;
     this.retries = opts.keepRetries ? this.retries : 0;
+    if (!opts.keepRetries) this.tried = [];
+    this.startedAt = Date.now();
     this.lastTick = -1; this.stallSince = 0;
     this.set({ playing: false, buffering: true, time: opts.startAt || 0, duration: 0, error: null });
     if (this.av) this.openAvPlay(url, opts.startAt || 0);
@@ -80,9 +83,14 @@ export class Player {
         onbufferingcomplete: () => this.set({ buffering: false }),
         oncurrentplaytime: (ms) => {
           if (this.pendingSeek == null) this.set({ time: ms, buffering: false });
+          this.markProgress();
           this.emit('time', ms);
         },
-        onstreamcompleted: () => { this.set({ playing: false }); this.emit('ended'); },
+        onstreamcompleted: () => {
+          // Live-Stream hat aufgehoert (Server hat die Verbindung beendet) -> neu verbinden / Ausweich-Sender
+          if (this.live && this.url) { this.handleError('STREAM_ENDED'); return; }
+          this.set({ playing: false }); this.emit('ended');
+        },
         onevent: () => {},
         onerror: (type) => this.handleError(String(type)),
         onsubtitlechange: (duration, text) => this.emit('subtitle', { text: text || '', duration: +duration || 0 }),
@@ -104,6 +112,11 @@ export class Player {
     }
   }
 
+  /** Laeuft seit 30 s wieder stabil -> Rettungsleiter von vorn (neue Aussetzer bekommen wieder 5 Versuche). */
+  markProgress() {
+    if (this.retries && Date.now() - (this.startedAt || 0) > 30000) this.retries = 0;
+  }
+
   /** Stabil-Modus aktiv? (fest an oder nach erkanntem Stocken fuer 24 Stunden) */
   stableActive() {
     return settings.stableMode === 'on' || (settings.stableMode === 'auto' && Date.now() - (settings.stutterAt || 0) < 24 * 3600 * 1000);
@@ -121,7 +134,27 @@ export class Player {
     }
   }
 
+  /**
+   * Abbruch -> Rettungsleiter: 1.-2. neu verbinden (Live: neu starten, Filme: gleiche Stelle),
+   * 3.-4. Live: anderes Format (.ts <-> .m3u8) bzw. Ausweich-Sender gleichen Namens (onRescue der Player-Seite),
+   * 5. nochmal neu verbinden, danach Fehler.
+   */
   handleError(type) {
+    this.tried = this.tried || [];
+    if (this.url && this.tried.indexOf(this.url) < 0) this.tried.push(this.url);
+    if (this.url && this.live && this.retries >= 2 && this.retries < 4) {
+      this.retries++;
+      const alt = altFormatUrl(this.url);
+      if (alt && this.tried.indexOf(alt) < 0) {
+        this.tried.push(alt);
+        this.emit('info', 'Sender hakt – versuche es im anderen Format (HLS/TS) …');
+        const url = this.url;
+        setTimeout(() => { if (this.url === url) this.play(alt, { live: true, keepRetries: true }); }, 800);
+        return;
+      }
+      if (this.onRescue && this.onRescue(this.tried)) return;
+      this.retries--;
+    }
     // Netzwerk-Aussetzer: automatisch neu verbinden (Live: neu starten, Filme: gleiche Stelle)
     if (this.retries < 5 && this.url) {
       this.retries++;
@@ -305,7 +338,7 @@ export class Player {
     v.addEventListener('waiting', () => this.set({ buffering: true }));
     v.addEventListener('playing', () => this.set({ playing: true, buffering: false }));
     v.addEventListener('pause', () => this.set({ playing: false }));
-    v.addEventListener('timeupdate', () => { if (this.pendingSeek == null) this.set({ time: Math.floor(v.currentTime * 1000) }); this.emit('time', v.currentTime * 1000); });
+    v.addEventListener('timeupdate', () => { this.markProgress(); if (this.pendingSeek == null) this.set({ time: Math.floor(v.currentTime * 1000) }); this.emit('time', v.currentTime * 1000); });
     v.addEventListener('durationchange', () => this.set({ duration: isFinite(v.duration) && !this.live ? Math.floor(v.duration * 1000) : 0 }));
     v.addEventListener('ended', () => this.emit('ended'));
     v.addEventListener('error', () => { if (this.url) this.handleError('HTML5_ERROR'); });

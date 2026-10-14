@@ -103,6 +103,7 @@ struct AccountInfo {
     var status: String?
     var expiresAt: Date?
     var maxConnections: Int?
+    var activeConnections: Int? = nil
 }
 
 /** Ein Eintrag zum Abspielen (Film, Folge, Sender). */
