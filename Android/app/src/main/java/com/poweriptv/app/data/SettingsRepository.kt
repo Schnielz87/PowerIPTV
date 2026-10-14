@@ -77,6 +77,13 @@ class SettingsRepository(context: Context) {
     fun setSharpen(v: String) = putStr(K_SHARPEN, v, _sharpen)
     /** Stocken erkannt -> Stabil-Modus (Automatik) fuer die naechsten 24 Stunden aktiv. */
     fun markStutter() { prefs.edit().putLong(K_STUTTER_AT, System.currentTimeMillis()).apply() }
+    /** Per IP-Adresse eingetragene Portiva-Geraete (z.B. Receiver am LAN-Kabel in einem anderen Netzbereich). */
+    fun linkHosts(): List<String> = (prefs.getString(K_LINK_HOSTS, "") ?: "").split(',').map { it.trim() }.filter { it.isNotEmpty() }
+    fun addLinkHost(host: String) {
+        val list = (listOf(host.trim()) + linkHosts().filter { it != host.trim() }).take(6)
+        prefs.edit().putString(K_LINK_HOSTS, list.joinToString(",")).apply()
+    }
+
     fun stutterRecently(): Boolean = System.currentTimeMillis() - prefs.getLong(K_STUTTER_AT, 0L) < 24 * 3600_000L
 
     /** Kill-Switch: Kein Datenverkehr der App ohne aktives VPN. */
@@ -186,6 +193,7 @@ class SettingsRepository(context: Context) {
         private const val K_STABLE = "stable_mode"
         private const val K_SHARPEN = "sharpen"
         private const val K_STUTTER_AT = "stutter_at"
+        private const val K_LINK_HOSTS = "link_hosts"
         private const val K_ORIENTATION = "orientation"
         private const val K_AFR = "auto_frame_rate"
         private const val K_ENGINE = "player_engine"

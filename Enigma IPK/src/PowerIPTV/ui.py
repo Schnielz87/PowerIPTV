@@ -283,6 +283,11 @@ class PortivaHome(Screen):
         self.source = make_source(p)
         self["title"].setText("PowerIPTV  by Portiva©  ·  " + p.get("name", ""))
         self["sub"].setText("Verbinde …")
+        try:
+            from . import link
+            self["status"].setText(link.status_text() + "   (Handy/PC: im Player „An Gerät senden“)")
+        except Exception:
+            pass
         run_async(self, self.source.account_text, lambda t: self["sub"].setText(t or ""), lambda m: self["sub"].setText("Verbindung fehlgeschlagen: " + m))
         src, profile_id = self.source, pid()
 

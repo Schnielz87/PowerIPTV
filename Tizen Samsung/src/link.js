@@ -79,7 +79,34 @@ function xhr(method, url, body, timeout) {
 }
 
 /** Portiva-Geraete im eigenen /24-Netz (je Geraet {name, platform, host, port}). */
+/** Geraet unter "IP" oder "IP:Port" pruefen (z.B. Enigma2-Receiver am LAN-Kabel in anderem Netzbereich). */
+export async function probe(address) {
+  const a = String(address || '').trim().replace(/^http:\/\//, '').replace(/\/+$/, '');
+  const host = a.split(':')[0];
+  if (!host) return null;
+  const port = parseInt(a.split(':')[1], 10) || LINK_PORT;
+  const r = await xhr('GET', `http://${host}:${port}/portiva/hello`, null, 3000);
+  if (!r || r.status !== 200) return null;
+  try {
+    const d = JSON.parse(r.text);
+    return d.app === 'portiva' ? { name: d.name, platform: d.platform, host, port: d.port || port } : null;
+  } catch (e) { return null; }
+}
+
+export function savedHosts() {
+  try { return JSON.parse(localStorage.getItem('portiva.linkHosts') || '[]'); } catch (e) { return []; }
+}
+export function saveHost(ip) {
+  try { localStorage.setItem('portiva.linkHosts', JSON.stringify([ip].concat(savedHosts().filter((x) => x !== ip)).slice(0, 6))); } catch (e) { /* egal */ }
+}
+
 export async function discover(ip) {
+  const manual = (await Promise.all(savedHosts().map(probe))).filter(Boolean);
+  const scanned = await scanNet(ip);
+  return scanned.concat(manual.filter((m) => !scanned.some((s) => s.host === m.host))).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function scanNet(ip) {
   const own = ip || await localIp();
   if (!own) return [];
   const prefix = own.slice(0, own.lastIndexOf('.'));

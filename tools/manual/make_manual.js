@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.123 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.124 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -324,6 +324,7 @@ c.push(step('Der Zugang erscheint sofort auf dem TV und wird aktiviert. Beim Sam
 c.push(tip('Der QR-Code eines Zugangs enthält die Zugangsdaten – nur dir selbst zeigen. Lokale M3U-Dateien lassen sich nicht übertragen (dort fehlt das QR-Symbol).'));
 c.push(h2('Wiedergabe an ein anderes Gerät senden'));
 c.push(step('Im Player oben auf das Übertragen-Symbol (wie bei Chromecast) oder das Fernseher-Symbol „An Gerät senden“ tippen (Samsung-TV: Knopf „📲 Senden“). Das Fenster bleibt offen, bis du es schließt – auch wenn die Suche etwas dauert.', 'n12'));
+c.push(tip('Wird ein Gerät nicht gefunden: Alle Geräte müssen im selben Heimnetz hängen – WLAN oder LAN-Kabel ist egal. Klappt die automatische Suche trotzdem nicht, im Fenster „An Gerät senden“ unten die IP-Adresse des Geräts eingeben und „Verbinden“ drücken (Samsung-TV: „＋ Gerät per IP-Adresse …“). Das Gerät wird gemerkt und beim nächsten Mal automatisch angezeigt.'));
 c.push(step('Unter „Portiva-Geräte“ erscheinen alle Geräte mit geöffnetem Portiva im Heimnetz (TV-Stick, Tablet, Handy, Windows-PC) → Gerät wählen. Darüber stehen wie bisher Chromecast-Geräte.', 'n12'));
 c.push(step('Der Film läuft dort an derselben Stelle weiter (Live TV: derselbe Sender), hier wird gestoppt.', 'n12'));
 c.push(tip('Portiva muss auf dem Zielgerät geöffnet sein (Android ab Version 10 erlaubt Apps im Hintergrund nicht, sich selbst zu öffnen). Samsung-Fernseher können senden, aber nichts empfangen. Windows fragt beim ersten Mal nach der Firewall – „Zulassen“ wählen.'));
@@ -385,7 +386,7 @@ c.push(bullet('OK im Live TV öffnet rechts die Senderliste; Grün „EPG aktual
 c.push(bullet('INFO im Live TV zeigt das ganze Programm des Senders. Sendungen mit ► kann man nachträglich ansehen (Catch-up), wenn der Anbieter ein Archiv hat.'));
 c.push(bullet('Filme und Folgen: Stelle wird gemerkt (Kachel „Weiterschauen“), die nächste Folge startet automatisch. Tonspur (AUDIO) und Untertitel (TEXT) wie beim Receiver gewohnt.'));
 c.push(bullet('Zugänge: Kachel „Vom Handy empfangen“ zeigt einen QR-Code – mit der PowerIPTV-App am Handy scannen, der Zugang wird übertragen. In „Benutzer wechseln“ zeigt Blau den Zugang als QR-Code für ein anderes Gerät (nur dir selbst zeigen – enthält die Zugangsdaten).'));
-c.push(bullet('Portiva Link: Handy, Tablet oder PC finden den Receiver automatisch im Heimnetz („An Gerät senden“) und spielen den laufenden Film/Sender dort weiter.'));
+c.push(bullet('Portiva Link: Handy, Tablet oder PC finden den Receiver automatisch im Heimnetz („An Gerät senden“) und spielen den laufenden Film/Sender dort weiter – egal ob der Receiver per LAN-Kabel oder WLAN am Router hängt. Die Adresse des Receivers steht unten auf der Portiva-Startseite (z.B. „Portiva Link: 192.168.178.40“). Findet die Suche ihn nicht (z.B. anderer Netzbereich), im Fenster „An Gerät senden“ diese IP-Adresse eintragen und „Verbinden“ drücken – sie wird gemerkt. Der Empfang läuft ab dem ersten Öffnen des Plugins, ein Neustart des Receivers ist nicht nötig.'));
 c.push(bullet('Einstellungen: Player, Live-TV-Format, Gerätename, PIN der Kindersicherung, Erwachseneninhalte automatisch sperren, automatische Update-Prüfung. Kachel „Update“ installiert neue Versionen direkt von GitHub und startet die Oberfläche neu.'));
 c.push(p('Nicht auf dem Receiver: Multi-Screen, Bild-in-Bild, VPN, Vorschaubilder beim Spulen und KI-Empfehlungen – dafür ist die Receiver-Hardware nicht gedacht.'));
 c.push(tip('Ruckelt ein Sender oder fehlt Bild/Ton: Einstellungen → Player „exteplayer3 (5002)“ wählen (dafür das Paket ServiceApp aus dem Image-Feed installieren) oder Live-TV-Format „HLS (m3u8)“ probieren.'));

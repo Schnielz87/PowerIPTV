@@ -972,8 +972,10 @@ private fun LinkSendMenu(app: AppState, req: PlayRequest, ctl: PlayerController,
     LaunchedEffect(open) {
         if (!open) return@LaunchedEffect
         devices = null
-        devices = withContext(Dispatchers.IO) { com.poweriptv.app.link.LinkClient.discover(app.link.port) }
+        devices = withContext(Dispatchers.IO) { com.poweriptv.app.link.LinkClient.discover(app.link.port, extraHosts = app.settings.value.linkHosts) }
     }
+    var manualIp by remember { mutableStateOf("") }
+    var manualMsg by remember { mutableStateOf<String?>(null) }
     Box {
         RoundIcon(Icons.Filled.ConnectedTv, "An Gerät senden (Portiva)") { open = true }
         DropdownMenu(open, onDismissRequest = { open = false }) {
@@ -981,7 +983,7 @@ private fun LinkSendMenu(app: AppState, req: PlayRequest, ctl: PlayerController,
             val list = devices
             when {
                 list == null -> DropdownMenuItem(text = { Text("Suche Portiva-Geräte im Heimnetz …") }, onClick = {}, enabled = false)
-                list.isEmpty() -> DropdownMenuItem(text = { Text("Kein Gerät gefunden – Portiva dort öffnen (gleiches WLAN)") }, onClick = {}, enabled = false)
+                list.isEmpty() -> DropdownMenuItem(text = { Text("Kein Gerät gefunden – Portiva dort öffnen (gleiches Heimnetz, WLAN oder LAN-Kabel)") }, onClick = {}, enabled = false)
                 else -> list.forEach { d ->
                     DropdownMenuItem(text = { Text(d.name) }, onClick = {
                         open = false
@@ -996,6 +998,27 @@ private fun LinkSendMenu(app: AppState, req: PlayRequest, ctl: PlayerController,
                     })
                 }
             }
+            // Geraet per IP-Adresse (wenn die Suche es nicht findet, z.B. Receiver am LAN-Kabel in anderem Netzbereich)
+            if (list != null) Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.OutlinedTextField(
+                    manualIp, { manualIp = it.filter { c -> c.isDigit() || c == '.' || c == ':' } },
+                    placeholder = { Text("IP, z.B. 192.168.178.40") }, singleLine = true, modifier = Modifier.width(220.dp),
+                )
+                androidx.compose.material3.TextButton(enabled = manualIp.isNotBlank(), onClick = {
+                    val ip = manualIp.trim()
+                    manualMsg = "Verbinde mit $ip …"
+                    scope.launch {
+                        val d = withContext(Dispatchers.IO) { com.poweriptv.app.link.LinkClient.probe(ip) }
+                        if (d == null) manualMsg = "Unter $ip antwortet kein Portiva-Gerät"
+                        else {
+                            app.settings.update { s -> s.copy(linkHosts = (listOf(ip) + s.linkHosts.filter { it != ip }).take(6)) }
+                            devices = devices.orEmpty().filter { it.host != d.host } + d
+                            manualMsg = null; manualIp = ""
+                        }
+                    }
+                }) { Text("Verbinden") }
+            }
+            manualMsg?.let { DropdownMenuItem(text = { Text(it) }, onClick = {}, enabled = false) }
         }
     }
 }

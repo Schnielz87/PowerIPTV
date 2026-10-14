@@ -62,71 +62,174 @@ def account_to_profile(a):
 
 
 # ---------- Empfangen ----------
+def _handle(method, path, body, threaded=False):
+    """Gemeinsame Auswertung fuer beide Server-Varianten. Liefert (HTTP-Code, Antwort)."""
+    if method == "GET":
+        return (200, hello()) if path == "/portiva/hello" else (404, {"ok": False})
+    if path == "/portiva/play":
+        if threaded:
+            # Fallback-Server laeuft in einem eigenen Thread -> Player im Enigma2-Hauptthread oeffnen
+            if not _state["session"] or not body.get("url"):
+                return 409, {"ok": False}
+            from twisted.internet import reactor
+            reactor.callFromThread(on_play, body)
+            return 200, {"ok": True}
+        return (200 if on_play(body) else 409), {"ok": True}
+    if path == "/portiva/pair":
+        if threaded:
+            ok = bool(_state.get("pair_code")) and body.get("code") == _state.get("pair_code") and isinstance(body.get("account"), dict)
+            if ok:
+                from twisted.internet import reactor
+                reactor.callFromThread(on_pair, body)
+        else:
+            ok = on_pair(body)
+        return (200, {"ok": True}) if ok else (403, {"ok": False, "error": "Code passt nicht"})
+    return 404, {"ok": False}
+
+
+def _start_twisted():
+    from twisted.internet import reactor
+    from twisted.web import server, resource
+
+    class Res(resource.Resource):
+        isLeaf = True
+
+        def _send(self, request, code, obj):
+            request.setResponseCode(code)
+            request.setHeader(b"Content-Type", b"application/json; charset=utf-8")
+            request.setHeader(b"Access-Control-Allow-Origin", b"*")
+            request.setHeader(b"Access-Control-Allow-Methods", b"GET, POST, OPTIONS")
+            request.setHeader(b"Access-Control-Allow-Headers", b"Content-Type")
+            return json.dumps(obj).encode("utf-8")
+
+        def render_OPTIONS(self, request):
+            return self._send(request, 204, {})
+
+        def render_GET(self, request):
+            path = request.path.decode() if isinstance(request.path, bytes) else request.path
+            return self._send(request, *_handle("GET", path, {}))
+
+        def render_POST(self, request):
+            path = request.path.decode() if isinstance(request.path, bytes) else request.path
+            try:
+                body = json.loads(request.content.read().decode("utf-8") or "{}")
+            except Exception:
+                return self._send(request, 400, {"ok": False})
+            return self._send(request, *_handle("POST", path, body))
+
+    for p in range(LINK_PORT, LINK_PORT + 6):
+        if p == UDP_PORT:
+            continue
+        try:
+            reactor.listenTCP(p, server.Site(Res()))
+            return p
+        except Exception:
+            continue
+    return 0
+
+
+def _start_plain():
+    """Ersatz, falls auf dem Image das Paket twisted-web fehlt: kleiner HTTP-Server im eigenen Thread."""
+    try:
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+    except ImportError:  # Python 2 (aeltere Images)
+        from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def _send(self, code, obj):
+            data = json.dumps(obj).encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def do_OPTIONS(self):
+            self._send(204, {})
+
+        def do_GET(self):
+            self._send(*_handle("GET", self.path.split("?")[0], {}, True))
+
+        def do_POST(self):
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+                body = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
+            except Exception:
+                return self._send(400, {"ok": False})
+            self._send(*_handle("POST", self.path.split("?")[0], body, True))
+
+    for p in range(LINK_PORT, LINK_PORT + 6):
+        if p == UDP_PORT:
+            continue
+        try:
+            srv = HTTPServer(("", p), H)
+        except Exception:
+            continue
+        t = threading.Thread(target=srv.serve_forever)
+        t.daemon = True
+        t.start()
+        return p
+    return 0
+
+
+def _start_udp():
+    """Antwort auf den Rundruf der anderen Geraete (eigener Thread – unabhaengig von twisted)."""
+    def run():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind(("", UDP_PORT))
+        except Exception as e:
+            _state["udp_error"] = str(e)
+            return
+        while True:
+            try:
+                data, addr = s.recvfrom(1024)
+                if data.strip() == DISCOVER and _state["port"]:
+                    s.sendto(json.dumps(hello()).encode("utf-8"), addr)
+            except Exception:
+                pass
+    t = threading.Thread(target=run)
+    t.daemon = True
+    t.start()
+
+
 def start(session):
-    """Beim Start von Enigma2: HTTP-Dienst + UDP-Antwort (Fehler werden ignoriert, z.B. Port belegt)."""
-    _state["session"] = session
+    """Portiva Link bereitstellen: beim Start von Enigma2 und zusaetzlich beim Oeffnen des Plugins
+    (nach der Installation ohne Neustart der Oberflaeche lief der Dienst sonst nicht)."""
+    if session is not None:
+        _state["session"] = session
     if _state["started"]:
         return
     _state["started"] = True
+    port_ = 0
     try:
-        from twisted.internet import reactor
-        from twisted.web import server, resource
-
-        class Res(resource.Resource):
-            isLeaf = True
-
-            def _send(self, request, code, obj):
-                request.setResponseCode(code)
-                request.setHeader(b"Content-Type", b"application/json; charset=utf-8")
-                request.setHeader(b"Access-Control-Allow-Origin", b"*")
-                request.setHeader(b"Access-Control-Allow-Methods", b"GET, POST, OPTIONS")
-                request.setHeader(b"Access-Control-Allow-Headers", b"Content-Type")
-                return json.dumps(obj).encode("utf-8")
-
-            def render_OPTIONS(self, request):
-                return self._send(request, 204, {})
-
-            def render_GET(self, request):
-                path = request.path.decode() if isinstance(request.path, bytes) else request.path
-                if path == "/portiva/hello":
-                    return self._send(request, 200, hello())
-                return self._send(request, 404, {"ok": False})
-
-            def render_POST(self, request):
-                path = request.path.decode() if isinstance(request.path, bytes) else request.path
-                try:
-                    body = json.loads(request.content.read().decode("utf-8") or "{}")
-                except Exception:
-                    return self._send(request, 400, {"ok": False})
-                if path == "/portiva/play":
-                    return self._send(request, 200 if on_play(body) else 409, {"ok": True})
-                if path == "/portiva/pair":
-                    ok = on_pair(body)
-                    return self._send(request, 200 if ok else 403, {"ok": ok} if ok else {"ok": False, "error": "Code passt nicht"})
-                return self._send(request, 404, {"ok": False})
-
-        for p in range(LINK_PORT, LINK_PORT + 6):
-            if p == UDP_PORT:
-                continue
-            try:
-                reactor.listenTCP(p, server.Site(Res()))
-                _state["port"] = p
-                break
-            except Exception:
-                continue
-
-        from twisted.internet import protocol
-
-        class Disc(protocol.DatagramProtocol):
-            def datagramReceived(self, data, addr):
-                if data.strip() == DISCOVER and _state["port"]:
-                    self.transport.write(json.dumps(hello()).encode("utf-8"), addr)
+        port_ = _start_twisted()
+    except Exception as e:
+        _state["error"] = "twisted-web: %s" % e
+    if not port_:
         try:
-            reactor.listenUDP(UDP_PORT, Disc())
-        except Exception:
-            pass
-    except Exception:
-        pass
+            port_ = _start_plain()
+        except Exception as e:
+            _state["error"] = "HTTP: %s" % e
+    _state["port"] = port_
+    _start_udp()
+
+
+def status_text():
+    """Kurzer Hinweis fuer die Oberflaeche: unter welcher Adresse der Receiver erreichbar ist."""
+    if not _state["started"]:
+        return "Portiva Link: nicht gestartet"
+    if not _state["port"]:
+        return "Portiva Link: Empfang nicht möglich (Port %d belegt)" % LINK_PORT
+    ip = local_ip() or "kein Netzwerk"
+    return "Portiva Link: %s%s" % (ip, "" if _state["port"] == LINK_PORT else ":%d" % _state["port"])
 
 
 def on_play(p):

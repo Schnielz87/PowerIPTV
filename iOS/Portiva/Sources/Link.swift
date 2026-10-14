@@ -191,7 +191,36 @@ final class LinkService: ObservableObject {
     // ---------- Senden ----------
 
     /** Portiva-Geraete im eigenen /24-Netz suchen. */
+    /** Per IP-Adresse eingetragene Geraete (z.B. Enigma2-Receiver am LAN-Kabel in anderem Netzbereich). */
+    static var savedHosts: [String] {
+        get { UserDefaults.standard.stringArray(forKey: "linkHosts") ?? [] }
+        set { UserDefaults.standard.set(Array(newValue.prefix(6)), forKey: "linkHosts") }
+    }
+
+    /** Geraet unter "IP" oder "IP:Port" pruefen. */
+    nonisolated static func probe(_ address: String) async -> LinkDevice? {
+        let a = address.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "http://", with: "")
+        let parts = a.split(separator: ":")
+        guard let first = parts.first else { return nil }
+        let host = String(first)
+        let port = parts.count > 1 ? (Int(parts[1]) ?? Int(linkPort)) : Int(linkPort)
+        guard let url = URL(string: "http://\(host):\(port)/portiva/hello") else { return nil }
+        var r = URLRequest(url: url); r.timeoutInterval = 3
+        guard let res = try? await URLSession.shared.data(for: r), (res.1 as? HTTPURLResponse)?.statusCode == 200,
+              let h = try? JSONDecoder().decode(LinkHello.self, from: res.0), h.app == "portiva" else { return nil }
+        return LinkDevice(name: h.name, platform: h.platform, host: host, port: h.port > 0 ? h.port : port)
+    }
+
     nonisolated static func discover() async -> [LinkDevice] {
+        let saved = await MainActor.run { savedHosts }
+        var manual: [LinkDevice] = []
+        for a in saved { if let d = await probe(a) { manual.append(d) } }
+        let scanned = await scan()
+        let extra = manual.filter { m in !scanned.contains { $0.host == m.host } }
+        return (scanned + extra).sorted { $0.name.lowercased() < $1.name.lowercased() }
+    }
+
+    nonisolated static func scan() async -> [LinkDevice] {
         guard let own = LinkCodes.localIPv4() else { return [] }
         let prefix = own.split(separator: ".").dropLast().joined(separator: ".")
         let config = URLSessionConfiguration.ephemeral

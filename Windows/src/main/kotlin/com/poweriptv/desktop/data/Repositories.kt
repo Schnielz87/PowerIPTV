@@ -48,6 +48,8 @@ data class DesktopSettings(
     val stableMode: String = "AUTO",
     /** Zeitpunkt des zuletzt erkannten Stockens (fuer den automatischen Stabil-Modus). */
     val stutterAt: Long = 0L,
+    /** Per IP-Adresse eingetragene Portiva-Geraete (z.B. Enigma2-Receiver in anderem Netzbereich). */
+    val linkHosts: List<String> = emptyList(),
     /** Bildschaerfe: OFF / LIGHT / STRONG. */
     val sharpen: String = "OFF",
     val autoNextEpisode: Boolean = true,

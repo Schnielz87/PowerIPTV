@@ -316,10 +316,12 @@ object LinkClient {
     private val json = LinkCodes.json
 
     /** Andere Portiva-Geraete im Heimnetz (UDP-Rundruf + Suche im eigenen /24-Netz). */
-    fun discover(ownPort: Int = 0, timeoutMs: Int = 1800): List<LinkDevice> {
+    fun discover(ownPort: Int = 0, timeoutMs: Int = 1800, extraHosts: List<String> = emptyList()): List<LinkDevice> {
         val found = ConcurrentHashMap<String, LinkDevice>()
         val self = LinkCodes.localIpv4()
         val pool = Executors.newFixedThreadPool(48)
+        // 0) Per IP-Adresse eingetragene Geraete (auch in anderem Netzbereich, z.B. Receiver am LAN-Kabel)
+        extraHosts.forEach { e -> pool.execute { probe(e)?.let { d -> found.putIfAbsent(d.host, d) } } }
         // 1) UDP-Rundruf
         pool.execute {
             runCatching {
@@ -355,6 +357,16 @@ object LinkClient {
         pool.awaitTermination(timeoutMs + 4000L, TimeUnit.MILLISECONDS)
         pool.shutdownNow()
         return found.values.filter { it.port > 0 }.sortedBy { it.name.lowercase() }
+    }
+
+    /** Geraet unter "IP" oder "IP:Port" pruefen. */
+    fun probe(address: String, timeoutMs: Int = 2500): LinkDevice? {
+        val a = address.trim().removePrefix("http://").trimEnd('/')
+        val host = a.substringBefore(':').trim()
+        if (host.isEmpty()) return null
+        val port = a.substringAfter(':', "").toIntOrNull() ?: LINK_PORT
+        val h = hello(host, port, timeoutMs) ?: return null
+        return LinkDevice(h.name, h.platform, host, if (h.port > 0) h.port else port)
     }
 
     fun hello(host: String, port: Int, timeoutMs: Int = 1500): LinkHello? = runCatching {

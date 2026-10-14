@@ -63,9 +63,10 @@ fun SendToDeviceDialog(
     var status by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var round by remember { mutableIntStateOf(0) }
+    var manualIp by remember { mutableStateOf("") }
     LaunchedEffect(round) {
         devices = null
-        devices = withContext(Dispatchers.IO) { LinkClient.discover(container.link.port) }
+        devices = withContext(Dispatchers.IO) { LinkClient.discover(container.link.port, extraHosts = container.settings.linkHosts()) }
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -79,7 +80,7 @@ fun SendToDeviceDialog(
                         Spacer(Modifier.width(10.dp))
                         Text("Suche Portiva-Geräte im Heimnetz …")
                     }
-                    list.isEmpty() -> Text("Kein Gerät gefunden. Portiva muss auf dem anderen Gerät geöffnet sein (TV-Stick, Tablet, Windows-PC) und im selben WLAN hängen.")
+                    list.isEmpty() -> Text("Kein Gerät gefunden. Portiva muss auf dem anderen Gerät laufen (TV-Stick, Tablet, Windows-PC, Enigma2-Receiver) und im selben Heimnetz hängen – egal ob per WLAN oder LAN-Kabel am Router. Wird es trotzdem nicht gefunden: unten die IP-Adresse eingeben (steht beim Receiver unten auf der Portiva-Startseite).")
                     else -> list.forEach { d ->
                         Row(
                             Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tvFocus(RoundedCornerShape(12.dp), 1.03f)
@@ -97,11 +98,37 @@ fun SendToDeviceDialog(
                                 .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(when { d.platform.contains("tv") -> Icons.Filled.Tv; d.platform == "windows" -> Icons.Filled.Computer; else -> Icons.Filled.PhoneAndroid }, null)
+                            Icon(when { d.platform.contains("tv") || d.platform == "enigma2" -> Icons.Filled.Tv; d.platform == "windows" -> Icons.Filled.Computer; else -> Icons.Filled.PhoneAndroid }, null)
                             Spacer(Modifier.width(12.dp))
                             Text(d.name)
                         }
                     }
+                }
+                // Geraet per IP-Adresse (falls die automatische Suche es nicht findet, z.B. anderer Netzbereich)
+                if (list != null) Row(verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = manualIp,
+                        onValueChange = { manualIp = it.filter { c -> c.isDigit() || c == '.' || c == ':' } },
+                        placeholder = { Text("IP, z.B. 192.168.178.40") },
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri),
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(enabled = manualIp.isNotBlank() && !busy, onClick = {
+                        busy = true
+                        status = "Verbinde mit $manualIp …"
+                        scope.launch {
+                            val d = withContext(Dispatchers.IO) { LinkClient.probe(manualIp) }
+                            busy = false
+                            if (d == null) status = "Unter $manualIp antwortet kein Portiva-Gerät. Ist Portiva dort installiert und das Gerät eingeschaltet?"
+                            else {
+                                container.settings.addLinkHost(manualIp.trim())
+                                devices = (devices.orEmpty().filter { it.host != d.host } + d)
+                                status = "„${d.name}“ gefunden – antippen zum Senden"
+                                manualIp = ""
+                            }
+                        }
+                    }) { Text("Verbinden") }
                 }
                 status?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
                 Text(

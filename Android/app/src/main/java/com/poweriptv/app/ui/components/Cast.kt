@@ -132,7 +132,7 @@ private fun CastDialog(
     androidx.compose.runtime.LaunchedEffect(linkRound) {
         if (!canLink) return@LaunchedEffect
         linkDevices = null
-        linkDevices = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.poweriptv.app.link.LinkClient.discover(container.link.port) }
+        linkDevices = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.poweriptv.app.link.LinkClient.discover(container.link.port, extraHosts = container.settings.linkHosts()) }
     }
 
     AlertDialog(
@@ -206,7 +206,7 @@ private fun CastDialog(
                                 Text("Suche Portiva-Geräte …", style = MaterialTheme.typography.bodySmall)
                             }
                             ld.isEmpty() -> Text(
-                                "Keins gefunden – Portiva muss auf dem anderen Gerät geöffnet sein (gleiches WLAN, ab Version 1.1.82).",
+                                "Keins gefunden – Portiva muss auf dem anderen Gerät laufen (gleiches Heimnetz, WLAN oder LAN-Kabel). Sonst im Player über „An Gerät senden“ die IP-Adresse eingeben.",
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             else -> ld.forEach { d ->

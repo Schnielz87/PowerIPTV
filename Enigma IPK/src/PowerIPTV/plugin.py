@@ -4,6 +4,11 @@ from Plugins.Plugin import PluginDescriptor
 
 
 def main(session, **kwargs):
+    try:
+        from . import link
+        link.start(session)  # falls Enigma2 seit der Installation nicht neu gestartet wurde
+    except Exception:
+        pass
     from .ui import PortivaHome
     session.open(PortivaHome)
 

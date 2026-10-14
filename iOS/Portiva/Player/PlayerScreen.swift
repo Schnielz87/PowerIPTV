@@ -552,12 +552,13 @@ struct SendToDeviceSheet: View {
     let onSent: (String) -> Void
     @State private var devices: [LinkDevice]?
     @State private var status: String?
+    @State private var manualIp = ""
 
     var body: some View {
         NavigationStack {
             List {
                 if let d = devices {
-                    if d.isEmpty { Text("Kein Gerät gefunden. Portiva muss auf dem anderen Gerät geöffnet sein (gleiches WLAN).").foregroundColor(.secondary) }
+                    if d.isEmpty { Text("Kein Gerät gefunden. Portiva muss auf dem anderen Gerät laufen (gleiches Heimnetz – WLAN oder LAN-Kabel am Router). Sonst unten die IP-Adresse eingeben (steht beim Enigma2-Receiver unten auf der Portiva-Startseite).").foregroundColor(.secondary) }
                     ForEach(d) { dev in
                         Button {
                             status = "Sende an \(dev.name) …"
@@ -565,7 +566,23 @@ struct SendToDeviceSheet: View {
                                 let err = await app.link.sendPlay(dev, entry, position: position, duration: duration)
                                 if let err { status = err } else { onSent(dev.name) }
                             }
-                        } label: { Label(dev.name, systemImage: dev.platform.contains("tv") ? "tv" : dev.platform == "windows" ? "desktopcomputer" : "iphone") }
+                        } label: { Label(dev.name, systemImage: dev.platform.contains("tv") || dev.platform == "enigma2" ? "tv" : dev.platform == "windows" ? "desktopcomputer" : "iphone") }
+                    }
+                    Section("Gerät per IP-Adresse") {
+                        HStack {
+                            TextField("z.B. 192.168.178.40", text: $manualIp).keyboardType(.decimalPad)
+                            Button("Verbinden") {
+                                let ip = manualIp.trimmingCharacters(in: .whitespaces)
+                                status = "Verbinde mit \(ip) …"
+                                Task {
+                                    if let dev = await LinkService.probe(ip) {
+                                        LinkService.savedHosts = [ip] + LinkService.savedHosts.filter { $0 != ip }
+                                        devices = (devices ?? []).filter { $0.host != dev.host } + [dev]
+                                        status = "„\(dev.name)“ gefunden – antippen zum Senden"; manualIp = ""
+                                    } else { status = "Unter \(ip) antwortet kein Portiva-Gerät" }
+                                }
+                            }.disabled(manualIp.trimmingCharacters(in: .whitespaces).isEmpty)
+                        }
                     }
                 } else { HStack { ProgressView(); Text("Suche Portiva-Geräte im Heimnetz …") } }
                 if let status { Text(status).foregroundColor(.accentColor) }

@@ -3,7 +3,8 @@ import { isVega } from '../vega';
 import { h, toast } from '../util';
 import { dialog, choose, go, activateProfile } from '../app';
 import { profiles } from '../store';
-import { accountQr, pairQr, newCode, qrImage, localIp, discover, fetchOffer, fromAccount, sendPlay } from '../link';
+import { accountQr, pairQr, newCode, qrImage, localIp, discover, fetchOffer, fromAccount, sendPlay, probe, saveHost } from '../link';
+import { field } from './common';
 
 /** Grosser QR-Code eines Zugangs (Handy/Tablet scannt ihn unter „Neuer Zugang → QR-Code scannen“). */
 export function showAccountQr(p) {
@@ -70,12 +71,32 @@ export async function receiveAccount() {
 export async function sendToDevice(play, onSent) {
   toast('Suche Portiva-Geräte im Heimnetz …', 6000);
   const list = await discover();
-  if (!list.length) { toast('Kein Gerät gefunden – Portiva dort öffnen (gleiches WLAN)'); return; }
-  choose('An Gerät senden', list.map((d) => ({
-    label: d.name,
-    onSelect: async () => {
-      const err = await sendPlay(d, Object.assign({ from: isVega() ? 'Fire TV' : 'Samsung TV' }, play));
-      if (err) toast(err); else { toast(`Läuft jetzt auf „${d.name}“`); onSent(d.name); }
-    },
-  })));
+  if (!list.length) toast('Kein Gerät gefunden – Portiva dort öffnen (gleiches Heimnetz, WLAN oder LAN-Kabel) oder IP-Adresse eingeben', 5000);
+  const send = async (d) => {
+    const err = await sendPlay(d, Object.assign({ from: isVega() ? 'Fire TV' : 'Samsung TV' }, play));
+    if (err) toast(err); else { toast(`Läuft jetzt auf „${d.name}“`); onSent(d.name); }
+  };
+  choose('An Gerät senden', list.map((d) => ({ label: d.name, onSelect: () => send(d) })).concat([{
+    label: '＋ Gerät per IP-Adresse …',
+    onSelect: () => askIp(async (ip) => {
+      toast(`Verbinde mit ${ip} …`);
+      const d = await probe(ip);
+      if (!d) { toast(`Unter ${ip} antwortet kein Portiva-Gerät`); return; }
+      saveHost(ip);
+      send(d);
+    }),
+  }]));
+}
+
+/** IP-Adresse eingeben (steht beim Enigma2-Receiver unten auf der Portiva-Startseite). */
+function askIp(onOk) {
+  const f = field('IP-Adresse des Geräts', '', { placeholder: 'z.B. 192.168.178.40' });
+  const close = dialog({
+    title: 'Gerät per IP-Adresse',
+    content: f.el,
+    buttons: [{ label: 'Verbinden', primary: true, onClick: () => {} }, { label: 'Abbrechen' }],
+  });
+  const okBtn = f.el.parentNode.parentNode.querySelector('.btn.primary');
+  okBtn._onEnter = () => { const v = f.input.value.trim(); if (!v) return; close(); onOk(v); };
+  f.input._onDone = () => okBtn._onEnter();
 }
