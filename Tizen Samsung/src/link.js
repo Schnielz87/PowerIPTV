@@ -143,6 +143,15 @@ export async function fetchOffer(devices, code) {
 }
 
 /** Wiedergabe an ein Geraet senden. Liefert null bei Erfolg, sonst Fehlertext. */
+/** Zugang an einen Receiver/anderes Geraet schicken (dort "Zugang vom Handy empfangen" mit IP + Code). */
+export async function sendPair(host, port, code, account, from) {
+  const r = await xhr('POST', `http://${host}:${port}/portiva/pair`, { code, account, from }, 8000);
+  if (!r) return 'Gerät nicht erreichbar – IP-Adresse richtig? Gleiches Heimnetz?';
+  if (r.status >= 200 && r.status < 300) return null;
+  if (r.status === 403) return 'Der Code passt nicht – bitte am Receiver neu anzeigen lassen';
+  return `Fehler ${r.status}`;
+}
+
 export async function sendPlay(d, play) {
   const r = await xhr('POST', `http://${d.host}:${d.port}/portiva/play`, play, 8000);
   if (!r) return 'Gerät nicht erreichbar';

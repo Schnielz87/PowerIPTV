@@ -94,13 +94,26 @@ struct ScanSheet: View {
     }
 }
 
-/** Grosser QR-Code eines Zugangs + "An TV-Stick / Fernseher senden". */
+/** Grosser QR-Code eines Zugangs + "Auf Receiver / TV uebertragen" (QR scannen oder IP + Code eingeben). */
 struct AccountQRSheet: View {
     @EnvironmentObject var app: AppState
     @Environment(\.dismiss) private var dismiss
     let profile: Profile
     @State private var scanning = false
     @State private var status: String?
+    @State private var showCode = false
+    @State private var codeIp = ""
+    @State private var codeNum = ""
+
+    private func transfer(_ target: LinkCodes.PairTarget) {
+        status = "Wird übertragen …"
+        if target.port == 0 { app.link.onOfferTaken = { a in status = "✓ „\(a.name)“ wurde auf den Fernseher übertragen" } }
+        Task {
+            let err = await app.link.sendAccount(target, profile)
+            if target.port > 0 { status = err ?? "✓ „\(profile.name)“ wurde übertragen" }
+            else if err == nil { status = "Der Fernseher holt den Zugang jetzt ab … Portiva hier geöffnet lassen." }
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -109,9 +122,24 @@ struct AccountQRSheet: View {
                     QRCodeImage(text: LinkCodes.accountQr(profile)).frame(maxWidth: 300)
                     Text("Auf dem anderen Handy/Tablet: Benutzer wechseln → Neuer Zugang → „QR-Code scannen“. Nur dir selbst zeigen – der Code enthält die Zugangsdaten.")
                         .font(.footnote).foregroundColor(.secondary).multilineTextAlignment(.center)
-                    Button { scanning = true } label: { Label("An TV-Stick / Fernseher senden", systemImage: "tv") .frame(maxWidth: .infinity) }
+                    Button { scanning = true } label: { Label("Auf Receiver / TV übertragen (QR scannen)", systemImage: "tv") .frame(maxWidth: .infinity) }
                         .buttonStyle(.borderedProminent)
-                    Text("Am TV: Benutzer wechseln → Neuer Zugang → „Vom anderen Gerät empfangen“ und den dort gezeigten Code hier scannen.")
+                    Button { showCode.toggle() } label: { Text(showCode ? "Code-Eingabe ausblenden" : "Code eingeben (IP-Adresse + Code)").frame(maxWidth: .infinity) }
+                        .buttonStyle(.bordered)
+                    if showCode {
+                        TextField("IP-Adresse, z.B. 192.168.178.40", text: $codeIp).keyboardType(.decimalPad).textFieldStyle(.roundedBorder)
+                        TextField("Code (6 Ziffern)", text: $codeNum).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
+                        Button("Zugang übertragen") {
+                            let a = codeIp.trimmingCharacters(in: .whitespaces)
+                            let parts = a.split(separator: ":")
+                            let host = parts.first.map(String.init) ?? a
+                            let port = parts.count > 1 ? (Int(parts[1]) ?? Int(linkPort)) : Int(linkPort)
+                            transfer(LinkCodes.PairTarget(host: host, port: port, code: codeNum.trimmingCharacters(in: .whitespaces)))
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(codeIp.trimmingCharacters(in: .whitespaces).isEmpty || codeNum.trimmingCharacters(in: .whitespaces).count != 6)
+                    }
+                    Text("Am Receiver (Enigma2): PowerIPTV → Benutzer wechseln → „Zugang vom Handy empfangen“. Am TV-Stick/Fernseher: Benutzer wechseln → Neuer Zugang → „Vom anderen Gerät empfangen“. Dann den dort gezeigten QR-Code scannen oder IP-Adresse und Code eingeben.")
                         .font(.footnote).foregroundColor(.secondary).multilineTextAlignment(.center)
                     if let status { Text(status).foregroundColor(status.hasPrefix("✓") ? Brand.cyan : .white) }
                 }.padding(20)
@@ -121,14 +149,8 @@ struct AccountQRSheet: View {
             .sheet(isPresented: $scanning) {
                 ScanSheet { text in
                     scanning = false
-                    guard let target = LinkCodes.parsePair(text) else { status = "Das ist kein Empfangs-Code."; return }
-                    status = "Wird übertragen …"
-                    if target.port == 0 { app.link.onOfferTaken = { a in status = "✓ „\(a.name)“ wurde auf den Fernseher übertragen" } }
-                    Task {
-                        let err = await app.link.sendAccount(target, profile)
-                        if target.port > 0 { status = err ?? "✓ „\(profile.name)“ wurde übertragen" }
-                        else if err == nil { status = "Der Fernseher holt den Zugang jetzt ab … Portiva hier geöffnet lassen." }
-                    }
+                    guard let target = LinkCodes.parsePair(text) else { status = "Das ist kein Empfangs-Code. Am Receiver: PowerIPTV → Benutzer wechseln → „Zugang vom Handy empfangen“."; return }
+                    transfer(target)
                 }
             }
         }

@@ -98,10 +98,10 @@ fun AccountQrDialog(container: AppContainer, profile: Profile, onDismiss: () -> 
     var status by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     DisposableEffect(Unit) { onDispose { container.link.onOfferTaken = null } }
-    val scan = rememberQrScanner { text ->
-        if (text == null) return@rememberQrScanner
-        val target = LinkCodes.parsePairQr(text)
-        if (target == null) { status = "Das ist kein Empfangs-Code. Am TV: Benutzer wechseln → Neuer Zugang → „Vom anderen Gerät empfangen“."; return@rememberQrScanner }
+    var showCode by remember { mutableStateOf(false) }
+    var codeIp by remember { mutableStateOf("") }
+    var codeNum by remember { mutableStateOf("") }
+    fun transfer(target: LinkCodes.PairTarget) {
         busy = true
         status = "Wird übertragen …"
         scope.launch {
@@ -117,6 +117,12 @@ fun AccountQrDialog(container: AppContainer, profile: Profile, onDismiss: () -> 
             }
         }
     }
+    val scan = rememberQrScanner { text ->
+        if (text == null) return@rememberQrScanner
+        val target = LinkCodes.parsePairQr(text)
+        if (target == null) { status = "Das ist kein Empfangs-Code. Am Receiver: PowerIPTV → Benutzer wechseln → „Zugang vom Handy empfangen“."; return@rememberQrScanner }
+        transfer(target)
+    }
     QrDialog(
         title = profile.name,
         text = LinkCodes.accountQr(account),
@@ -129,13 +135,42 @@ fun AccountQrDialog(container: AppContainer, profile: Profile, onDismiss: () -> 
             Button(onClick = scan, enabled = !busy, modifier = Modifier.fillMaxWidth().tvFocus(RoundedCornerShape(50))) {
                 Icon(Icons.Filled.Tv, null)
                 Spacer(Modifier.width(8.dp))
-                Text("An TV-Stick / Fernseher senden")
+                Text("Auf Receiver / TV übertragen (QR scannen)")
             }
-            Text(
-                "Am TV: Benutzer wechseln → Neuer Zugang → „Vom anderen Gerät empfangen“, dann den dort gezeigten Code hier scannen.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
+        // Ohne Kamera (TV-Stick) oder wenn das Scannen nicht klappt: IP-Adresse + Code abtippen
+        androidx.compose.material3.OutlinedButton(onClick = { showCode = !showCode }, enabled = !busy, modifier = Modifier.fillMaxWidth().tvFocus(RoundedCornerShape(50))) {
+            Text(if (showCode) "Code-Eingabe ausblenden" else "Code eingeben (IP-Adresse + Code)")
+        }
+        if (showCode) {
+            androidx.compose.material3.OutlinedTextField(
+                value = codeIp, onValueChange = { codeIp = it.filter { c -> c.isDigit() || c == '.' || c == ':' } },
+                label = { Text("IP-Adresse des Receivers") }, placeholder = { Text("z.B. 192.168.178.40") }, singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            androidx.compose.material3.OutlinedTextField(
+                value = codeNum, onValueChange = { codeNum = it.filter(Char::isDigit).take(6) },
+                label = { Text("Code (6 Ziffern)") }, singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Button(
+                enabled = !busy && codeIp.isNotBlank() && codeNum.length == 6,
+                onClick = {
+                    val host = codeIp.substringBefore(':').trim()
+                    val port = codeIp.substringAfter(':', "").toIntOrNull() ?: com.poweriptv.app.link.LINK_PORT
+                    transfer(LinkCodes.PairTarget(host, port, codeNum))
+                },
+                modifier = Modifier.fillMaxWidth().tvFocus(RoundedCornerShape(50)),
+            ) { Text("Zugang übertragen") }
+        }
+        Text(
+            "Am Receiver (Enigma2): PowerIPTV → Benutzer wechseln → „Zugang vom Handy empfangen“. " +
+                "Am TV-Stick/Fernseher: Benutzer wechseln → Neuer Zugang → „Vom anderen Gerät empfangen“. " +
+                "Dann den dort gezeigten QR-Code scannen oder IP-Adresse und Code eingeben.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         status?.let {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (busy) { CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)) }

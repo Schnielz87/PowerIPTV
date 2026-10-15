@@ -162,7 +162,7 @@ fun ProfilesScreen(app: AppState) {
             hint = "Am Handy/Tablet in Portiva: Benutzer wechseln → Neuer Zugang → „QR-Code scannen“. Nur dir selbst zeigen – der Code enthält die Zugangsdaten.",
             onDismiss = { qrFor = null },
             closeModifier = Modifier.handCursor(),
-        )
+        ) { SendToReceiverByCode(app, p) }
     }
     if (receiving) ReceiveAccountDialog(app, onDismiss = { receiving = false }) { p ->
         receiving = false; adding = false
@@ -335,3 +335,44 @@ private fun pickFile(): File? {
     return File(dialog.directory, f)
 }
 
+
+
+/**
+ * Zugang auf einen Receiver (Enigma2) bzw. ein anderes Portiva-Geraet uebertragen, ohne Kamera:
+ * dort "Zugang vom Handy empfangen" oeffnen und die angezeigte IP-Adresse + den Code hier eintragen.
+ */
+@Composable
+private fun SendToReceiverByCode(app: AppState, p: com.poweriptv.app.data.Profile) {
+    var open by remember { mutableStateOf(false) }
+    var ip by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
+    var status by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    OutlinedButton(onClick = { open = !open }, modifier = Modifier.handCursor()) {
+        Text(if (open) "Code-Eingabe ausblenden" else "Auf Receiver / TV übertragen (Code eingeben)")
+    }
+    if (open) {
+        Text(
+            "Am Receiver: PowerIPTV → Benutzer wechseln → „Zugang vom Handy empfangen“. Die dort angezeigte IP-Adresse und den Code eintragen.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedTextField(ip, { ip = it.filter { c -> c.isDigit() || c == '.' || c == ':' } }, label = { Text("IP-Adresse") },
+            placeholder = { Text("z.B. 192.168.178.40") }, singleLine = true)
+        OutlinedTextField(code, { code = it.filter(Char::isDigit).take(6) }, label = { Text("Code (6 Ziffern)") }, singleLine = true)
+        Button(enabled = !busy && ip.isNotBlank() && code.length == 6, modifier = Modifier.handCursor(), onClick = {
+            busy = true; status = "Wird übertragen …"
+            val host = ip.substringBefore(':').trim()
+            val port = ip.substringAfter(':', "").toIntOrNull() ?: com.poweriptv.app.link.LINK_PORT
+            scope.launch {
+                val err = withContext(Dispatchers.IO) {
+                    com.poweriptv.app.link.LinkClient.sendPair(host, port,
+                        com.poweriptv.app.link.LinkPair(code, com.poweriptv.app.link.LinkCodes.toAccount(p), app.deviceName()))
+                }
+                busy = false
+                status = err ?: "✓ „${p.name}“ wurde übertragen"
+            }
+        }) { Text("Zugang übertragen") }
+    }
+    status?.let { Text(it) }
+}

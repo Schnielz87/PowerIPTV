@@ -3,7 +3,7 @@ import { isVega } from '../vega';
 import { h, toast } from '../util';
 import { dialog, choose, go, activateProfile } from '../app';
 import { profiles } from '../store';
-import { accountQr, pairQr, newCode, qrImage, localIp, discover, fetchOffer, fromAccount, sendPlay, probe, saveHost } from '../link';
+import { accountQr, pairQr, newCode, qrImage, localIp, discover, fetchOffer, fromAccount, sendPlay, probe, saveHost, sendPair, toAccount } from '../link';
 import { field } from './common';
 
 /** Grosser QR-Code eines Zugangs (Handy/Tablet scannt ihn unter „Neuer Zugang → QR-Code scannen“). */
@@ -14,8 +14,34 @@ export function showAccountQr(p) {
       h('img', { src: qrImage(accountQr(p), 9), style: { width: '460px', height: '460px', borderRadius: '16px', imageRendering: 'pixelated' } }),
       h('p.dialog-text.small', { style: { marginTop: '18px' } },
         'Am Handy/Tablet in Portiva: Benutzer wechseln → Neuer Zugang → „QR-Code scannen“.\nNur dir selbst zeigen – der Code enthält die Zugangsdaten.')),
-    buttons: [{ label: '✕ Schließen', primary: true }],
+    buttons: [{ label: '✕ Schließen', primary: true }, { label: 'Auf Receiver übertragen (Code eingeben)', onClick: () => sendToReceiver(p) }],
   });
+}
+
+/** Zugang auf einen Enigma2-Receiver uebertragen: dort "Zugang vom Handy empfangen" oeffnen, IP-Adresse + Code eintragen. */
+function sendToReceiver(p) {
+  const ipF = field('IP-Adresse des Receivers', '', { placeholder: 'z.B. 192.168.178.40' });
+  const codeF = field('Code (6 Ziffern)', '', { placeholder: '123456' });
+  const msg = h('p.dialog-error', null, '');
+  const close = dialog({
+    title: `„${p.name}“ auf Receiver übertragen`,
+    text: 'Am Receiver: PowerIPTV → Benutzer wechseln → „Zugang vom Handy empfangen“. Die dort angezeigte IP-Adresse und den Code eintragen.',
+    content: h('div', null, ipF.el, codeF.el, msg),
+    buttons: [{ label: 'Übertragen', primary: true, onClick: () => {} }, { label: 'Abbrechen' }],
+  });
+  const okBtn = ipF.el.parentNode.parentNode.querySelector('.btn.primary');
+  okBtn._onEnter = async () => {
+    const a = ipF.input.value.trim();
+    const code = codeF.input.value.replace(/\D/g, '');
+    if (!a || code.length !== 6) { msg.textContent = 'Bitte IP-Adresse und 6-stelligen Code eingeben'; return; }
+    msg.textContent = 'Wird übertragen …';
+    const host = a.split(':')[0];
+    const port = parseInt(a.split(':')[1], 10) || 47800;
+    const err = await sendPair(host, port, code, toAccount(p), isVega() ? 'Fire TV' : 'Samsung TV');
+    if (err) { msg.textContent = err; return; }
+    close();
+    toast(`✓ „${p.name}“ wurde auf den Receiver übertragen`);
+  };
 }
 
 /** Zugang vom Handy empfangen: Fernseher zeigt Code, Handy scannt und stellt den Zugang bereit, der Fernseher holt ihn ab. */

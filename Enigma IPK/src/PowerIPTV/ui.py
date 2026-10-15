@@ -35,6 +35,7 @@ except Exception:
     pass
 
 FAV, RECENT, ALL = "__fav__", "__recent__", "__all__"
+RECEIVE = "__receive__"  # Zeile "Zugang vom Handy empfangen" in der Benutzer-Liste
 LIST = "__list__:"  # eigene Liste (Praefix + Listen-ID)
 TITLES = {"live": "Live TV", "movie": "Filme", "series": "Serien", "episode": "Folgen"}
 
@@ -999,8 +1000,8 @@ class AddChooser(Base):
         Base.__init__(self, session, "PortivaAdd", "Zugang hinzufügen", info=True)
         self["list"] = PList([("Vom Handy empfangen (QR-Code scannen)", "receive"), ("Manuell eingeben (Xtream Codes / M3U)", "manual")])
         self["info"].setText("Am schnellsten: Auf dem Handy in Portiva unter „Benutzer wechseln“ beim Zugang auf das QR-Symbol tippen → "
-                             "„An TV-Stick / Fernseher senden“ und den Code scannen, der hier gleich erscheint.\n\n"
-                             "Handy und Receiver müssen im selben Heimnetz sein.")
+                             "„Auf Receiver / TV übertragen“ und den Code scannen, der hier gleich erscheint.\n\n"
+                             "Handy und Receiver müssen im selben Heimnetz sein (WLAN oder LAN-Kabel).")
         self["actions"] = ActionMap(["OkCancelActions"], {"ok": self.ok, "cancel": self.close}, -1)
 
     def ok(self):
@@ -1028,24 +1029,37 @@ class ProfilesScreen(Base):
         self["actions"] = ActionMap(["OkCancelActions", "ColorActions"], {
             "ok": self.activate, "cancel": self.close, "red": self.delete, "green": self.add, "yellow": self.edit_current, "blue": self.qr,
         }, -1)
-        self["info"].setText("OK = diesen Zugang benutzen\n\nGRÜN = neuer Zugang (manuell oder vom Handy)\n\n"
+        self["info"].setText("OK = diesen Zugang benutzen\n\n„Zugang vom Handy empfangen“ (oben) = QR-Code anzeigen, am Handy scannen – "
+                             "der Receiver übernimmt die Zugangsdaten automatisch\n\nGRÜN = neuer Zugang (manuell oder vom Handy)\n\n"
                              "BLAU = Zugang als QR-Code für Handy/Tablet anzeigen (nur dir selbst zeigen – enthält die Zugangsdaten)")
         self.onShown.append(self.reload)
 
     def reload(self):
         d = store.profiles()
-        self["list"].setList([(("► " if p.get("id") == d.get("active") else "    ") + p.get("name", "Zugang") +
-                               ("   (M3U)" if p.get("type") == "m3u" else "   (Xtream · %s)" % p.get("username", "")), p["id"]) for p in d["list"]])
+        rows = [("+  Zugang vom Handy empfangen (QR-Code scannen)", RECEIVE)]
+        rows += [(("► " if p.get("id") == d.get("active") else "    ") + p.get("name", "Zugang") +
+                  ("   (M3U)" if p.get("type") == "m3u" else "   (Xtream · %s)" % p.get("username", "")), p["id"]) for p in d["list"]]
+        self["list"].setList(rows)
 
     def current_profile(self):
         cur = self["list"].getCurrent()
         return next((p for p in store.profiles()["list"] if cur and p.get("id") == cur[1]), None)
 
     def activate(self):
+        cur = self["list"].getCurrent()
+        if cur and cur[1] == RECEIVE:
+            self.session.openWithCallback(self.received, ReceiveScreen)
+            return
         p = self.current_profile()
         if p:
             store.activate(p["id"])
             self.close(True)
+
+    def received(self, ok=None):
+        if ok:
+            self.close(True)  # neuer Zugang ist aktiv -> Startseite laedt ihn
+        else:
+            self.reload()
 
     def add(self):
         self.session.openWithCallback(lambda *a: self.reload(), AddChooser)
@@ -1116,10 +1130,15 @@ class ReceiveScreen(QrScreen):
     def __init__(self, session):
         from . import link
         self.code = link.new_code()
+        ip = link.local_ip() or "kein Netzwerk"
+        port = link.port() or link.LINK_PORT
+        addr = ip if port == link.LINK_PORT else "%s:%d" % (ip, port)
         QrScreen.__init__(self, session, "Zugang vom Handy empfangen", link.pair_qr(self.code),
                           "Auf dem Handy in Portiva:\n1. Benutzer wechseln\n2. beim gewünschten Zugang auf das QR-Symbol tippen\n"
-                          "3. „An TV-Stick / Fernseher senden“\n4. diesen Code scannen\n\nHandy und Receiver im selben Heimnetz.")
-        self["status"].setText("Warte auf Zugang …   Code %s   ·   %s" % (self.code, link.local_ip() or "kein Netzwerk"))
+                          "3. „Auf Receiver / TV übertragen“\n4. diesen QR-Code scannen\n\n"
+                          "Ohne Kamera (PC, TV-Stick): „Code eingeben“ wählen und eintragen:\n"
+                          "IP-Adresse:  %s\nCode:  %s\n\nHandy und Receiver im selben Heimnetz (WLAN oder LAN-Kabel)." % (addr, self.code))
+        self["status"].setText("Warte auf Zugang …   Code %s   ·   IP %s" % (self.code, addr))
         link.set_pairing(self.code, self.received)
         self.onClose.append(lambda: link.set_pairing(None, None))
         if not link.port():

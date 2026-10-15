@@ -64,6 +64,15 @@ def account_to_profile(a):
 
 
 # ---------- Empfangen ----------
+def _in_main(fn, *args):
+    """Im Enigma2-Hauptthread ausfuehren (Fallback-Server laeuft in einem eigenen Thread)."""
+    try:
+        from twisted.internet import reactor
+        reactor.callFromThread(fn, *args)
+    except Exception:
+        fn(*args)
+
+
 def _handle(method, path, body, threaded=False):
     """Gemeinsame Auswertung fuer beide Server-Varianten. Liefert (HTTP-Code, Antwort)."""
     if method == "GET":
@@ -73,16 +82,14 @@ def _handle(method, path, body, threaded=False):
             # Fallback-Server laeuft in einem eigenen Thread -> Player im Enigma2-Hauptthread oeffnen
             if not _state["session"] or not body.get("url"):
                 return 409, {"ok": False}
-            from twisted.internet import reactor
-            reactor.callFromThread(on_play, body)
+            _in_main(on_play, body)
             return 200, {"ok": True}
         return (200 if on_play(body) else 409), {"ok": True}
     if path == "/portiva/pair":
         if threaded:
             ok = bool(_state.get("pair_code")) and body.get("code") == _state.get("pair_code") and isinstance(body.get("account"), dict)
             if ok:
-                from twisted.internet import reactor
-                reactor.callFromThread(on_pair, body)
+                _in_main(on_pair, body)
         else:
             ok = on_pair(body)
         return (200, {"ok": True}) if ok else (403, {"ok": False, "error": "Code passt nicht"})
@@ -256,7 +263,13 @@ def on_pair(body):
     if not code or body.get("code") != code or not isinstance(body.get("account"), dict):
         return False
     from . import store
-    prof = store.save_profile(account_to_profile(body["account"]))
+    new = account_to_profile(body["account"])
+    # gleicher Zugang schon vorhanden (z.B. zweimal uebertragen) -> aktualisieren statt doppelt anlegen
+    same = next((x for x in store.profiles()["list"] if x.get("type") == new.get("type") and
+                 (x.get("server"), x.get("username"), x.get("m3u")) == (new.get("server"), new.get("username"), new.get("m3u"))), None)
+    if same:
+        new["id"] = same.get("id")
+    prof = store.save_profile(new)
     _state["pair_code"] = None
     cb = _state.get("on_pair")
     if cb:
