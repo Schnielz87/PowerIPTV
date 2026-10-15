@@ -306,7 +306,8 @@ class AppContainer(private val app: Application) {
         var ok = false
         android.os.Handler(android.os.Looper.getMainLooper()).post {
             ok = runCatching {
-                if (!p.live && p.positionMs > 0 && p.durationMs > 0) resume.save(p.url, p.positionMs, p.durationMs)
+                // An derselben Stelle weiter – auch wenn das sendende Geraet die Filmlaenge (noch) nicht kannte
+                if (!p.live && p.positionMs > 0) resume.save(p.url, p.positionMs, if (p.durationMs > p.positionMs) p.durationMs else p.positionMs + 3 * 3600_000L)
                 com.poweriptv.app.ui.components.startPlayback(app, this, listOf(PlayEntry(p.title, p.url, null, p.live)), 0, askResume = false)
                 android.widget.Toast.makeText(app, if (p.from.isNotBlank()) "Von „${p.from}“ übernommen" else "Wiedergabe übernommen", android.widget.Toast.LENGTH_SHORT).show()
             }.isSuccess

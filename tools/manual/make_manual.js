@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.130 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.131 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -327,7 +327,7 @@ c.push(h2('Wiedergabe an ein anderes Gerät senden'));
 c.push(step('Im Player oben auf das Übertragen-Symbol (wie bei Chromecast) oder das Fernseher-Symbol „An Gerät senden“ tippen (Samsung-TV: Knopf „📲 Senden“). Das Fenster bleibt offen, bis du es schließt – auch wenn die Suche etwas dauert.', 'n12'));
 c.push(tip('Wird ein Gerät nicht gefunden: Alle Geräte müssen im selben Heimnetz hängen – WLAN oder LAN-Kabel ist egal. Klappt die automatische Suche trotzdem nicht, im Fenster „An Gerät senden“ unten die IP-Adresse des Geräts eingeben und „Verbinden“ drücken (Samsung-TV: „＋ Gerät per IP-Adresse …“). Das Gerät wird gemerkt und beim nächsten Mal automatisch angezeigt.'));
 c.push(step('Unter „Portiva-Geräte“ erscheinen alle Geräte mit geöffnetem Portiva im Heimnetz (TV-Stick, Tablet, Handy, Windows-PC) → Gerät wählen. Darüber stehen wie bisher Chromecast-Geräte.', 'n12'));
-c.push(step('Der Film läuft dort an derselben Stelle weiter (Live TV: derselbe Sender), hier wird gestoppt.', 'n12'));
+c.push(step('Der Film läuft dort an derselben Stelle weiter (Live TV: derselbe Sender), hier wird gestoppt. Der Enigma2-Receiver wartet dafür, bis der Film geladen und spulbar ist, springt dann an die Stelle und prüft, ob es geklappt hat (unten erscheint „▶ Weiter ab 30:00“) – das kann ein paar Sekunden dauern.', 'n12'));
 c.push(tip('Portiva muss auf dem Zielgerät geöffnet sein (Android ab Version 10 erlaubt Apps im Hintergrund nicht, sich selbst zu öffnen). Samsung-Fernseher können senden, aber nichts empfangen. Windows fragt beim ersten Mal nach der Firewall – „Zulassen“ wählen.'));
 
 // 17 iPhone & iPad

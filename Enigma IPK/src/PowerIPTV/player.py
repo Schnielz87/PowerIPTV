@@ -145,7 +145,8 @@ class PortivaPlayer(MoviePlayer):
     def p_layout(self):
         self.p_timer.start(1000)
         if self.p_start_at > 0 and not self.p_live:
-            self.p_seek_timer.start(2500, True)
+            self.p_seek_tries = 0
+            self.p_seek_timer.start(1500, True)
         self.p_refresh_info()
 
     def p_refresh_info(self):
@@ -223,10 +224,40 @@ class PortivaPlayer(MoviePlayer):
             return 0, 0
 
     def p_apply_resume(self):
+        """An die gemerkte/uebergebene Stelle springen (z. B. vom Handy geschickt: dort weiter, wo man war).
+        Viele Receiver ignorieren einen Sprung, solange der Stream noch laedt -> warten, bis er spulbar ist,
+        springen, pruefen und notfalls wiederholen (max. ca. 40 Sekunden)."""
+        target = int(self.p_start_at or 0)
+        if target <= 0 or self.p_closed or self.p_live:
+            return
+        self.p_seek_tries = getattr(self, "p_seek_tries", 0) + 1
+        pos, length = self.p_position()
+        if pos > 0 and abs(pos - target) <= 20:
+            # angekommen
+            self.p_seek_tries = 0
+            self["p_hint"].setText("▶ Weiter ab %s" % self._hms(target))
+            return
+        seek = None
         try:
-            self.session.nav.getCurrentService().seek().seekTo(int(self.p_start_at) * 90000)
+            seek = self.session.nav.getCurrentService().seek()
         except Exception:
-            pass
+            seek = None
+        ready = False
+        if seek is not None and length > 0:
+            try:
+                ready = bool(seek.isCurrentlySeekable())
+            except Exception:
+                ready = True  # aeltere Images kennen die Abfrage nicht
+        if ready and target < length - 5:
+            try:
+                seek.seekTo(target * 90000)
+            except Exception:
+                pass
+            self["p_hint"].setText("Springe zu %s …" % self._hms(target))
+            if self.p_seek_tries < 14:
+                self.p_seek_timer.start(2500, True)  # danach pruefen, ob der Sprung geklappt hat
+        elif self.p_seek_tries < 30:
+            self.p_seek_timer.start(1000, True)      # Stream laedt noch -> gleich nochmal versuchen
 
     def p_save(self, ended=False):
         item = self.p_item()
@@ -333,7 +364,8 @@ class PortivaPlayer(MoviePlayer):
         self.p_rescued = True
         self.p_ok_since = time.time()
         if not self.p_live and self.p_start_at > 0:
-            self.p_seek_timer.start(2500, True)
+            self.p_seek_tries = 0
+            self.p_seek_timer.start(1500, True)
 
     def p_refresh_title(self, item):
         num = ("%s  " % item["number"]) if self.p_live and item.get("number") else ""
