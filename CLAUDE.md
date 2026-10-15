@@ -23,6 +23,7 @@
   sinnvoll abbilden kann (Zugaenge, Live/Filme/Serien, EPG, Favoriten, Weiterschauen, Bouquet) mitziehen.
   Python 2 (OpenPLi 7/8) muss weiter laufen: Texte aus JSON/Server/`.decode()` immer mit `compat.native()` umwandeln
   (sonst Absturz "eLabel_setText ... std::string" = gruener Bildschirm), kein `fullmatch`, keine f-Strings/Typangaben.
+  In `onLayoutFinish` nur Methoden (`self.xyz`), nie Lambdas: OpenPLi/Python 2 fuehrt alles andere per `exec()` aus.
   Windows nutzt die gemeinsamen Kotlin-Dateien direkt aus `Android/app/src/main/java`.
 - Android lokal: `cd Android && ./gradlew assembleRelease`.
 - Windows-App lokal pruefen: `cd Windows && gradle compileKotlin` (Starten geht hier nicht, Google-Maven ist gesperrt).

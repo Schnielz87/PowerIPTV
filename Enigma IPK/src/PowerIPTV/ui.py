@@ -433,7 +433,8 @@ class CategoryScreen(Base):
         self.lang = store.settings().get("language", "")
         self["list"] = PList([])
         if kind != "live":
-            self.onLayoutFinish.append(lambda: self["art"].instance.setPixmapFromFile(px("big_%s.png" % kind)))
+            # Nur Methoden anhaengen: OpenPLi (Python 2) fuehrt alles andere in onLayoutFinish per exec() aus -> Absturz
+            self.onLayoutFinish.append(self.show_art)
         self["key_red"].setText("Sperren")
         if kind == "live":
             self["key_green"].setText("Als Bouquet")
@@ -444,6 +445,9 @@ class CategoryScreen(Base):
             self["sub"].setText("Kategorie wählen – in der Senderliste zeigt INFO das Programm mit Catch-up")
         self["status"].setText("Lade Kategorien …")
         run_async(self, lambda: source.categories(kind), self.loaded)
+
+    def show_art(self):
+        self["art"].instance.setPixmapFromFile(px("big_%s.png" % self.kind))
 
     def loaded(self, cats):
         self.cats = cats

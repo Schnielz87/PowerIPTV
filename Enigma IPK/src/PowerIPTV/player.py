@@ -515,7 +515,13 @@ class ChannelPanel(Screen):
             "ok": self.ok, "cancel": lambda: self.close(None), "green": self.refresh,
         }, -1)
         self.timer = make_timer(self.load)
-        self.onLayoutFinish.append(lambda: (self["list"].moveToIndex(current), self.changed()))
+        self.p_current = current
+        # Nur Methoden anhaengen: OpenPLi (Python 2) fuehrt alles andere in onLayoutFinish per exec() aus -> Absturz
+        self.onLayoutFinish.append(self.first_select)
+
+    def first_select(self):
+        self["list"].moveToIndex(self.p_current)
+        self.changed()
 
     def _closed(self):
         self.p_closed = True
