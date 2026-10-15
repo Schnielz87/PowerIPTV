@@ -86,7 +86,7 @@ export default function browse(params) {
   function visibleCats() {
     const hidden = categoryPrefs.hidden(scope);
     let l = cats.filter((c) => hidden.indexOf(c.id) < 0);
-    if (lang) l = l.filter((c) => categoryLanguage(c.name) === lang || !categoryLanguage(c.name));
+    if (lang) l = l.filter((c) => categoryLanguage(c.name) === lang); // nur diese Sprache (Kategorien ohne Kuerzel wie "BRASIL" gehoeren nicht dazu)
     return categoryPrefs.arrange(scope, l);
   }
 

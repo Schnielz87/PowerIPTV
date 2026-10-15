@@ -35,8 +35,9 @@ except Exception:
     pass
 
 FAV, RECENT, ALL = "__fav__", "__recent__", "__all__"
-RECEIVE = "__receive__"  # Zeile "Zugang vom Handy empfangen" in der Benutzer-Liste
-LIST = "__list__:"  # eigene Liste (Praefix + Listen-ID)
+RECEIVE = "__receive__"
+LANG = "__lang__"  # Zeile "Sprache: DE (OK = aendern)" in der Kategorienliste  # Zeile "Zugang vom Handy empfangen" in der Benutzer-Liste
+LIST_ID = "__list__:"  # eigene Liste (Praefix + Listen-ID)
 TITLES = {"live": "Live TV", "movie": "Filme", "series": "Serien", "episode": "Folgen"}
 
 # ---------- Skin (HD-Masse, bei Full-HD automatisch x1,5; Grafiken aus tools/make_skin.py) ----------
@@ -72,6 +73,34 @@ HEAD = head("bg_full.png")
 PIG = '<widget source="session.VideoPicture" render="Pig" position="680,112" size="560,315" zPosition="1" backgroundColor="%s" />' % CLEAR
 
 
+# Poster-Ansicht (Filme/Serien wie in der App): 7 x 2 Kacheln je Seite
+G_COLS, G_ROWS = 7, 2
+G_X0, G_Y0, G_PX, G_PY = 56, 112, 168, 250   # erste Kachel, Abstand waagerecht/senkrecht
+G_W, G_H = 136, 200                          # Postergroesse
+G_PAD = 7                                    # Rand des Leuchtrahmens
+
+
+def grid_pos(k):
+    return G_X0 + (k % G_COLS) * G_PX, G_Y0 + (k // G_COLS) * G_PY
+
+
+def grid_body():
+    parts = ['<widget name="list" position="0,0" size="10,10" itemHeight="5" font="Regular;4" zPosition="-20" %s />' % LIST,
+             '<widget name="sel" position="%d,%d" size="%d,%d" pixmap="%s" alphatest="blend" zPosition="5" />'
+             % (G_X0 - G_PAD, G_Y0 - G_PAD, G_W + 2 * G_PAD, G_H + 2 * G_PAD, px("focus_poster.png"))]
+    for k in range(G_COLS * G_ROWS):
+        x, y = grid_pos(k)
+        parts.append('<widget name="g_bg%d" position="%d,%d" size="%d,%d" pixmap="%s" alphatest="blend" zPosition="1" />' % (k, x, y, G_W, G_H, px("poster_bg.png")))
+        parts.append('<widget name="g_name%d" position="%d,%d" size="%d,%d" font="Regular;17" halign="center" valign="center" '
+                     'foregroundColor="%s" backgroundColor="#00182540" transparent="1" zPosition="2" />' % (k, x + 8, y + 8, G_W - 16, G_H - 16, GREY))
+        parts.append('<widget name="g_img%d" position="%d,%d" size="%d,%d" alphatest="blend" scale="1" zPosition="3" />' % (k, x, y, G_W, G_H))
+        parts.append('<widget name="g_title%d" position="%d,%d" size="%d,24" font="Regular;17" noWrap="1" %s />' % (k, x - 2, y + G_H + 6, G_PX - 18, TXT))
+        parts.append('<widget name="g_star%d" position="%d,%d" size="16,16" pixmap="%s" alphatest="blend" zPosition="2" />' % (k, x, y + G_H + 33, px("star.png")))
+        parts.append('<widget name="g_rate%d" position="%d,%d" size="100,22" font="Regular;17" foregroundColor="#00f5c518" '
+                     'backgroundColor="#00101b30" transparent="1" />' % (k, x + 22, y + G_H + 29))
+    return "\n  ".join(parts)
+
+
 def skin(name, info=True, config=False, layout=None):
     """layout: None/"list" = Liste + Infospalte, "full" = Liste ueber die ganze Breite,
     "live" = Liste + Live-Vorschau + Programm, "media" = Liste + Cover + Infos,
@@ -80,10 +109,13 @@ def skin(name, info=True, config=False, layout=None):
     bg, screen_bg = {"full": "bg_full.png", "live": "bg_live.png", "catlive": "bg_live.png"}.get(layout, "bg_list.png"), BG
     if layout in ("live", "catlive"):
         screen_bg = CLEAR
-    if config:
+    if layout == "poster":
+        bg = "bg.png"
+        body = grid_body()
+    elif config:
         body = ('<widget name="config" position="52,124" size="1176,460" itemHeight="46" font="Regular;24" selectionPixmap="%s" %s />'
                 % (px("sel_full.png"), LIST))
-    elif layout == "full":
+    elif layout in ("full",):
         body = ('<widget name="list" position="52,124" size="1176,460" itemHeight="46" font="Regular;24" selectionPixmap="%s" %s />'
                 % (px("sel_full.png"), LIST))
     else:
@@ -112,8 +144,8 @@ def skin(name, info=True, config=False, layout=None):
                  '\n  <widget name="info" position="700,410" size="520,190" font="Regular;19" %s />' % TXT)
     return scale("""<screen name="%s" position="0,0" size="1280,720" flags="wfNoBorder" backgroundColor="%s">%s
   %s
-  <widget name="status" position="52,622" size="1180,28" font="Regular;19" foregroundColor="%s" backgroundColor="#00101b30" transparent="1" />%s
-</screen>""" % (name, screen_bg, head(bg), body, CYAN, KEYS))
+  <widget name="status" position="52,%d" size="1180,28" font="Regular;19" foregroundColor="%s" backgroundColor="#00101b30" transparent="1" />%s
+</screen>""" % (name, screen_bg, head(bg), body, 628 if layout == "poster" else 622, CYAN, KEYS))
 
 
 class Base(Screen):
@@ -431,6 +463,7 @@ class CategoryScreen(Base):
         self.source, self.kind, self.guide = source, kind, guide
         self.cats = []
         self.langs = []
+        self.shown_cats = []
         self.lang = store.settings().get("language", "")
         self["list"] = PList([])
         if kind != "live":
@@ -440,7 +473,7 @@ class CategoryScreen(Base):
         if kind == "live":
             self["key_green"].setText("Als Bouquet")
         self["actions"] = ActionMap(["OkCancelActions", "ColorActions"], {
-            "ok": self.open_cat, "cancel": self.close, "green": self.bouquet, "yellow": self.next_lang, "red": self.toggle_lock,
+            "ok": self.open_cat, "cancel": self.close, "green": self.bouquet, "yellow": self.pick_lang, "red": self.toggle_lock,
         }, -1)
         if guide:
             self["sub"].setText("Kategorie wählen – in der Senderliste zeigt INFO das Programm mit Catch-up")
@@ -460,12 +493,17 @@ class CategoryScreen(Base):
 
     def build(self):
         p = pid()
-        shown = [c for c in self.cats if not self.lang or rules.category_language(c["name"]) in (self.lang, None)]
+        # Sprache gewaehlt -> nur Kategorien mit genau diesem Kuerzel ("DE | ..."); "BRASIL", "IRAN" o.ae. ohne Kuerzel nicht
+        shown = [c for c in self.cats if not self.lang or rules.category_language(c["name"]) == self.lang]
+        self.shown_cats = shown
         rows = [("♥  Favoriten", FAV)]
+        if self.langs:
+            # Sprachauswahl als Auswahl-Zeile direkt unter den Favoriten (OK oeffnet die Liste der Sprachen)
+            rows.append(("Sprache: %s      (OK = ändern)" % (self.lang or "Alle"), LANG))
         for l in store.lists(p):
             n = len([i for i in l.get("items", []) if i.get("kind") == self.kind])
             if n:
-                rows.append(("☰  %s (%d)" % (l.get("name", ""), n), LIST + l.get("id", "")))
+                rows.append(("☰  %s (%d)" % (l.get("name", ""), n), LIST_ID + l.get("id", "")))
         rows += [("Zuletzt gesehen", RECENT), ("Alle Sender" if self.kind == "live" else "Alle", ALL)]
         for c in shown:
             name = rules.strip_language(c["name"]) if self.lang else c["name"]
@@ -474,22 +512,31 @@ class CategoryScreen(Base):
         self["status"].setText("%d Kategorien%s" % (len(shown), ("  ·  Sprache: " + self.lang) if self.lang else ""))
         tips = ["%d Kategorien" % len(shown), ""]
         if self.langs:
-            tips.append("GELB  Sprache wählen (%s)" % (self.lang or "alle"))
+            tips.append("„Sprache“ (unter Favoriten) + OK = Sprache wählen (%s)" % (self.lang or "alle"))
         tips.append("ROT  Kategorie mit PIN sperren")
         if self.kind == "live":
             tips.append("GRÜN  Kategorie als Bouquet übernehmen")
         self["info"].setText("\n".join(tips))
-        self["key_yellow"].setText(("Sprache: " + (self.lang or "Alle")) if self.langs else "")
+        self["key_yellow"].setText("")
 
-    def next_lang(self):
+    def pick_lang(self):
+        """Sprache aus einer Auswahlliste waehlen (wie das Dropdown in der App)."""
         if not self.langs:
             return
-        opts = [""] + self.langs
-        self.lang = opts[(opts.index(self.lang) + 1) % len(opts)] if self.lang in opts else ""
-        s = store.settings()
-        s["language"] = self.lang
-        store.save_settings(s)
-        self.build()
+        rows = [(("► " if not self.lang else "    ") + "Alle Sprachen", "")]
+        rows += [(("► " if l == self.lang else "    ") + l, l) for l in self.langs]
+
+        def done(c):
+            if c is None:
+                return
+            self.lang = c[1]
+            s = store.settings()
+            s["language"] = self.lang
+            store.save_settings(s)
+            self.build()
+            self["list"].moveToIndex(1)  # Auswahl bleibt auf der Sprach-Zeile
+        sel = next((n for n, r in enumerate(rows) if r[1] == self.lang), 0)
+        self.session.openWithCallback(done, ChoiceBox, title="Sprache der Kategorien", list=rows, selection=sel)
 
     def cat_of(self, cid):
         return next((c for c in self.cats if c["id"] == cid), None)
@@ -500,12 +547,25 @@ class CategoryScreen(Base):
             return
         name, cid = cur
         p = pid()
+        if cid == LANG:
+            self.pick_lang()
+            return
+        if cid == ALL and self.lang:
+            # "Alle" mit gewaehlter Sprache: nur Titel aus den Kategorien dieser Sprache
+            allowed = set(str(c["id"]) for c in self.shown_cats)
+            title = "%s – %s" % (TITLES.get(self.kind, ""), self.lang)
+            self["status"].setText("Lade alle %s-Titel …" % self.lang)
+
+            def work():
+                return [i for i in self.source.items(self.kind, None) if str(i.get("cat") or i.get("group") or "") in allowed]
+            run_async(self, work, lambda items: (self["status"].setText(""), self.session.open(ItemScreen, self.source, self.kind, None, title, items)))
+            return
         if cid == FAV:
             items = [i for i in store.favorites(p) if i.get("kind") == self.kind]
             self.session.open(ItemScreen, self.source, self.kind, None, TITLES[self.kind] + " – Favoriten", items)
             return
-        if cid.startswith(LIST):
-            lid = cid[len(LIST):]
+        if cid.startswith(LIST_ID):
+            lid = cid[len(LIST_ID):]
             l = next((x for x in store.lists(p) if x.get("id") == lid), None)
             if l:
                 items = [i for i in l.get("items", []) if i.get("kind") == self.kind]
@@ -546,7 +606,7 @@ class CategoryScreen(Base):
     def bouquet(self):
         """Live-Kategorie als Bouquet in die normale Senderliste von Enigma2 uebernehmen."""
         cur = self["list"].getCurrent()
-        if self.kind != "live" or not cur or cur[1] in (FAV, RECENT) or cur[1].startswith(LIST):
+        if self.kind != "live" or not cur or cur[1] in (FAV, RECENT, LANG) or cur[1].startswith(LIST_ID):
             return
         from .bouquet import export_bouquet
         name, cid = cur[0].replace("   (gesperrt)", ""), cur[1]
@@ -562,8 +622,13 @@ class ItemScreen(Base):
     def __init__(self, session, source, kind, cat_id, title, items=None, list_id=None):
         self.list_id = list_id  # geoeffnet aus einer eigenen Liste -> "Aus dieser Liste entfernen"
         self.p_live = kind == "live"
-        Base.__init__(self, session, "PortivaItemsLive" if self.p_live else "PortivaItemsMedia", title,
-                      layout="live" if self.p_live else "media")
+        # Filme/Serien als Poster-Kacheln wie in der App (umschaltbar: MENU -> Ansicht)
+        self.poster = kind in ("movie", "series") and store.settings().get("poster_view", True)
+        if self.poster:
+            Base.__init__(self, session, "PortivaItemsPoster", title, layout="poster")
+        else:
+            Base.__init__(self, session, "PortivaItemsLive" if self.p_live else "PortivaItemsMedia", title,
+                          layout="live" if self.p_live else "media")
         self.source, self.kind, self.cat_id = source, kind, cat_id
         self.all = []
         self.shown = []
@@ -600,6 +665,8 @@ class ItemScreen(Base):
                 run_async(self, source.connections, self.check_connections, lambda m: None)
         self.onClose.append(self.p_cleanup)
         self.onExecBegin.append(self.p_resume)
+        if self.poster:
+            self.grid_init()
         if items is not None:
             self.loaded(items)
         else:
@@ -624,6 +691,7 @@ class ItemScreen(Base):
     def apply(self):
         lst = [i for i in self.all if rules.matches(i.get("name"), self.filter)] if self.filter else list(self.all)
         self.shown = rules.apply_sort(lst, self.sort) if self.kind != "episode" else lst
+        self.g_page = -1  # Poster-Ansicht: Seite neu aufbauen
         self["list"].setList([(self.label(i), n) for n, i in enumerate(self.shown)])
         sort_name = dict(rules.SORTS).get(self.sort, "")
         self["status"].setText("%d Einträge%s%s" % (len(self.shown), ("  ·  Filter: " + self.filter) if self.filter else "",
@@ -638,6 +706,9 @@ class ItemScreen(Base):
         if self.p_closed:
             return
         n, item = self.current()
+        if self.poster:
+            self.grid_render()
+            return
         if self.p_live:
             self["pv_name"].setText(item.get("name", "") if item else "")
             self["pv_now"].setText("")
@@ -653,6 +724,131 @@ class ItemScreen(Base):
             self["cover"].hide()
         if item is not None:
             self.info_timer.start(500, True)  # erst nach kurzer Pause nachladen (schnelles Blaettern)
+
+    # ---------- Poster-Ansicht (Filme/Serien) ----------
+    def grid_init(self):
+        self.g_n = G_COLS * G_ROWS
+        self.g_page = -1
+        self.g_items = [None] * self.g_n
+        self["sel"] = Pixmap()
+        for k in range(self.g_n):
+            self["g_bg%d" % k] = Pixmap()
+            self["g_name%d" % k] = Label("")
+            self["g_img%d" % k] = Pixmap()
+            self["g_title%d" % k] = Label("")
+            self["g_star%d" % k] = Pixmap()
+            self["g_rate%d" % k] = Label("")
+        # Pfeiltasten bewegen den Rahmen im Raster (vor der unsichtbaren Liste auswerten)
+        self["grid_actions"] = ActionMap(["DirectionActions", "ChannelSelectBaseActions", "InfobarChannelSelection"], {
+            "left": lambda: self.grid_move(-1), "right": lambda: self.grid_move(1),
+            "up": lambda: self.grid_move(-G_COLS), "down": lambda: self.grid_move(G_COLS),
+            "nextBouquet": lambda: self.grid_move(-self.g_n), "prevBouquet": lambda: self.grid_move(self.g_n),
+            "zapUp": lambda: self.grid_move(-self.g_n), "zapDown": lambda: self.grid_move(self.g_n),
+            "switchChannelUp": lambda: self.grid_move(-self.g_n), "switchChannelDown": lambda: self.grid_move(self.g_n),
+        }, -2)
+        # Nur Methoden anhaengen: OpenPLi (Python 2) fuehrt alles andere in onLayoutFinish per exec() aus
+        self.onLayoutFinish.append(self.grid_layout)
+
+    def grid_layout(self):
+        try:
+            self["list"].hide()
+        except Exception:
+            pass
+        self.g_page = -1
+        self.grid_render()
+
+    def grid_index(self):
+        cur = self["list"].getCurrent()
+        return cur[1] if cur else 0
+
+    def grid_move(self, delta):
+        total = len(self.shown)
+        if not total:
+            return
+        i = self.grid_index()
+        n = i + delta
+        if abs(delta) == self.g_n:  # Seite vor/zurueck (CH+/-, Bouquet)
+            n = max(0, min(total - 1, n))
+        elif n < 0 or n >= total:
+            if abs(delta) == 1:
+                n = (n + total) % total   # links am Anfang -> ans Ende, rechts am Ende -> an den Anfang
+            else:
+                n = max(0, min(total - 1, n))
+        if n != i:
+            self["list"].moveToIndex(n)
+            self.grid_render()
+
+    def grid_render(self):
+        if self.p_closed or not hasattr(self, "g_n"):
+            return
+        total = len(self.shown)
+        i = self.grid_index() if total else 0
+        page = i // self.g_n
+        if page != self.g_page:
+            self.g_page = page
+            self.grid_fill(page)
+        k = i - page * self.g_n
+        f = 1.5 if FHD else 1
+        try:
+            if total:
+                x, y = grid_pos(k)
+                self["sel"].instance.move(ePoint(int((x - G_PAD) * f), int((y - G_PAD) * f)))
+                self["sel"].show()
+            else:
+                self["sel"].hide()
+        except Exception:
+            pass
+        item = self.shown[i] if total else None
+        if item is None:
+            self["status"].setText("Keine Einträge")
+            return
+        meta = [str(x) for x in (item.get("year"), self.rating_text(item)) if x]
+        pages = (total + self.g_n - 1) // self.g_n
+        self["status"].setText("%s%s      %d / %d   ·   Seite %d / %d%s" % (
+            item.get("name") or "", ("  ·  " + "  ·  ".join(meta)) if meta else "", i + 1, total, page + 1, pages,
+            ("   ·   Filter: " + self.filter) if self.filter else ""))
+
+    @staticmethod
+    def rating_text(item):
+        try:
+            v = float(item.get("rating_f") or item.get("rating") or 0)
+        except (TypeError, ValueError):
+            return ""
+        return ("%.1f" % v).replace(".", ",") if v > 0 else ""
+
+    def grid_fill(self, page):
+        start = page * self.g_n
+        for k in range(self.g_n):
+            item = self.shown[start + k] if start + k < len(self.shown) else None
+            self.g_items[k] = item
+            img = self["g_img%d" % k]
+            img.hide()
+            if item is None:
+                for w in ("g_bg", "g_star"):
+                    self["%s%d" % (w, k)].hide()
+                for w in ("g_name", "g_title", "g_rate"):
+                    self["%s%d" % (w, k)].setText("")
+                continue
+            name = item.get("name") or ""
+            fav = "♥ " if self.pid and store.is_favorite(self.pid, item) else ""
+            self["g_bg%d" % k].show()
+            self["g_name%d" % k].setText(name)
+            self["g_title%d" % k].setText(fav + name)
+            rate = self.rating_text(item)
+            self["g_rate%d" % k].setText(rate)
+            if rate:
+                self["g_star%d" % k].show()
+            else:
+                self["g_star%d" % k].hide()
+            url = item.get("logo")
+            if url:
+                run_async(self, lambda u=url: fetch_image(u), lambda path, k=k, it=item: self.grid_image(k, it, path), lambda m: None)
+
+    def grid_image(self, k, item, path):
+        if self.p_closed or self.g_items[k] is not item or not path:
+            return
+        show_image(self["g_img%d" % k], path)
+        self["g_name%d" % k].setText("")
 
     # ---------- Live-Vorschau (mit Verbindungsschutz) ----------
     def check_connections(self, res):
@@ -850,10 +1046,31 @@ class ItemScreen(Base):
         if item is None or not self.pid:
             return
         added = store.toggle_favorite(self.pid, item)
-        self["status"].setText(("♥ „%s“ zu Favoriten hinzugefügt" if added else "„%s“ aus Favoriten entfernt") % item.get("name", ""))
+        msg = ("♥ „%s“ zu Favoriten hinzugefügt" if added else "„%s“ aus Favoriten entfernt") % item.get("name", "")
         idx = self["list"].getSelectionIndex()
+        self.g_page = -1
         self["list"].setList([(self.label(i), k) for k, i in enumerate(self.shown)])
         self["list"].moveToIndex(idx)
+        if self.poster:
+            self.grid_render()
+        self["status"].setText(msg)
+
+    def toggle_view(self):
+        """Poster <-> Liste: Einstellung merken und die Seite mit den bereits geladenen Titeln neu oeffnen."""
+        s = store.settings()
+        s["poster_view"] = not self.poster
+        store.save_settings(s)
+        n, _item = self.current()
+        new = self.session.open(ItemScreen, self.source, self.kind, self.cat_id, self["title"].getText(), self.all, list_id=self.list_id)
+        try:
+            new.filter, new.sort = self.filter, self.sort
+            new.apply()
+            if n is not None:
+                new["list"].moveToIndex(n)
+                new.selection_changed()
+        except Exception:
+            pass
+        self.close()
 
     def ask_filter(self):
         def done(text):
@@ -885,6 +1102,8 @@ class ItemScreen(Base):
         if item.get("kind") == "live":
             opts.append(("Programm / Catch-up (INFO)", "programme"))
         opts += [("Sortieren", "sort"), ("Filtern", "filter")]
+        if self.kind in ("movie", "series"):
+            opts.append(("Ansicht: als Liste" if self.poster else "Ansicht: als Poster (wie in der App)", "view"))
 
         def done(c):
             if not c:
@@ -907,6 +1126,8 @@ class ItemScreen(Base):
                 self.ask_sort()
             elif k == "filter":
                 self.ask_filter()
+            elif k == "view":
+                self.toggle_view()
             elif k == "download":
                 from . import download
                 url = item.get("url") or self.source.stream_url(item)
@@ -1231,10 +1452,12 @@ class SettingsScreen(ConfigListScreen, Base):
         self.c_adult = ConfigYesNo(default=bool(s.get("auto_adult", True)))
         self.c_update = ConfigYesNo(default=bool(s.get("auto_update", True)))
         self.c_preview = ConfigYesNo(default=bool(s.get("preview", True)))
+        self.c_poster = ConfigYesNo(default=bool(s.get("poster_view", True)))
         ConfigListScreen.__init__(self, [
             getConfigListEntry("Player", self.c_player),
             getConfigListEntry("Live-TV-Format", self.c_live),
             getConfigListEntry("Live-Vorschau in der Senderliste", self.c_preview),
+            getConfigListEntry("Filme und Serien als Poster anzeigen (wie in der App)", self.c_poster),
             getConfigListEntry("Name dieses Receivers (für „An Gerät senden“)", self.c_name),
             getConfigListEntry("PIN der Kindersicherung (leer = aus)", self.c_pin),
             getConfigListEntry("Erwachseneninhalte automatisch sperren", self.c_adult),
@@ -1269,7 +1492,7 @@ class SettingsScreen(ConfigListScreen, Base):
             s = store.settings()
             s.update({"player": self.c_player.value, "live_format": self.c_live.value, "device_name": self.c_name.value.strip() or "Enigma2-Receiver",
                       "pin": new_pin, "auto_adult": bool(self.c_adult.value), "auto_update": bool(self.c_update.value),
-                      "preview": bool(self.c_preview.value)})
+                      "preview": bool(self.c_preview.value), "poster_view": bool(self.c_poster.value)})
             store.save_settings(s)
             self.close()
         # PIN aendern/entfernen nur mit der alten PIN

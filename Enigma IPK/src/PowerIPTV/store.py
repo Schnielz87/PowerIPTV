@@ -238,7 +238,8 @@ def add_history(pid, item):
 
 # ---------- Einstellungen ----------
 DEFAULTS = {"player": "auto", "live_format": "ts", "pin": "", "auto_adult": True, "locked": [],
-            "auto_update": True, "device_name": "Enigma2-Receiver", "sort": "DEFAULT", "language": "", "preview": True}
+            "auto_update": True, "device_name": "Enigma2-Receiver", "sort": "DEFAULT", "language": "", "preview": True,
+            "poster_view": True}
 
 
 # ---------- Kindersicherung ----------

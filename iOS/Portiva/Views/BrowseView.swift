@@ -20,7 +20,7 @@ struct BrowseView: View {
 
     private var visibleCats: [Category] {
         guard !lang.isEmpty else { return cats }
-        return cats.filter { Rules.categoryLanguage($0.name) == lang || Rules.categoryLanguage($0.name) == nil }
+        return cats.filter { Rules.categoryLanguage($0.name) == lang } // nur diese Sprache (Kategorien ohne Kuerzel wie "BRASIL" gehoeren nicht dazu)
     }
 
     private var shown: [ContentItem] {

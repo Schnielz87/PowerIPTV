@@ -28,6 +28,7 @@ FULL_PANEL = (40, 112, 1200, 500)       # Liste ueber die ganze Breite
 PIG = (680, 112, 560, 315)              # Live-Vorschau 16:9
 PIG_INFO = (680, 439, 560, 173)         # Programm unter der Vorschau
 LIST_ITEM = (596, 46)                   # Auswahlbalken linke Liste
+POSTER = (136, 200)                     # Poster-Kachel (Filme/Serien, wie in der App)
 FULL_ITEM = (1176, 46)
 PANEL_ITEM = (488, 42)                  # Senderliste im Player
 BIG = (380, 250)
@@ -238,6 +239,35 @@ def dot(color, f, size=16):
     return finish(img, size, size, f)
 
 
+def star(f, size=16):
+    """Gelber Stern fuer die Bewertung unter den Postern."""
+    img = canvas(size, size, f)
+    d = ImageDraw.Draw(img)
+    cx, cy, ro, ri = size / 2.0, size / 2.0 + 0.6, size / 2.0 - 0.5, size / 4.6
+    pts = []
+    for i in range(10):
+        a = -math.pi / 2 + i * math.pi / 5
+        r = ro if i % 2 == 0 else ri
+        pts.append((S(cx + r * math.cos(a), f), S(cy + r * math.sin(a), f)))
+    d.polygon(pts, fill=(245, 197, 24, 255))
+    return finish(img, size, size, f)
+
+
+def poster_placeholder(w, h, f, radius=10):
+    """Hintergrund einer Poster-Kachel, solange (oder falls) kein Bild da ist."""
+    img = canvas(w, h, f)
+    W, H = img.size
+    grad = Image.new("RGBA", (1, H))
+    for y in range(H):
+        grad.putpixel((0, y), lerp((24, 37, 64), (14, 22, 40), y / float(H - 1)) + (255,))
+    grad = grad.resize((W, H))
+    mask = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, W - 1, H - 1], S(radius, f), fill=255)
+    img.paste(grad, (0, 0), mask)
+    ImageDraw.Draw(img).rounded_rectangle([0, 0, W - 1, H - 1], S(radius, f), outline=(60, 80, 120, 255), width=S(1, f))
+    return finish(img, w, h, f)
+
+
 def osd_bottom(f):
     w, h = 1280, 240
     img = canvas(w, h, f)
@@ -300,6 +330,9 @@ def main():
         save(selection(PANEL_ITEM[0], PANEL_ITEM[1], f), "sel_panel.png")
         save(focus_frame(BIG[0], BIG[1], f), "focus_big.png")
         save(focus_frame(SMALL[0], SMALL[1], f, pad=8, radius=16), "focus_small.png")
+        save(focus_frame(POSTER[0], POSTER[1], f, pad=7, radius=12), "focus_poster.png")
+        save(poster_placeholder(POSTER[0], POSTER[1], f), "poster_bg.png")
+        save(star(f), "star.png")
         for name, src in (("live", "live_tv.jpg"), ("movie", "movies.jpg"), ("series", "series.jpg")):
             save(rounded_photo(os.path.join(SRC, src), BIG[0], BIG[1], f), "big_%s.png" % name)
         for name in ("continue", "search", "guide", "fav", "recent", "profiles", "receive", "settings", "update", "reload"):
