@@ -4,6 +4,8 @@ import json
 import os
 import time
 
+from .compat import native
+
 DIR = "/etc/enigma2/PowerIPTV"
 
 
@@ -14,7 +16,7 @@ def _path(name):
 def load(name, default):
     try:
         with open(_path(name)) as f:
-            return json.load(f)
+            return native(json.load(f))
     except Exception:
         return default
 

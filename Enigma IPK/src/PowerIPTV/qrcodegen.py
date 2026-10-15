@@ -753,7 +753,7 @@ class QrSegment(object):
 	# A string is encodable iff each character is in the range 0 to 9.
 	@staticmethod
 	def is_numeric(text):
-		return QrSegment._NUMERIC_REGEX.fullmatch(text) is not None
+		return QrSegment._NUMERIC_REGEX.match(text) is not None
 	
 	
 	# Tests whether the given string can be encoded as a segment in alphanumeric mode.
@@ -761,7 +761,7 @@ class QrSegment(object):
 	# (uppercase only), space, dollar, percent, asterisk, plus, hyphen, period, slash, colon.
 	@staticmethod
 	def is_alphanumeric(text):
-		return QrSegment._ALPHANUMERIC_REGEX.fullmatch(text) is not None
+		return QrSegment._ALPHANUMERIC_REGEX.match(text) is not None
 	
 	
 	# ---- Private fields ----
@@ -825,10 +825,10 @@ class QrSegment(object):
 	# ---- Constants ----
 	
 	# Describes precisely all strings that are encodable in numeric mode.
-	_NUMERIC_REGEX = re.compile(r"[0-9]*")
+	_NUMERIC_REGEX = re.compile(r"[0-9]*\Z")
 	
 	# Describes precisely all strings that are encodable in alphanumeric mode.
-	_ALPHANUMERIC_REGEX = re.compile(r"[A-Z0-9 $%*+./:-]*")
+	_ALPHANUMERIC_REGEX = re.compile(r"[A-Z0-9 $%*+./:-]*\Z")
 	
 	# Dictionary of "0"->0, "A"->10, "$"->37, etc.
 	_ALPHANUMERIC_ENCODING_TABLE = {ch: i for (i, ch) in enumerate("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:")}

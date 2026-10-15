@@ -5,6 +5,11 @@ from Plugins.Plugin import PluginDescriptor
 
 def main(session, **kwargs):
     try:
+        from .compat import patch_gui
+        patch_gui()  # Python 2: Texte als UTF-8 an die Anzeige (sonst gruener Bildschirm)
+    except Exception:
+        pass
+    try:
         from . import link
         link.start(session)  # falls Enigma2 seit der Installation nicht neu gestartet wurde
     except Exception:
@@ -16,6 +21,11 @@ def main(session, **kwargs):
 def sessionstart(reason, **kwargs):
     """Beim Start von Enigma2: Portiva Link bereitstellen (Zugang/Wiedergabe von Handy, Tablet, PC empfangen)."""
     if reason == 0 and "session" in kwargs:
+        try:
+            from .compat import patch_gui
+            patch_gui()
+        except Exception:
+            pass
         try:
             from . import link
             link.start(kwargs["session"])

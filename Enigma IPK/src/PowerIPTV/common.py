@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Gemeinsame Bausteine: Skin-Skalierung (HD/Full-HD), Hintergrund-Aufgaben, Timer, Logos."""
+from .compat import native
 import hashlib
 import os
 import re
@@ -30,7 +31,11 @@ class PList(MenuList):
         MenuList.__init__(self, self._pad(entries), *args, **kwargs)
 
     def _pad(self, entries):
-        return [(self.PAD + str(e[0]),) + tuple(e[1:]) for e in entries]
+        out = []
+        for e in entries:
+            t = native(e[0])
+            out.append((self.PAD + (t if isinstance(t, str) else str(t)),) + tuple(e[1:]))
+        return out
 
     def setList(self, entries):
         self.p_entries = list(entries)

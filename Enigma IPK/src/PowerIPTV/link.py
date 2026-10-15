@@ -11,6 +11,8 @@ import random
 import socket
 import threading
 
+from .compat import native
+
 LINK_PORT = 47800
 UDP_PORT = 47801
 DISCOVER = b"PORTIVA_DISCOVER"
@@ -112,7 +114,7 @@ def _start_twisted():
         def render_POST(self, request):
             path = request.path.decode() if isinstance(request.path, bytes) else request.path
             try:
-                body = json.loads(request.content.read().decode("utf-8") or "{}")
+                body = native(json.loads(request.content.read().decode("utf-8") or "{}"))
             except Exception:
                 return self._send(request, 400, {"ok": False})
             return self._send(request, *_handle("POST", path, body))
@@ -159,7 +161,7 @@ def _start_plain():
         def do_POST(self):
             try:
                 n = int(self.headers.get("Content-Length") or 0)
-                body = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
+                body = native(json.loads(self.rfile.read(n).decode("utf-8") or "{}"))
             except Exception:
                 return self._send(400, {"ok": False})
             self._send(*_handle("POST", self.path.split("?")[0], body, True))
@@ -309,7 +311,7 @@ def discover(timeout=1.8):
                 except Exception:
                     continue
                 try:
-                    h = json.loads(data.decode("utf-8"))
+                    h = native(json.loads(data.decode("utf-8")))
                 except Exception:
                     continue
                 if addr[0] != me and h.get("app") == "portiva":
@@ -328,7 +330,7 @@ def discover(timeout=1.8):
         for h in chunk:
             try:
                 code, text = _http("GET", h, LINK_PORT, "/portiva/hello", timeout=0.6)
-                d = json.loads(text)
+                d = native(json.loads(text))
                 if code == 200 and d.get("app") == "portiva":
                     with lock:
                         found.setdefault(h, {"name": d.get("name"), "platform": d.get("platform"), "host": h, "port": d.get("port") or LINK_PORT})

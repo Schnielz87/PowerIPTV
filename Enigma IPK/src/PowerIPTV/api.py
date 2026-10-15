@@ -9,6 +9,7 @@ import time
 import base64
 
 from .rules import year_of
+from .compat import native
 
 try:  # Python 3 (OpenATV 7, OpenPLi 9 ...)
     from urllib.request import urlopen, Request
@@ -25,9 +26,9 @@ def http_get(url, timeout=30):
     resp = urlopen(req, timeout=timeout)
     data = resp.read()
     try:
-        return data.decode("utf-8")
+        return native(data.decode("utf-8"))
     except Exception:
-        return data.decode("latin-1")
+        return native(data.decode("latin-1"))
 
 
 def http_get_bytes(url, timeout=15):
@@ -45,7 +46,7 @@ def _b64(s):
     if not s:
         return ""
     try:
-        return base64.b64decode(s).decode("utf-8", "ignore")
+        return native(base64.b64decode(s).decode("utf-8", "ignore"))
     except Exception:
         return s
 
@@ -74,7 +75,7 @@ class XtreamSource(object):
         text = http_get(self.base + "/player_api.php?" + urlencode(q), timeout)
         if not text.strip():
             return None
-        return json.loads(text)
+        return native(json.loads(text))
 
     def authenticate(self):
         r = self.api()

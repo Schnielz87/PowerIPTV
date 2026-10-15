@@ -9,6 +9,7 @@ from Components.ActionMap import ActionMap
 from Components.MenuList import MenuList
 
 from . import store
+from .compat import native
 from .common import run_async, PLUGIN_DIR, PList
 
 REPO = "Schnielz87/PowerIPTV"
@@ -41,7 +42,7 @@ def newer(a, b):
 def check():
     """Blockierend. Liefert {version, url, notes} oder None (aktuell)."""
     from .api import http_get
-    r = json.loads(http_get("https://api.github.com/repos/%s/releases/latest" % REPO, 20))
+    r = native(json.loads(http_get("https://api.github.com/repos/%s/releases/latest" % REPO, 20)))
     tag = r.get("tag_name") or ""
     asset = next((a for a in r.get("assets") or [] if a.get("name") == ASSET), None)
     s = store.settings()

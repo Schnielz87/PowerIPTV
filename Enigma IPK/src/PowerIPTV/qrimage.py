@@ -6,6 +6,8 @@ import zlib
 
 def write_qr_png(text, path, size=360):
     from .qrcodegen import QrCode  # Python 2 und 3
+    if isinstance(text, bytes):  # Python 2: UTF-8-str -> Text
+        text = text.decode("utf-8")
     qr = QrCode.encode_text(text, QrCode.Ecc.MEDIUM)
     n = qr.get_size()
     border = 3
