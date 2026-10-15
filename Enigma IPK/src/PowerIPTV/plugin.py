@@ -33,11 +33,20 @@ def sessionstart(reason, **kwargs):
             pass
 
 
+def mainmenu(menuid, **kwargs):
+    """Eigener Eintrag direkt im Hauptmenue (wie BlueBoxx), zusaetzlich zu Menue > Plugins."""
+    if menuid == "mainmenu":
+        return [("PowerIPTV", main, "poweriptv", 3)]
+    return []
+
+
 def Plugins(**kwargs):
     return [
         PluginDescriptor(name="PowerIPTV", description="Portiva – Live TV, Filme & Serien (Xtream / M3U)",
                          where=PluginDescriptor.WHERE_PLUGINMENU, icon="plugin.png", fnc=main),
         PluginDescriptor(name="PowerIPTV", description="Portiva – Live TV, Filme & Serien",
                          where=PluginDescriptor.WHERE_EXTENSIONSMENU, fnc=main),
+        PluginDescriptor(name="PowerIPTV", description="Portiva – Live TV, Filme & Serien",
+                         where=PluginDescriptor.WHERE_MENU, fnc=mainmenu),
         PluginDescriptor(where=PluginDescriptor.WHERE_SESSIONSTART, fnc=sessionstart),
     ]
