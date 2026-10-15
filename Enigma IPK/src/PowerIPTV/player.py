@@ -235,7 +235,7 @@ class PortivaPlayer(MoviePlayer):
         if pos > 0 and abs(pos - target) <= 20:
             # angekommen
             self.p_seek_tries = 0
-            self["p_hint"].setText("▶ Weiter ab %s" % self._hms(target))
+            self["p_hint"].setText("► Weiter ab %s" % self._hms(target))
             return
         seek = None
         try:

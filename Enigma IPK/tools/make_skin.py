@@ -29,6 +29,7 @@ PIG = (680, 112, 560, 315)              # Live-Vorschau 16:9
 PIG_INFO = (680, 439, 560, 173)         # Programm unter der Vorschau
 LIST_ITEM = (596, 46)                   # Auswahlbalken linke Liste
 POSTER = (136, 200)                     # Poster-Kachel (Filme/Serien, wie in der App)
+POSTER_INFO = (716, 104, 524, 514)      # Info-Feld rechts neben den Postern (4 x 2)
 FULL_ITEM = (1176, 46)
 PANEL_ITEM = (488, 42)                  # Senderliste im Player
 BIG = (380, 250)
@@ -324,6 +325,7 @@ def main():
         save(background(f), "bg.png")
         save(background(f, panels=[LIST_PANEL, INFO_PANEL]), "bg_list.png")
         save(background(f, panels=[FULL_PANEL]), "bg_full.png")
+        save(background(f, panels=[POSTER_INFO]), "bg_poster.png")
         save(background(f, panels=[LIST_PANEL, PIG_INFO], hole=PIG, frame=PIG), "bg_live.png")
         save(selection(LIST_ITEM[0], LIST_ITEM[1], f), "sel_list.png")
         save(selection(FULL_ITEM[0], FULL_ITEM[1], f), "sel_full.png")

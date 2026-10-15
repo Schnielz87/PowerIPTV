@@ -190,7 +190,7 @@ class XtreamSource(object):
         info = r.get("info") or {}
         return {"plot": info.get("plot") or info.get("description"), "genre": info.get("genre"), "cast": info.get("cast"),
                 "duration": info.get("duration"), "rating": info.get("rating"), "year": info.get("releasedate"),
-                "cover": info.get("movie_image") or info.get("cover_big")}
+                "director": info.get("director"), "cover": info.get("movie_image") or info.get("cover_big")}
 
     def series_info(self, item):
         r = self.api("get_series_info", timeout=40, series_id=item["id"]) or {}
@@ -208,7 +208,9 @@ class XtreamSource(object):
         for n in seasons:
             seasons[n].sort(key=lambda x: x["episode_num"])
         info = r.get("info") or {}
-        return {"plot": info.get("plot"), "seasons": seasons}
+        return {"plot": info.get("plot"), "seasons": seasons, "genre": info.get("genre"), "cast": info.get("cast"),
+                "director": info.get("director"), "rating": info.get("rating"),
+                "year": info.get("releaseDate") or info.get("release_date") or info.get("year")}
 
     def connections(self):
         """(aktive, erlaubte) Verbindungen laut Anbieter, frisch abgefragt; (None, None) wenn unbekannt."""

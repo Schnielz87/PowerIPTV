@@ -73,8 +73,8 @@ HEAD = head("bg_full.png")
 PIG = '<widget source="session.VideoPicture" render="Pig" position="680,112" size="560,315" zPosition="1" backgroundColor="%s" />' % CLEAR
 
 
-# Poster-Ansicht (Filme/Serien wie in der App): 7 x 2 Kacheln je Seite
-G_COLS, G_ROWS = 7, 2
+# Poster-Ansicht (Filme/Serien wie in der App): 4 x 2 Kacheln je Seite, rechts Infos zum gewaehlten Titel
+G_COLS, G_ROWS = 4, 2
 G_X0, G_Y0, G_PX, G_PY = 56, 112, 168, 250   # erste Kachel, Abstand waagerecht/senkrecht
 G_W, G_H = 136, 200                          # Postergroesse
 G_PAD = 7                                    # Rand des Leuchtrahmens
@@ -98,6 +98,13 @@ def grid_body():
         parts.append('<widget name="g_star%d" position="%d,%d" size="16,16" pixmap="%s" alphatest="blend" zPosition="2" />' % (k, x, y + G_H + 33, px("star.png")))
         parts.append('<widget name="g_rate%d" position="%d,%d" size="100,22" font="Regular;17" foregroundColor="#00f5c518" '
                      'backgroundColor="#00101b30" transparent="1" />' % (k, x + 22, y + G_H + 29))
+    # Info-Feld rechts (wie die Detailseite der App): Titel, Genre/Datum/Laufzeit/Bewertung/Regie, Handlung, Besetzung
+    parts += [
+        '<widget name="gi_title" position="736,118" size="484,72" font="Regular;28" valign="top" %s />' % TXT,
+        '<widget name="gi_meta" position="736,194" size="484,132" font="Regular;19" foregroundColor="%s" backgroundColor="#00101b30" transparent="1" />' % GREY,
+        '<widget name="gi_plot" position="736,332" size="484,186" font="Regular;19" %s />' % TXT,
+        '<widget name="gi_cast" position="736,522" size="484,84" font="Regular;17" foregroundColor="%s" backgroundColor="#00101b30" transparent="1" />' % GREY,
+    ]
     return "\n  ".join(parts)
 
 
@@ -110,7 +117,7 @@ def skin(name, info=True, config=False, layout=None):
     if layout in ("live", "catlive"):
         screen_bg = CLEAR
     if layout == "poster":
-        bg = "bg.png"
+        bg = "bg_poster.png"
         body = grid_body()
     elif config:
         body = ('<widget name="config" position="52,124" size="1176,460" itemHeight="46" font="Regular;24" selectionPixmap="%s" %s />'
@@ -738,6 +745,8 @@ class ItemScreen(Base):
             self["g_title%d" % k] = Label("")
             self["g_star%d" % k] = Pixmap()
             self["g_rate%d" % k] = Label("")
+        for k in ("gi_title", "gi_meta", "gi_plot", "gi_cast"):
+            self[k] = Label("")
         # Pfeiltasten bewegen den Rahmen im Raster (vor der unsichtbaren Liste auswerten)
         self["grid_actions"] = ActionMap(["DirectionActions", "ChannelSelectBaseActions", "InfobarChannelSelection"], {
             "left": lambda: self.grid_move(-1), "right": lambda: self.grid_move(1),
@@ -802,6 +811,14 @@ class ItemScreen(Base):
         if item is None:
             self["status"].setText("Keine Einträge")
             return
+        if getattr(self, "gi_for", None) is not item:
+            self.gi_for = item
+            self["gi_title"].setText(item.get("name") or "")
+            self["gi_meta"].setText("\n".join(x for x in (("Erscheinungsjahr: %s" % item["year"]) if item.get("year") else "",
+                                                           ("Bewertung: %s" % self.rating_text(item)) if self.rating_text(item) else "") if x))
+            self["gi_plot"].setText((item.get("plot") or "")[:420])
+            self["gi_cast"].setText("")
+            self.info_timer.start(400, True)  # ausfuehrliche Infos erst nach kurzer Pause (schnelles Blaettern)
         meta = [str(x) for x in (item.get("year"), self.rating_text(item)) if x]
         pages = (total + self.g_n - 1) // self.g_n
         self["status"].setText("%s%s      %d / %d   ·   Seite %d / %d%s" % (
@@ -952,7 +969,15 @@ class ItemScreen(Base):
                 pos = store.resume_get(item.get("url") or self.source.stream_url(item))
                 if pos > 0:
                     parts += ["", "Weiterschauen ab %d:%02d" % (pos // 60, pos % 60)]
+                    i["resume"] = pos
+                if self.poster:
+                    return {"text": "", "i": i}  # Poster liegt schon links, kein Cover noetig
                 return {"text": "\n".join(parts), "logo": fetch_image(i.get("cover") or item.get("logo"))}
+        elif self.poster and kind == "series":
+            def work():
+                i = dict(self.source.series_info(item) or {})
+                i.pop("seasons", None)
+                return {"text": "", "i": i}
         else:
             def work():
                 text = "\n".join([x for x in (item.get("name", ""), "", (item.get("plot") or "")[:600]) if x is not None])
@@ -965,6 +990,9 @@ class ItemScreen(Base):
         run_async(self, work, show, lambda m: None)
 
     def show_info(self, item, data):
+        if self.poster:
+            self.show_poster_info(item, data.get("i") or {})
+            return
         if self.p_live:
             cur, nxt = data.get("cur"), data.get("next")
             if cur:
@@ -991,6 +1019,34 @@ class ItemScreen(Base):
             text = data.get("text", "")
         self["info"].setText(text)
         show_image(self["cover"], data.get("logo"))
+
+    def show_poster_info(self, item, i):
+        """Info-Feld rechts neben den Postern – aufgebaut wie die Detailseite der App."""
+        def clean(v):
+            return re.sub(r"\s+", " ", str(v)).strip() if v not in (None, "", 0, "0") else ""
+        meta = []
+        if clean(i.get("genre")):
+            meta.append("Genre: " + clean(i.get("genre")))
+        year = clean(i.get("year")) or clean(item.get("year"))
+        if year:
+            meta.append("Erscheinungsdatum: " + year[:10])
+        if clean(i.get("duration")):
+            meta.append("Laufzeit: " + clean(i.get("duration")))
+        rate = clean(i.get("rating")) or self.rating_text(item)
+        if rate:
+            meta.append("Bewertung: " + rate)
+        if clean(i.get("director")):
+            meta.append("Regie: " + clean(i.get("director"))[:60])
+        self["gi_title"].setText(item.get("name") or "")
+        self["gi_meta"].setText("\n".join(meta))
+        plot = clean(i.get("plot")) or clean(item.get("plot"))
+        if i.get("resume"):
+            pos = int(i["resume"])
+            plot = ("► Weiterschauen ab %d:%02d:%02d\n\n" % (pos // 3600, (pos // 60) % 60, pos % 60)) + plot
+        if len(plot) > 330:  # passt in das Feld (ca. 7 Zeilen) – an einer Wortgrenze kuerzen
+            plot = plot[:330].rsplit(" ", 1)[0] + " …"
+        self["gi_plot"].setText(plot)
+        self["gi_cast"].setText(("Besetzung: " + clean(i.get("cast"))[:200]) if clean(i.get("cast")) else "")
 
     def ok(self):
         n, item = self.current()
