@@ -638,7 +638,8 @@ class ItemScreen(Base):
                           layout="live" if self.p_live else "media")
         self.source, self.kind, self.cat_id = source, kind, cat_id
         self.all = []
-        self.shown = []
+        # nicht "shown": so heisst bei Enigma2 die Ja/Nein-Variable "Fenster sichtbar" (wurde sonst ueberschrieben -> Absturz)
+        self.visible_items = []
         self.filter = ""
         self.sort = store.settings().get("sort", "DEFAULT")
         self.pid = pid()
@@ -697,17 +698,17 @@ class ItemScreen(Base):
 
     def apply(self):
         lst = [i for i in self.all if rules.matches(i.get("name"), self.filter)] if self.filter else list(self.all)
-        self.shown = rules.apply_sort(lst, self.sort) if self.kind != "episode" else lst
+        self.visible_items = rules.apply_sort(lst, self.sort) if self.kind != "episode" else lst
         self.g_page = -1  # Poster-Ansicht: Seite neu aufbauen
-        self["list"].setList([(self.label(i), n) for n, i in enumerate(self.shown)])
+        self["list"].setList([(self.label(i), n) for n, i in enumerate(self.visible_items)])
         sort_name = dict(rules.SORTS).get(self.sort, "")
-        self["status"].setText("%d Einträge%s%s" % (len(self.shown), ("  ·  Filter: " + self.filter) if self.filter else "",
+        self["status"].setText("%d Einträge%s%s" % (len(self.visible_items), ("  ·  Filter: " + self.filter) if self.filter else "",
                                                      ("  ·  " + sort_name) if self.sort != "DEFAULT" and self.kind != "episode" else ""))
         self.selection_changed()
 
     def current(self):
         cur = self["list"].getCurrent()
-        return (cur[1], self.shown[cur[1]]) if cur and cur[1] < len(self.shown) else (None, None)
+        return (cur[1], self.visible_items[cur[1]]) if cur and cur[1] < len(self.visible_items) else (None, None)
 
     def selection_changed(self):
         if self.p_closed:
@@ -771,7 +772,7 @@ class ItemScreen(Base):
         return cur[1] if cur else 0
 
     def grid_move(self, delta):
-        total = len(self.shown)
+        total = len(self.visible_items)
         if not total:
             return
         i = self.grid_index()
@@ -790,7 +791,7 @@ class ItemScreen(Base):
     def grid_render(self):
         if self.p_closed or not hasattr(self, "g_n"):
             return
-        total = len(self.shown)
+        total = len(self.visible_items)
         i = self.grid_index() if total else 0
         page = i // self.g_n
         if page != self.g_page:
@@ -807,7 +808,7 @@ class ItemScreen(Base):
                 self["sel"].hide()
         except Exception:
             pass
-        item = self.shown[i] if total else None
+        item = self.visible_items[i] if total else None
         if item is None:
             self["status"].setText("Keine Einträge")
             return
@@ -836,7 +837,7 @@ class ItemScreen(Base):
     def grid_fill(self, page):
         start = page * self.g_n
         for k in range(self.g_n):
-            item = self.shown[start + k] if start + k < len(self.shown) else None
+            item = self.visible_items[start + k] if start + k < len(self.visible_items) else None
             self.g_items[k] = item
             img = self["g_img%d" % k]
             img.hide()
@@ -1058,9 +1059,9 @@ class ItemScreen(Base):
             from . import zoom
             if zoom.supported():
                 self.session.openWithCallback(self.player_closed, zoom.ZoomScreen,
-                                              lambda done: play(self.session, self.source, self.shown, n, on_close=done, keep_stream=True))
+                                              lambda done: play(self.session, self.source, self.visible_items, n, on_close=done, keep_stream=True))
             else:
-                play(self.session, self.source, self.shown, n, on_close=self.player_closed, keep_stream=True)
+                play(self.session, self.source, self.visible_items, n, on_close=self.player_closed, keep_stream=True)
             return
         if self.pv_started:
             # anderer Sender/Film: Vorschau-Stream erst schliessen und kurz warten, dann oeffnen
@@ -1070,21 +1071,21 @@ class ItemScreen(Base):
             self.open_item = n
             self.open_timer.start(max(100, sw.wait_ms()), True)
             return
-        play(self.session, self.source, self.shown, n)
+        play(self.session, self.source, self.visible_items, n)
 
     def player_closed(self, index=None, *args):
         """Zurueck aus dem Player: Liste auf den zuletzt gesehenen Sender stellen; der laeuft in der Vorschau weiter."""
-        if self.p_closed or not isinstance(index, int) or not (0 <= index < len(self.shown)):
+        if self.p_closed or not isinstance(index, int) or not (0 <= index < len(self.visible_items)):
             return
         self["list"].moveToIndex(index)
-        self.pv_ref = self.url_of(self.shown[index])
+        self.pv_ref = self.url_of(self.visible_items[index])
         self.pv_last = time.time()
         self.pv_timer.stop()
 
     def open_pending(self):
         n, self.open_item = self.open_item, None
-        if n is not None and not self.p_closed and n < len(self.shown):
-            play(self.session, self.source, self.shown, n)
+        if n is not None and not self.p_closed and n < len(self.visible_items):
+            play(self.session, self.source, self.visible_items, n)
 
     def programme(self):
         n, item = self.current()
@@ -1105,7 +1106,7 @@ class ItemScreen(Base):
         msg = ("♥ „%s“ zu Favoriten hinzugefügt" if added else "„%s“ aus Favoriten entfernt") % item.get("name", "")
         idx = self["list"].getSelectionIndex()
         self.g_page = -1
-        self["list"].setList([(self.label(i), k) for k, i in enumerate(self.shown)])
+        self["list"].setList([(self.label(i), k) for k, i in enumerate(self.visible_items)])
         self["list"].moveToIndex(idx)
         if self.poster:
             self.grid_render()
