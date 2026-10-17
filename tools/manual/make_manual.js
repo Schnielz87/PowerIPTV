@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.134 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.135 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -116,6 +116,7 @@ c.push(tip('Am TV: Im Suchfeld mit OK die Tastatur öffnen, mit ↓ oder „Such
 // 6
 c.push(h1('6. Den Player bedienen'));
 c.push(p('Beide Player (Standard und VLC) sehen gleich aus: oben Titel und Optionen, in der Mitte die Steuerung, unten der Zeitstrahl. Die Leisten verschwinden 5 Sekunden nach der letzten Bedienung.'));
+c.push(tip('Vollbild (Handy/Tablet): Oben das Symbol ⛶ tippen – das Bild füllt dann den ganzen Bildschirm (oben/unten bzw. links/rechts wird etwas abgeschnitten, keine schwarzen Ränder mehr). Nochmal tippen = Original-Seitenverhältnis. Genauso geht es mit zwei Fingern: auseinanderziehen = Vollbild, zusammenziehen = Original. Die Wahl wird gemerkt. Status- und Navigationsleiste des Handys sind im Player immer ausgeblendet (Wischen vom Rand holt sie kurz zurück).'));
 c.push(table(['Inhalt', 'Pfeile in der Mitte'], [
   ['Live-TV', '⏮ voriger Sender · ⏸ · ⏭ nächster Sender (kein Spulen bei Live)'],
   ['Serie', '⏮ vorige Folge · ⟲ 10 s · ⏸ · ⟳ 10 s · ⏭ nächste Folge'],

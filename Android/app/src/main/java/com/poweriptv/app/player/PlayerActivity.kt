@@ -85,6 +85,8 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.common.Tracks
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.ConnectedTv
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Favorite
@@ -199,7 +201,14 @@ class PlayerActivity : ComponentActivity() {
         }
 
         // Online: ueber OkHttp (VPN-Kill-Switch + User-Agent). Lokale Dateien: direkt.
-        val dataSourceFactory = DefaultDataSource.Factory(this, OkHttpDataSource.Factory(container.http))
+        // Eigene, kuerzere Wartezeiten fuer die Wiedergabe: eine nach laengerer Pause eingeschlafene Verbindung
+        // (Router/Anbieter haben sie still beendet) wird nach 12 s statt 60 s erkannt und neu aufgebaut.
+        val playerHttp = container.http.newBuilder()
+            .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(12, java.util.concurrent.TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .build()
+        val dataSourceFactory = DefaultDataSource.Factory(this, OkHttpDataSource.Factory(playerHttp))
         // Decoder-Fallback: schlaegt der Hardware-Decoder fehl, wird ein anderer versucht
         // Eigener Audio-Pfad: hoert fuer die automatische Vorspann-Erkennung mit (Ton bleibt unveraendert)
         val renderers = object : DefaultRenderersFactory(this) {
@@ -387,11 +396,23 @@ class PlayerActivity : ComponentActivity() {
                                         return true
                                     }
                                 })
+                                // Zwei Finger auseinander = Vollbild (Bildschirm fuellen), zusammen = Original – wie bei Netflix/YouTube
+                                var pinch = 1f
+                                val scaler = android.view.ScaleGestureDetector(ctx, object : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                                    override fun onScaleBegin(d: android.view.ScaleGestureDetector): Boolean { pinch = 1f; return true }
+                                    override fun onScale(d: android.view.ScaleGestureDetector): Boolean { pinch *= d.scaleFactor; return true }
+                                    override fun onScaleEnd(d: android.view.ScaleGestureDetector) {
+                                        val full = videoScale == VideoScale.ZOOM || videoScale == VideoScale.FILL
+                                        if (pinch > 1.12f && !full) toggleFullscreen(true)
+                                        else if (pinch < 0.89f && full) toggleFullscreen(false)
+                                    }
+                                })
                                 // Kein performClick(): PlayerView wuerde die Leiste dabei zusaetzlich ein/aus schalten
                                 controllerHideOnTouch = false
                                 @Suppress("ClickableViewAccessibility")
                                 setOnTouchListener { _, e ->
-                                    detector.onTouchEvent(e)
+                                    scaler.onTouchEvent(e)
+                                    if (!scaler.isInProgress && e.pointerCount < 2) detector.onTouchEvent(e)
                                     true
                                 }
                                 // Thumbnail-Scrubbing: beim Ziehen auf dem Zeitstrahl Vorschaubild zeigen
@@ -652,6 +673,14 @@ class PlayerActivity : ComponentActivity() {
                 if (canSendToDevice(entry) && !watchingRecording) {
                     IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { showSendDialog = true }) {
                         Icon(Icons.Filled.ConnectedTv, "An Gerät senden", tint = Color.White)
+                    }
+                }
+                // Vollbild: Bild fuellt den ganzen Bildschirm (Raender werden abgeschnitten) <-> Original
+                if (!container.isTvDevice) {
+                    val full = videoScale == VideoScale.ZOOM || videoScale == VideoScale.FILL
+                    IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { toggleFullscreen() }) {
+                        Icon(if (full) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
+                            if (full) "Vollbild aus (Original)" else "Vollbild (Bildschirm füllen)", tint = Color.White)
                     }
                 }
                 IconButton(modifier = Modifier.focusRequester(gearFocus).tvFocus(CircleShape, 1.15f), onClick = { dialogSection = PlayerSection.MAIN; showFormatDialog = true }) {
@@ -1088,6 +1117,26 @@ class PlayerActivity : ComponentActivity() {
         applyAspect()
         container.settings.setVideoScale(v)
         formatBadge = v.short
+    }
+
+    /** Vollbild-Knopf / Zwei-Finger-Zoom: Bildschirm fuellen (wie Netflix/YouTube) bzw. zurueck zum Original. */
+    private fun toggleFullscreen(full: Boolean = !(videoScale == VideoScale.ZOOM || videoScale == VideoScale.FILL)) {
+        lastInteraction = System.currentTimeMillis()
+        changeVideoScale(if (full) VideoScale.ZOOM else VideoScale.FIT)
+        toast = if (full) "Vollbild – Bild füllt den Bildschirm" else "Original-Seitenverhältnis"
+    }
+
+    /** Statusleiste/Navigationsleiste wieder ausblenden (z.B. nach einem Dialog). */
+    private fun hideSystemBars() {
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) hideSystemBars()
     }
 
     private fun cycleVideoScale() {

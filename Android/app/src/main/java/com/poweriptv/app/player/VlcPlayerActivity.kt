@@ -23,6 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.ConnectedTv
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Favorite
@@ -207,6 +209,8 @@ class VlcPlayerActivity : ComponentActivity() {
                     if (hasNext() && !nextCancelled) next()
                 }
                 MediaPlayer.Event.LengthChanged -> applyResume()
+                // Mit ":start-time" geoeffnet: pruefen, sobald die erste Zeit gemeldet wird
+                MediaPlayer.Event.TimeChanged -> if (resumeTarget > 0 && startTimeUsed) applyResume()
             }
         }
         scale = container.settings.videoScaleEnum()
@@ -228,6 +232,27 @@ class VlcPlayerActivity : ComponentActivity() {
                                     }
                                 },
                             )
+                        }
+                        // Zwei Finger auseinander = Vollbild (Bildschirm fuellen), zusammen = Original – wie bei Netflix/YouTube
+                        .pointerInput(Unit) {
+                            androidx.compose.foundation.gestures.awaitEachGesture {
+                                androidx.compose.foundation.gestures.awaitFirstDown(requireUnconsumed = false)
+                                var startDist = 0f
+                                var ratio = 1f
+                                do {
+                                    val ev = awaitPointerEvent()
+                                    val pts = ev.changes.filter { it.pressed }
+                                    if (pts.size >= 2) {
+                                        val d = (pts[0].position - pts[1].position).getDistance()
+                                        if (startDist == 0f) startDist = d else if (startDist > 0f) ratio = d / startDist
+                                    }
+                                } while (ev.changes.any { it.pressed })
+                                if (startDist > 0f) {
+                                    val full = scale == VideoScale.ZOOM || scale == VideoScale.FILL
+                                    if (ratio > 1.12f && !full) toggleFullscreen(true)
+                                    else if (ratio < 0.89f && full) toggleFullscreen(false)
+                                }
+                            }
                         },
                 ) {
                     AndroidView(
@@ -459,6 +484,14 @@ class VlcPlayerActivity : ComponentActivity() {
                         Icon(Icons.Filled.FiberManualRecord, "Aufnehmen", tint = com.poweriptv.app.ui.theme.Danger)
                     }
                 }
+                // Vollbild: Bild fuellt den ganzen Bildschirm (Raender werden abgeschnitten) <-> Original
+                if (!container.isTvDevice) {
+                    val full = formatBadge.let { scale == VideoScale.ZOOM || scale == VideoScale.FILL }
+                    IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { toggleFullscreen() }) {
+                        Icon(if (full) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
+                            if (full) "Vollbild aus (Original)" else "Vollbild (Bildschirm füllen)", tint = Color.White)
+                    }
+                }
                 IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { dialogSection = PlayerSection.MAIN; showFormatDialog = true }) { Icon(Icons.Filled.Settings, "Einstellungen (Tonspur, Sleep-Timer)", tint = Color.White) }
             }
             Row(
@@ -590,10 +623,17 @@ class VlcPlayerActivity : ComponentActivity() {
         play(container.playIndex)
     }
 
+    /** Mit ":start-time" geoeffnet -> erst springen, falls VLC die Startzeit nicht umsetzen konnte. */
+    private var startTimeUsed = false
+
     private fun applyResume() {
         val t = resumeTarget
         if (t <= 0) return
+        // Schon dort geoeffnet (":start-time")? Dann nicht nochmal springen (sonst zweite Verbindung)
+        val now = runCatching { mediaPlayer.time }.getOrDefault(0L)
+        if (startTimeUsed && now <= 0) return // Zeit noch unbekannt -> beim naechsten Ereignis pruefen
         resumeTarget = -1L
+        if (now > 0 && kotlin.math.abs(now - t) < 30_000) { position = now; return }
         runOnUiThread { mediaPlayer.time = t; position = t; pendingSeek = t; pendingSeekAt = System.currentTimeMillis(); lastFlowPos = 0L /* kein Intro-Lernen */ }
     }
 
@@ -787,9 +827,14 @@ class VlcPlayerActivity : ComponentActivity() {
                 addOption(":freetype-background-color=0")
             }
         }
-        // Filme/Serien: an der zuletzt gesehenen Stelle weitermachen
+        // Filme/Serien: an der zuletzt gesehenen Stelle weitermachen – direkt dort oeffnen (":start-time"),
+        // statt erst den Filmanfang zu laden und danach zu springen (das dauerte bei vielen Anbietern lange)
         resumeTarget = if (entry.live) -1L else container.resume.get(entry.url).takeIf { it > 0 } ?: -1L
-        if (resumeTarget > 0) toast = "▶ Weiter ab ${formatTime(resumeTarget)}"
+        if (resumeTarget > 0) {
+            toast = "▶ Weiter ab ${formatTime(resumeTarget)}"
+            media.addOption(":start-time=${resumeTarget / 1000.0}")
+        }
+        startTimeUsed = resumeTarget > 0
         mediaPlayer.media = media
         media.release()
         mediaPlayer.play()
@@ -984,6 +1029,22 @@ class VlcPlayerActivity : ComponentActivity() {
         applyScale()
         container.settings.setVideoScale(v)
         formatBadge = v.short
+    }
+
+    /** Vollbild-Knopf / Zwei-Finger-Zoom: Bildschirm fuellen (wie Netflix/YouTube) bzw. zurueck zum Original. */
+    private fun toggleFullscreen(full: Boolean = !(scale == VideoScale.ZOOM || scale == VideoScale.FILL)) {
+        lastInteraction = System.currentTimeMillis()
+        changeScale(if (full) VideoScale.ZOOM else VideoScale.FIT)
+        toast = if (full) "Vollbild – Bild füllt den Bildschirm" else "Original-Seitenverhältnis"
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // Statusleiste/Navigationsleiste nach Dialogen wieder ausblenden
+        if (hasFocus) WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
     }
 
     private fun cycleScale() {
