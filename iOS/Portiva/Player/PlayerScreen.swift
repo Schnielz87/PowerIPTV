@@ -34,6 +34,10 @@ struct PlayerScreen: View {
                 VLCVideoView(controller: ctl).ignoresSafeArea()
                     .onTapGesture(count: 2) { location in seekByDoubleTap(location.x > geo.size.width / 2) }
                     .onTapGesture { withAnimation { overlay.toggle() }; lastTouch = Date() }
+                    // Zwei Finger auseinander = Vollbild, zusammen = Original (wie Netflix/YouTube)
+                    .gesture(MagnificationGesture().onEnded { scale in
+                        if scale > 1.12 && !isFull { toggleFullscreen() } else if scale < 0.89 && isFull { toggleFullscreen() }
+                    })
 
                 if ctl.buffering && ctl.error == nil { ProgressView().tint(.white).scaleEffect(1.6) }
                 if let err = ctl.error { errorBox(err) }
@@ -85,6 +89,16 @@ struct PlayerScreen: View {
     // ---------------- Steuerung ----------------
 
     @ViewBuilder
+    private var isFull: Bool { ctl.aspect == .FILL || ctl.aspect == .STRETCH }
+
+    /** Vollbild-Knopf / Zwei-Finger-Zoom: Bildschirm fuellen bzw. zurueck zum Original (Wahl wird gemerkt). */
+    private func toggleFullscreen() {
+        let next: AspectMode = isFull ? .FIT : .FILL
+        ctl.setAspect(next, viewSize: viewSize)
+        app.settings.aspect = next.rawValue
+        app.show(next == .FILL ? "Vollbild – Bild füllt den Bildschirm" : "Original-Seitenverhältnis")
+    }
+
     private func controls(_ size: CGSize) -> some View {
         ZStack {
             LinearGradient(colors: [.black.opacity(0.7), .clear, .clear, .black.opacity(0.8)], startPoint: .top, endPoint: .bottom).ignoresSafeArea().allowsHitTesting(false)
@@ -101,6 +115,11 @@ struct PlayerScreen: View {
                     }
                     if entry.url.hasPrefix("http") {
                         Button { showSend = true } label: { Image(systemName: "tv.and.mediabox").font(.title3).foregroundColor(.white) }
+                    }
+                    // Vollbild: Bild fuellt den ganzen Bildschirm (Raender abgeschnitten) <-> Original
+                    Button { toggleFullscreen(); touch() } label: {
+                        Image(systemName: isFull ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                            .font(.title3).foregroundColor(.white)
                     }
                     circleButton("gearshape.fill") { withAnimation { showSettings = true } }
                 }
