@@ -88,7 +88,6 @@ struct PlayerScreen: View {
 
     // ---------------- Steuerung ----------------
 
-    @ViewBuilder
     private var isFull: Bool { ctl.aspect == .FILL || ctl.aspect == .STRETCH }
 
     /** Vollbild-Knopf / Zwei-Finger-Zoom: Bildschirm fuellen bzw. zurueck zum Original (Wahl wird gemerkt). */
@@ -99,6 +98,7 @@ struct PlayerScreen: View {
         app.show(next == .FILL ? "Vollbild – Bild füllt den Bildschirm" : "Original-Seitenverhältnis")
     }
 
+    @ViewBuilder
     private func controls(_ size: CGSize) -> some View {
         ZStack {
             LinearGradient(colors: [.black.opacity(0.7), .clear, .clear, .black.opacity(0.8)], startPoint: .top, endPoint: .bottom).ignoresSafeArea().allowsHitTesting(false)
