@@ -47,6 +47,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -235,8 +237,8 @@ class VlcPlayerActivity : ComponentActivity() {
                         }
                         // Zwei Finger auseinander = Vollbild (Bildschirm fuellen), zusammen = Original – wie bei Netflix/YouTube
                         .pointerInput(Unit) {
-                            androidx.compose.foundation.gestures.awaitEachGesture {
-                                androidx.compose.foundation.gestures.awaitFirstDown(requireUnconsumed = false)
+                            awaitEachGesture {
+                                awaitFirstDown(requireUnconsumed = false)
                                 var startDist = 0f
                                 var ratio = 1f
                                 do {
