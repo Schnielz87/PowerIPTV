@@ -1469,10 +1469,15 @@ class PlayerActivity : ComponentActivity() {
         super.onUserLeaveHint()
         // Home-Taste/-Geste ("Kreis"): Video im Mini-Fenster weiter (Handy/Tablet; Fire TV kann das fuer Fremd-Apps nicht).
         // Ab Android 12 macht das autoEnter selbst – sonst hier von Hand.
-        if (player.playWhenReady && error == null && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+        if (player.playWhenReady && error == null) {
             val v = player.videoSize
-            Pip.enter(this, isTv, v.width, v.height)
+            Pip.onLeave(this, isTv, v.width, v.height)
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updatePip() // Mini-Fenster-Einstellungen sicher hinterlegt (nicht erst nach einer Zustandsaenderung)
     }
 
     override fun onStop() {

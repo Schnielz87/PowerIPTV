@@ -15,6 +15,31 @@ object Pip {
         !isTv && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             activity.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
 
+    /** Hat der Nutzer Bild-in-Bild fuer die App in den Android-Einstellungen ausgeschaltet? */
+    fun allowed(activity: Activity): Boolean = runCatching {
+        val ops = activity.getSystemService(android.content.Context.APP_OPS_SERVICE) as android.app.AppOpsManager
+        val uid = android.os.Process.myUid()
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+            ops.unsafeCheckOpNoThrow(android.app.AppOpsManager.OPSTR_PICTURE_IN_PICTURE, uid, activity.packageName)
+        else @Suppress("DEPRECATION") ops.checkOpNoThrow(android.app.AppOpsManager.OPSTR_PICTURE_IN_PICTURE, uid, activity.packageName)
+        mode == android.app.AppOpsManager.MODE_ALLOWED || mode == android.app.AppOpsManager.MODE_DEFAULT
+    }.getOrDefault(true)
+
+    /** Beim Verlassen ("Kreis"/Home): ins Mini-Fenster – oder Hinweis, falls es in den Einstellungen ausgeschaltet ist. */
+    fun onLeave(activity: Activity, isTv: Boolean, width: Int, height: Int) {
+        if (!supported(activity, isTv)) return
+        if (!allowed(activity)) {
+            android.widget.Toast.makeText(activity,
+                "Bild-in-Bild ist für PowerIPTV ausgeschaltet – Einstellungen → Apps → PowerIPTV → Bild-in-Bild einschalten",
+                android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        // Ab Android 12 sollte autoEnter das erledigen; manche Hersteller (z.B. bei Gestensteuerung) loesen es aber
+        // nicht aus -> zusaetzlich direkt umschalten (ist es schon unterwegs, passiert nichts doppelt)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && activity.isInPictureInPictureMode) return
+        enter(activity, isTv, width, height)
+    }
+
     /** Seitenverhaeltnis des Videos (Android erlaubt nur 1:2,39 bis 2,39:1). */
     private fun ratio(width: Int, height: Int): Rational {
         if (width <= 0 || height <= 0) return Rational(16, 9)

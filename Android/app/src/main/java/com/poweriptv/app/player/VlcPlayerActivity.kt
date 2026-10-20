@@ -1075,10 +1075,15 @@ class VlcPlayerActivity : ComponentActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (!userPaused && error == null && current() != null && android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) {
+        if (!userPaused && error == null && current() != null) {
             val (w, h) = videoSize()
-            Pip.enter(this, container.isTvDevice, w, h)
+            Pip.onLeave(this, container.isTvDevice, w, h)
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updatePip() // Mini-Fenster-Einstellungen sicher hinterlegt (nicht erst nach einer Zustandsaenderung)
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
