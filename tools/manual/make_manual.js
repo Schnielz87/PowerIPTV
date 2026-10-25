@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.142 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.143 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -325,6 +325,17 @@ c.push(step('Am Handy: Benutzer wechseln → beim gewünschten Zugang auf das QR
 c.push(tip('Ohne Kamera (Windows-PC, TV-Stick, Samsung-TV) oder wenn das Scannen nicht klappt: beim Zugang „Code eingeben“ wählen und die am Receiver angezeigte IP-Adresse und den 6-stelligen Code eintragen. Den gleichen Zugang zweimal zu übertragen legt ihn nicht doppelt an.'));
 c.push(step('Der Zugang erscheint sofort auf dem TV und wird aktiviert. Beim Samsung-TV dauert es einige Sekunden (der Fernseher holt den Zugang beim Handy ab – Portiva am Handy so lange geöffnet lassen).', 'n11'));
 c.push(tip('Der QR-Code eines Zugangs enthält die Zugangsdaten – nur dir selbst zeigen. Lokale M3U-Dateien lassen sich nicht übertragen (dort fehlt das QR-Symbol).'));
+c.push(h2('Einrichtungs-Code: Zugang an andere weitergeben'));
+c.push(p('Mit dem Einrichtungs-Code gibst du einen Zugang an Freunde oder Kunden weiter, ohne Benutzername und Passwort vorzulesen oder im Klartext zu schicken. Der Code ist verschlüsselt (AES-256), auf Wunsch mit PIN, nur für ein bestimmtes Gerät und mit Ablaufdatum. Am Handy und PC kann er zusätzlich dein VPN mitbringen.'));
+c.push(step('Erstellen (Android, Windows, iPhone): Benutzer wechseln → beim Zugang auf das QR-Symbol → „🔐 Einrichtungs-Code erstellen (für andere)“.', 's1'));
+c.push(step('PIN eintragen (4–8 Ziffern, empfohlen). Optional die Gerätenummer des Empfängers – dann funktioniert der Code nur auf diesem einen Gerät. Gültigkeit wählen: 24 Stunden, 7 Tage, 30 Tage oder unbegrenzt. Am Handy/PC mit VPN: „Mein VPN mitgeben“ und auf Wunsch „Kill-Switch beim Empfänger einschalten“.', 's1'));
+c.push(step('„Code erstellen“ → „Teilen“ (z.B. WhatsApp) oder „Kopieren“. Der QR-Code kann auch direkt vom Bildschirm gescannt werden.', 's1'));
+c.push(tip('Die PIN NIE im selben Chat wie den Code schicken – am besten anrufen oder per SMS. Nur so schützt die PIN wirklich.'));
+c.push(step('Einlösen am Handy, Tablet oder PC: Benutzer wechseln → Neuer Zugang → „🔐 Einrichtungs-Code einlösen“. Ein kopierter Code wird automatisch eingefügt; sonst einfügen oder „Code scannen“. PIN eingeben → „Auf diesem Gerät einrichten“. Fertig – der Zugang ist aktiv. War ein VPN dabei: Startseite → VPN → „Verbinden“ (mit Kill-Switch läuft ohne VPN nichts).', 's2'));
+c.push(step('Einlösen für Receiver, Samsung-TV oder Fire TV (dort kann man nichts einfügen): am Gerät „Zugang vom Handy empfangen“ öffnen. Am Handy den Code wie oben öffnen → „Auf Receiver / TV einrichten“ → den QR-Code am Gerät scannen (oder IP-Adresse und Code eintragen). Das Handy prüft PIN und Gerätenummer und schickt den Zugang ans Gerät.', 's2'));
+c.push(bullet([b('Gerätenummer: '), t('jedes Gerät hat eine eigene, z.B. 7KQ4-M2XD. Du findest sie im Fenster „Einrichtungs-Code einlösen“ und im Fenster „Zugang empfangen“ (auch am Receiver und Samsung-TV). Nach einer Neuinstallation der App gibt es eine neue Nummer – dann einen neuen Code erstellen.')]));
+c.push(bullet([b('Meldungen: '), t('„Die PIN ist falsch“, „für ein anderes Gerät bestimmt“, „abgelaufen – bitte einen neuen anfordern“. Ein unvollständig kopierter Code wird als „Kein gültiger Einrichtungs-Code“ erkannt.')]));
+c.push(tip('Wichtig: Ohne PIN und ohne Gerätenummer kann jeder, der den Code bekommt, den Zugang einrichten – wie ein Schlüssel. Das Ablaufdatum prüft die Uhr des Empfänger-Geräts. Ein mitgeschicktes VPN ist DEIN VPN-Zugang: viele VPN-Anbieter erlauben pro Konfiguration nur ein Gerät gleichzeitig – für jeden Empfänger besser eine eigene .conf anlegen. Das VPN gibt es nur in der Android- und Windows-App; iPhone, Receiver und Fernseher übernehmen nur den Zugang.'));
 c.push(h2('Wiedergabe an ein anderes Gerät senden'));
 c.push(step('Im Player oben auf das Übertragen-Symbol (wie bei Chromecast) oder das Fernseher-Symbol „An Gerät senden“ tippen (Samsung-TV: Knopf „📲 Senden“). Das Fenster bleibt offen, bis du es schließt – auch wenn die Suche etwas dauert.', 'n12'));
 c.push(tip('Wird ein Gerät nicht gefunden: Alle Geräte müssen im selben Heimnetz hängen – WLAN oder LAN-Kabel ist egal. Klappt die automatische Suche trotzdem nicht, im Fenster „An Gerät senden“ unten die IP-Adresse des Geräts eingeben und „Verbinden“ drücken (Samsung-TV: „＋ Gerät per IP-Adresse …“). Das Gerät wird gemerkt und beim nächsten Mal automatisch angezeigt.'));
@@ -422,7 +433,7 @@ const doc = new Document({
   },
   numbering: { config: [
     { reference: 'bul', levels: [{ level: 0, format: LevelFormat.BULLET, text: '•', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] },
-    ...['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'n10', 'n11', 'n12', 'n13', 'n14', 'n15', 'n16', 'n17', 'num'].map(r => ({ reference: r, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] })),
+    ...['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'n10', 'n11', 'n12', 'n13', 'n14', 'n15', 'n16', 'n17', 's1', 's2', 'num'].map(r => ({ reference: r, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] })),
   ] },
   features: { updateFields: true },
   sections: [{

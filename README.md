@@ -38,7 +38,10 @@ mit **eingebautem VPN**, **Offline-Downloads** und **eigenen Favoritenlisten**.
 | **Downloads** | Filme/Episoden offline speichern, Pause/Fortsetzen (Resume), Offline-Wiedergabe |
 | **VPN** | WireGuard-VPN eingebaut (.conf importieren oder einfuegen), Kill-Switch, Auto-Connect, Split-Tunneling (nur PowerIPTV), externe VPN-Apps werden erkannt |
 | **Player** | ExoPlayer (Media3): HLS, MPEG-TS, MP4, MKV · Untertitel/Tonspuren · Bild-in-Bild |
-| **Sicherheit** | Zugangsdaten & VPN-Konfig AES-256-verschluesselt (Android Keystore) |
+| **Sicherheit** | Zugangsdaten & VPN-Konfig verschluesselt gespeichert (Android Keystore, Windows DPAPI, iOS Schluesselbund, Receiver nur fuer das System lesbar) · Zugangs-QR und Passwort-Eingabe vor Bildschirmfotos geschuetzt (Android) |
+| **Mitteilung vom Anbieter** | Nachricht des IPTV-Anbieters (Xtream `user_info.message`) wird beim Start einmal angezeigt und bleibt im Konto-Bereich lesbar – auf allen Geraeten |
+| **Portiva Link** | Zugang per QR uebertragen, Wiedergabe an ein anderes Geraet senden · nur im Heimnetz, keine Befehle aus Webseiten, Sperre nach 5 falschen Codes |
+| **Einrichtungs-Code** | Zugang (+ WireGuard-VPN, optional Kill-Switch) als verschluesselten Code weitergeben: AES-256-GCM, PIN, Bindung an eine Geraetenummer, Ablaufdatum (24 h / 7 Tage / 30 Tage / unbegrenzt). Erstellen: Android, Windows, iOS · Einloesen: Android, Windows, iOS; Receiver, Samsung-TV und Fire TV ueber das Handy |
 
 ## APK herunterladen
 
@@ -98,6 +101,18 @@ Modell und API-Adresse sind einstellbar (auch OpenAI-kompatible Anbieter).
 2. In der App: **VPN & Sicherheit** → **.conf importieren**
 3. **VPN verbinden** – Android fragt einmalig nach der VPN-Berechtigung
 4. Optional: **Kill-Switch** aktivieren → ohne VPN laedt die App gar nichts (auch keine Downloads)
+
+## Einrichtungs-Code (Zugang weitergeben)
+
+1. **Erstellen:** Benutzer wechseln → beim Zugang auf das QR-Symbol → **Einrichtungs-Code erstellen**.
+   PIN (empfohlen), optional die **Geraetenummer** des Empfaengers, Gueltigkeit und – Android/Windows – „Mein VPN mitgeben“ waehlen.
+2. **Senden:** „Teilen“/„Kopieren“ → z.B. per WhatsApp. **Die PIN getrennt schicken** (Anruf, SMS) – nie im selben Chat.
+3. **Einloesen:** Benutzer wechseln → Neuer Zugang → **Einrichtungs-Code einloesen** → einfuegen oder scannen → PIN → fertig.
+   Fuer Receiver, Samsung-TV oder Fire TV: dort „Zugang vom Handy empfangen“ oeffnen, am Handy „Auf Receiver / TV einrichten“ → QR scannen.
+
+Gut zu wissen: Ohne PIN und ohne Geraetenummer kann jeder mit dem Code den Zugang einrichten. Die Geraetenummer
+verhindert das Weiterleiten an fremde Geraete (nach einer Neuinstallation gibt es eine neue Nummer). Das Ablaufdatum
+prueft die Uhr des Empfaengers. Wer ein mitgeschicktes VPN nutzt, nutzt deinen VPN-Zugang mit.
 
 ## Logo austauschen
 

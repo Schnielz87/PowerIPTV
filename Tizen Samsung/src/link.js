@@ -4,7 +4,7 @@ import { isVega, request } from './vega';
 //  - Zugang empfangen: der Fernseher zeigt einen Code (Port 0) und holt den Zugang beim Handy ab.
 //  - Wiedergabe senden: der Fernseher sucht Portiva-Geraete im Heimnetz und schickt dorthin.
 import qrcode from 'qrcode-generator';
-import { uid } from './util';
+import { uid, storage } from './util';
 
 export const LINK_PORT = 47800;
 const ACCOUNT_PREFIX = 'PORTIVA1:';
@@ -30,7 +30,21 @@ export function fromAccount(a, id) {
 }
 
 export const accountQr = (p) => ACCOUNT_PREFIX + b64url(JSON.stringify(toAccount(p)));
-export const pairQr = (ip, code) => `${PAIR_PREFIX}${ip}:0:${code}`;
+export const pairQr = (ip, code) => `${PAIR_PREFIX}${ip}:0:${code}:${deviceId()}`;
+
+/** Geraetenummer (fuer Einrichtungs-Codes, die das Handy fuer diesen Fernseher oeffnet), einmal zufaellig erzeugt. */
+export function deviceId() {
+  let id = storage.get('deviceId', null);
+  if (id) return id;
+  const chars = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+  const n = new Uint8Array(8);
+  try { window.crypto.getRandomValues(n); } catch (e) { for (let i = 0; i < 8; i++) n[i] = Math.floor(Math.random() * 256); }
+  let s = '';
+  for (let i = 0; i < 8; i++) s += chars[n[i] % chars.length];
+  id = `${s.slice(0, 4)}-${s.slice(4)}`;
+  storage.set('deviceId', id);
+  return id;
+}
 export const newCode = () => String(100000 + Math.floor(Math.random() * 900000));
 
 /** QR-Code als Bild (data:-URL), schwarz auf weiss. */

@@ -86,6 +86,8 @@ fun ProfilesScreen(app: AppState) {
     var editing by remember { mutableStateOf<Profile?>(null) }
     var qrFor by remember { mutableStateOf<Profile?>(null) }
     var receiving by remember { mutableStateOf(false) }
+    var setupFor by remember { mutableStateOf<Profile?>(null) }
+    var redeeming by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(
@@ -142,6 +144,7 @@ fun ProfilesScreen(app: AppState) {
                 OutlinedButton(onClick = { receiving = true }, modifier = Modifier.handCursor()) {
                     Icon(Icons.Filled.QrCode2, null); Spacer(Modifier.width(6.dp)); Text("Vom Handy empfangen (QR-Code)")
                 }
+                OutlinedButton(onClick = { redeeming = true }, modifier = Modifier.handCursor()) { Text("🔐 Einrichtungs-Code einlösen") }
                 AddProfileForm(app, onCancel = if (profiles.isNotEmpty()) ({ adding = false }) else null) { adding = false }
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -151,6 +154,7 @@ fun ProfilesScreen(app: AppState) {
                     OutlinedButton(onClick = { receiving = true }, modifier = Modifier.handCursor()) {
                         Icon(Icons.Filled.QrCode2, null); Spacer(Modifier.width(6.dp)); Text("Vom Handy empfangen")
                     }
+                    OutlinedButton(onClick = { redeeming = true }, modifier = Modifier.handCursor()) { Text("🔐 Einrichtungs-Code einlösen") }
                 }
             }
         }
@@ -162,7 +166,15 @@ fun ProfilesScreen(app: AppState) {
             hint = "Am Handy/Tablet in Portiva: Benutzer wechseln → Neuer Zugang → „QR-Code scannen“. Nur dir selbst zeigen – der Code enthält die Zugangsdaten.",
             onDismiss = { qrFor = null },
             closeModifier = Modifier.handCursor(),
-        ) { SendToReceiverByCode(app, p) }
+        ) {
+            OutlinedButton(onClick = { qrFor = null; setupFor = p }, modifier = Modifier.handCursor()) { Text("🔐 Einrichtungs-Code erstellen (für andere)") }
+            SendToReceiverByCode(app, p)
+        }
+    }
+    setupFor?.let { p -> CreateSetupDialog(app, p, onDismiss = { setupFor = null }) }
+    if (redeeming) RedeemSetupDialog(app, onDismiss = { redeeming = false }) { p ->
+        redeeming = false; adding = false
+        app.activate(p)
     }
     if (receiving) ReceiveAccountDialog(app, onDismiss = { receiving = false }) { p ->
         receiving = false; adding = false
@@ -207,7 +219,7 @@ private fun ReceiveAccountDialog(app: AppState, onDismiss: () -> Unit, onReceive
     }
     com.poweriptv.app.ui.components.QrDialog(
         title = "Zugang empfangen",
-        text = com.poweriptv.app.link.LinkCodes.pairQr(ip, app.link.port, code),
+        text = com.poweriptv.app.link.LinkCodes.pairQr(ip, app.link.port, code, app.deviceId),
         hint = "Am Handy in Portiva: Benutzer wechseln → beim gewünschten Zugang auf das QR-Symbol tippen → „An TV-Stick / Fernseher senden“ → diesen Code scannen. " +
             "Fragt die Windows-Firewall, bitte „Zulassen“ wählen.",
         onDismiss = onDismiss,
@@ -218,6 +230,7 @@ private fun ReceiveAccountDialog(app: AppState, onDismiss: () -> Unit, onReceive
             Spacer(Modifier.width(10.dp))
             Text("Warte auf Zugang …  Code $code", fontWeight = FontWeight.SemiBold)
         }
+        Text("IP-Adresse: $ip  ·  Gerätenummer: ${app.deviceId}", style = MaterialTheme.typography.bodySmall)
     }
 }
 

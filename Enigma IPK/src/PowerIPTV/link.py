@@ -36,7 +36,20 @@ def local_ip():
 def hello():
     from . import store
     return {"app": "portiva", "name": store.settings().get("device_name") or "Enigma2-Receiver", "platform": "enigma2",
-            "port": _state["port"] or LINK_PORT, "receive": True}
+            "port": _state["port"] or LINK_PORT, "receive": True, "deviceId": device_id()}
+
+
+def device_id():
+    """Geraetenummer (fuer Einrichtungs-Codes, die das Handy fuer diesen Receiver oeffnet), einmal zufaellig erzeugt."""
+    from . import store
+    s = store.settings()
+    if not s.get("device_id"):
+        r = random.SystemRandom()
+        chars = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
+        v = "".join(r.choice(chars) for _ in range(8))
+        s["device_id"] = v[:4] + "-" + v[4:]
+        store.save_settings(s)
+    return str(s["device_id"])
 
 
 def new_code():
@@ -44,7 +57,7 @@ def new_code():
 
 
 def pair_qr(code):
-    return "PORTIVA-PAIR:%s:%d:%s" % (local_ip() or "0.0.0.0", _state["port"] or LINK_PORT, code)
+    return "PORTIVA-PAIR:%s:%d:%s:%s" % (local_ip() or "0.0.0.0", _state["port"] or LINK_PORT, code, device_id())
 
 
 # ---------- Zugang als QR (fuer Handy/Tablet) ----------
