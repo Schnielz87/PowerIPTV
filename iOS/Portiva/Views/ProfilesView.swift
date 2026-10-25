@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /** "Wer schaut?" – Zugaenge mit QR, Stift und Muelleimer (wie Android). */
 struct ProfilesView: View {
@@ -13,7 +12,6 @@ struct ProfilesView: View {
     @State private var scanning = false
     @State private var receiving = false
     @State private var deleteAsk: Profile?
-    @State private var redeemCode: String?
 
     var body: some View {
         List {
@@ -59,21 +57,15 @@ struct ProfilesView: View {
             Button("Manuell eingeben") { adding = true }
             Button("QR-Code scannen") { scanning = true }
             Button("Vom anderen Gerät empfangen") { receiving = true }
-            Button("Einrichtungs-Code einlösen") { redeemCode = UIPasteboard.general.string.flatMap { SetupCode.isSetupCode($0) ? $0 : nil } ?? "" }
         } message: { Text("Übertragen wird immer nur der eine Zugang, den du am anderen Gerät auswählst.") }
         .sheet(item: $qrFor) { p in AccountQRSheet(profile: p).environmentObject(app) }
         .sheet(item: $edit) { p in NavigationStack { AddProfileView(existing: p) }.environmentObject(app) }
         .sheet(isPresented: $adding) { NavigationStack { AddProfileView(existing: nil) }.environmentObject(app) }
         .sheet(isPresented: $receiving) { ReceiveAccountSheet().environmentObject(app) }
-        .sheet(isPresented: Binding(get: { redeemCode != nil }, set: { if !$0 { redeemCode = nil } })) {
-            RedeemSetupSheet(code: redeemCode ?? "").environmentObject(app)
-        }
         .sheet(isPresented: $scanning) {
             ScanSheet { text in
                 scanning = false
-                if SetupCode.isSetupCode(text) {
-                    redeemCode = text
-                } else if let a = LinkCodes.parseAccount(text) {
+                if let a = LinkCodes.parseAccount(text) {
                     let p = app.importAccount(a)
                     app.activate(p); goHome()
                     app.show("Zugang „\(p.name)“ übernommen")
@@ -112,7 +104,6 @@ struct AccountQRSheet: View {
     @State private var showCode = false
     @State private var codeIp = ""
     @State private var codeNum = ""
-    @State private var creating = false
 
     private func transfer(_ target: LinkCodes.PairTarget) {
         status = "Wird übertragen …"
@@ -133,8 +124,6 @@ struct AccountQRSheet: View {
                         .font(.footnote).foregroundColor(.secondary).multilineTextAlignment(.center)
                     Button { scanning = true } label: { Label("Auf Receiver / TV übertragen (QR scannen)", systemImage: "tv") .frame(maxWidth: .infinity) }
                         .buttonStyle(.borderedProminent)
-                    Button { creating = true } label: { Text("🔐 Einrichtungs-Code erstellen (für andere)").frame(maxWidth: .infinity) }
-                        .buttonStyle(.bordered)
                     Button { showCode.toggle() } label: { Text(showCode ? "Code-Eingabe ausblenden" : "Code eingeben (IP-Adresse + Code)").frame(maxWidth: .infinity) }
                         .buttonStyle(.bordered)
                     if showCode {
@@ -166,7 +155,6 @@ struct AccountQRSheet: View {
             }
         }
         .presentationDetents([.large])
-        .sheet(isPresented: $creating) { CreateSetupSheet(profile: profile).environmentObject(app) }
     }
 }
 
@@ -181,11 +169,10 @@ struct ReceiveAccountSheet: View {
         NavigationStack {
             VStack(spacing: 18) {
                 if let ip, app.link.port > 0 {
-                    QRCodeImage(text: LinkCodes.pairQr(ip: ip, port: app.link.port, code: code, deviceId: app.deviceId)).frame(maxWidth: 300)
+                    QRCodeImage(text: LinkCodes.pairQr(ip: ip, port: app.link.port, code: code)).frame(maxWidth: 300)
                     Text("Am anderen Gerät in Portiva: Benutzer wechseln → beim gewünschten Zugang auf das QR-Symbol tippen → „An TV-Stick / Fernseher senden“ → diesen Code scannen.")
                         .font(.footnote).foregroundColor(.secondary).multilineTextAlignment(.center)
                     HStack { ProgressView(); Text("Warte auf Zugang …  Code \(code)").bold() }
-                    Text("IP-Adresse: \(ip)  ·  Gerätenummer: \(app.deviceId)").font(.footnote.monospaced())
                 } else {
                     Text("Kein WLAN verbunden – beide Geräte müssen im selben Heimnetz sein.").multilineTextAlignment(.center)
                 }

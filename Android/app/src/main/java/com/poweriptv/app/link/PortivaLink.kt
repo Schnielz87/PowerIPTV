@@ -58,8 +58,6 @@ data class LinkHello(
     val platform: String,
     val port: Int,
     val receive: Boolean = true,
-    /** Geraetenummer (fuer Einrichtungs-Codes, die an dieses Geraet gebunden sind). */
-    val deviceId: String = "",
 )
 
 @Serializable
@@ -74,14 +72,7 @@ data class LinkPlay(
 )
 
 @Serializable
-data class LinkPair(
-    val code: String,
-    val account: LinkAccount,
-    val from: String = "",
-    /** Aus einem Einrichtungs-Code: WireGuard-Konfiguration + Kill-Switch (nur Android/Windows werten das aus). */
-    val vpn: String? = null,
-    val vpnRequired: Boolean = false,
-)
+data class LinkPair(val code: String, val account: LinkAccount, val from: String = "")
 
 data class LinkDevice(val name: String, val platform: String, val host: String, val port: Int)
 
@@ -113,19 +104,18 @@ object LinkCodes {
     }
 
     /** QR des empfangenden Geraets: Adresse + Einmal-Code. port = 0 -> Geraet holt selbst ab (Samsung-TV). */
-    fun pairQr(ip: String, port: Int, code: String, deviceId: String = "") =
-        "$PAIR_PREFIX$ip:$port:$code" + (if (deviceId.isNotBlank()) ":$deviceId" else "")
+    fun pairQr(ip: String, port: Int, code: String) = "$PAIR_PREFIX$ip:$port:$code"
 
-    /** deviceId = Geraetenummer des Empfaengers (neu ab 1.1.143, bei aelteren Versionen leer). */
-    data class PairTarget(val host: String, val port: Int, val code: String, val deviceId: String = "")
+    data class PairTarget(val host: String, val port: Int, val code: String)
 
     fun parsePairQr(text: String): PairTarget? {
         val t = text.trim()
         if (!t.startsWith(PAIR_PREFIX)) return null
         val parts = t.removePrefix(PAIR_PREFIX).split(":")
+        // 4. Teil (Geraetenummer aus Version 1.1.143) wird ignoriert
         if (parts.size != 3 && parts.size != 4) return null
         val port = parts[1].toIntOrNull() ?: return null
-        return PairTarget(parts[0], port, parts[2], parts.getOrNull(3).orEmpty())
+        return PairTarget(parts[0], port, parts[2])
     }
 
     fun isPortivaQr(text: String) = text.trim().let { it.startsWith(ACCOUNT_PREFIX) || it.startsWith(PAIR_PREFIX) }
@@ -280,7 +270,6 @@ class LinkService(
     private val platform: String,
     private val onPlay: (LinkPlay) -> Boolean,
     private val onPair: (LinkPair) -> Boolean,
-    private val deviceId: () -> String = { "" },
 ) {
     private val json = LinkCodes.json
     @Volatile var port: Int = 0
@@ -316,7 +305,7 @@ class LinkService(
         runCatching { udp?.close() }; udp = null
     }
 
-    fun hello() = LinkHello(name = deviceName(), platform = platform, port = port, deviceId = deviceId())
+    fun hello() = LinkHello(name = deviceName(), platform = platform, port = port)
 
     /** Zugang zum Abholen bereitstellen (Samsung-TV holt ihn mit dem Code ab), 5 Minuten gueltig. */
     fun offer(code: String, account: LinkAccount) {
@@ -392,7 +381,7 @@ class LinkService(
             }
             method == "POST" && path == "/portiva/pair" -> {
                 val p = runCatching { json.decodeFromString<LinkPair>(body) }.getOrNull()
-                if (p == null || !LinkSecurity.validAccount(p.account) || (p.vpn?.length ?: 0) > 8000) { LinkSecurity.fail(peer); return 400 to """{"ok":false}""" }
+                if (p == null || !LinkSecurity.validAccount(p.account)) { LinkSecurity.fail(peer); return 400 to """{"ok":false}""" }
                 if (onPair(p)) { LinkSecurity.success(peer); 200 to """{"ok":true}""" } else {
                     LinkSecurity.fail(peer)
                     403 to """{"ok":false,"error":"Code passt nicht"}"""

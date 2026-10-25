@@ -56,14 +56,14 @@ import kotlinx.coroutines.withContext
 // Portiva Link: Zugang per QR-Code auf ein anderes Geraet uebertragen (immer nur EIN Zugang).
 
 @Composable
-internal fun hasCamera(): Boolean {
+private fun hasCamera(): Boolean {
     val context = LocalContext.current
     return remember { context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY) }
 }
 
 /** QR-Scanner mit der Kamera (liefert den Text oder null bei Abbruch). */
 @Composable
-internal fun rememberQrScanner(onResult: (String?) -> Unit): () -> Unit {
+private fun rememberQrScanner(onResult: (String?) -> Unit): () -> Unit {
     val launcher = rememberLauncherForActivityResult(ScanContract()) { r -> onResult(r.contents) }
     return {
         launcher.launch(
@@ -102,11 +102,6 @@ fun AccountQrDialog(container: AppContainer, profile: Profile, onDismiss: () -> 
     var showCode by remember { mutableStateOf(false) }
     var codeIp by remember { mutableStateOf("") }
     var codeNum by remember { mutableStateOf("") }
-    var createSetup by remember { mutableStateOf(false) }
-    if (createSetup) {
-        CreateSetupDialog(container, profile, onDismiss = { createSetup = false })
-        return
-    }
     fun transfer(target: LinkCodes.PairTarget) {
         busy = true
         status = "Wird übertragen …"
@@ -143,10 +138,6 @@ fun AccountQrDialog(container: AppContainer, profile: Profile, onDismiss: () -> 
                 Spacer(Modifier.width(8.dp))
                 Text("Auf Receiver / TV übertragen (QR scannen)")
             }
-        }
-        // Verschluesselter Einrichtungs-Code (PIN, Geraetebindung, Ablaufdatum, VPN) zum Weitergeben
-        androidx.compose.material3.OutlinedButton(onClick = { createSetup = true }, enabled = !busy, modifier = Modifier.fillMaxWidth().tvFocus(RoundedCornerShape(50))) {
-            Text("🔐 Einrichtungs-Code erstellen (für andere)")
         }
         // Ohne Kamera (TV-Stick) oder wenn das Scannen nicht klappt: IP-Adresse + Code abtippen
         androidx.compose.material3.OutlinedButton(onClick = { showCode = !showCode }, enabled = !busy, modifier = Modifier.fillMaxWidth().tvFocus(RoundedCornerShape(50))) {
@@ -200,12 +191,10 @@ fun AddAccountChooser(
 ) {
     var receive by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    var setup by remember { mutableStateOf<String?>(null) }
     val scan = rememberQrScanner { text ->
         if (text == null) return@rememberQrScanner
         val a = LinkCodes.parseAccountQr(text)
         when {
-            com.poweriptv.app.link.SetupCode.isSetupCode(text) -> setup = text.trim()
             a != null -> onImported(container.importAccount(a))
             LinkCodes.parsePairQr(text) != null -> error = "Das ist ein Empfangs-Code. Zum Senden am Handy beim gewünschten Zugang auf das QR-Symbol tippen → „An TV-Stick / Fernseher senden“."
             else -> error = "Kein Portiva-QR-Code erkannt."
@@ -213,10 +202,6 @@ fun AddAccountChooser(
     }
     if (receive) {
         ReceiveAccountDialog(container, onReceived = onImported, onDismiss = { receive = false })
-        return
-    }
-    setup?.let { c ->
-        RedeemSetupDialog(container, c.ifEmpty { null }, onImported = onImported, onDismiss = { setup = null })
         return
     }
     AlertDialog(
@@ -234,9 +219,6 @@ fun AddAccountChooser(
                 }
                 OutlinedButton(onClick = { receive = true }, modifier = Modifier.fillMaxWidth().tvFocus(RoundedCornerShape(50))) {
                     Icon(Icons.Filled.Tv, null); Spacer(Modifier.width(8.dp)); Text("Vom anderen Gerät empfangen")
-                }
-                OutlinedButton(onClick = { setup = "" }, modifier = Modifier.fillMaxWidth().tvFocus(RoundedCornerShape(50))) {
-                    Text("🔐 Einrichtungs-Code einlösen")
                 }
                 Text(
                     "Übertragen wird immer nur der eine Zugang, den du am anderen Gerät auswählst.",
@@ -275,7 +257,7 @@ fun ReceiveAccountDialog(container: AppContainer, onReceived: (Profile) -> Unit,
     }
     QrDialog(
         title = "Zugang empfangen",
-        text = LinkCodes.pairQr(ip, container.link.port, code, container.deviceId),
+        text = LinkCodes.pairQr(ip, container.link.port, code),
         hint = "Am Handy in Portiva: Benutzer wechseln → beim gewünschten Zugang auf das QR-Symbol tippen → " +
             "„An TV-Stick / Fernseher senden“ → diesen Code scannen. Beide Geräte im selben WLAN.",
         onDismiss = onDismiss,
@@ -286,6 +268,5 @@ fun ReceiveAccountDialog(container: AppContainer, onReceived: (Profile) -> Unit,
             Spacer(Modifier.width(10.dp))
             Text("Warte auf Zugang …  Code $code", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
         }
-        Text("IP-Adresse: $ip  ·  Gerätenummer: ${container.deviceId}", style = MaterialTheme.typography.bodySmall)
     }
 }

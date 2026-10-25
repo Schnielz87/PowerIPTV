@@ -1429,7 +1429,7 @@ class ReceiveScreen(QrScreen):
                           "Auf dem Handy in Portiva:\n1. Benutzer wechseln\n2. beim gewünschten Zugang auf das QR-Symbol tippen\n"
                           "3. „Auf Receiver / TV übertragen“\n4. diesen QR-Code scannen\n\n"
                           "Ohne Kamera (PC, TV-Stick): „Code eingeben“ wählen und eintragen:\n"
-                          "IP-Adresse:  %s\nCode:  %s\nGerätenummer:  %s\n\nHandy und Receiver im selben Heimnetz (WLAN oder LAN-Kabel)." % (addr, self.code, link.device_id()))
+                          "IP-Adresse:  %s\nCode:  %s\n\nHandy und Receiver im selben Heimnetz (WLAN oder LAN-Kabel)." % (addr, self.code))
         self["status"].setText("Warte auf Zugang …   Code %s   ·   IP %s" % (self.code, addr))
         link.set_pairing(self.code, self.received)
         self.onClose.append(lambda: link.set_pairing(None, None))

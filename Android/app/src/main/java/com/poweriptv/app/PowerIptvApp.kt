@@ -265,28 +265,7 @@ class AppContainer(private val app: Application) {
         platform = if (com.poweriptv.app.util.DeviceInfo.isTv(app)) "android-tv" else "android",
         onPlay = { receivePlay(it) },
         onPair = { receivePair(it) },
-        deviceId = { deviceId },
     )
-
-    /** Gerätenummer dieses Geräts (für Einrichtungs-Codes), einmal zufällig erzeugt. */
-    val deviceId: String by lazy {
-        val prefs = app.getSharedPreferences("device", android.content.Context.MODE_PRIVATE)
-        prefs.getString("id", null) ?: com.poweriptv.app.link.SetupCode.newDeviceId().also { prefs.edit().putString("id", it).apply() }
-    }
-
-    /**
-     * VPN aus einem Einrichtungs-Code übernehmen. Liefert einen Hinweis für die Oberfläche (null = kein VPN im Code).
-     * Kill-Switch nur, wenn die Konfiguration gültig gespeichert wurde.
-     */
-    fun applySetupVpn(conf: String?, required: Boolean): String? {
-        if (conf.isNullOrBlank()) return null
-        if (!com.poweriptv.app.BuildConfigInfo.VPN_AVAILABLE) return "Der Code enthält ein VPN – diese App-Version hat kein eingebautes VPN."
-        val r = vpn.saveConfig(conf)
-        if (r.isFailure) return "VPN konnte nicht übernommen werden: ${r.exceptionOrNull()?.message}"
-        if (required) settings.setVpnRequired(true)
-        return if (required) "VPN eingerichtet, Kill-Switch an: Startseite → VPN → „Verbinden“ (ohne VPN läuft nichts)."
-        else "VPN eingerichtet: Startseite → VPN → „Verbinden“."
-    }
 
     fun deviceName(): String {
         val n = runCatching { android.provider.Settings.Global.getString(app.contentResolver, "device_name") }.getOrNull()
@@ -316,9 +295,7 @@ class AppContainer(private val app: Application) {
         val code = linkPairCode.value ?: return false
         if (!com.poweriptv.app.link.LinkSecurity.sameCode(p.code, code)) return false
         linkPairCode.value = null
-        val prof = importAccount(p.account)
-        applySetupVpn(p.vpn, p.vpnRequired)
-        linkReceived.value = prof
+        linkReceived.value = importAccount(p.account)
         return true
     }
 

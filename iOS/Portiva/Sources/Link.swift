@@ -22,9 +22,9 @@ struct LinkAccount: Codable {
     }
 }
 
-struct LinkHello: Codable { var app = "portiva"; var name: String; var platform: String; var port: Int; var receive = true; var deviceId: String? = nil }
+struct LinkHello: Codable { var app = "portiva"; var name: String; var platform: String; var port: Int; var receive = true }
 struct LinkPlay: Codable { var title: String; var url: String; var live: Bool; var positionMs: Int64 = 0; var durationMs: Int64 = 0; var logo: String? = nil; var from: String = "" }
-struct LinkPair: Codable { var code: String; var account: LinkAccount; var from: String = ""; var vpn: String? = nil; var vpnRequired: Bool? = nil }
+struct LinkPair: Codable { var code: String; var account: LinkAccount; var from: String = "" }
 struct LinkDevice: Identifiable, Hashable { var id: String { host }; let name: String; let platform: String; let host: String; let port: Int }
 
 enum LinkCodes {
@@ -45,19 +45,17 @@ enum LinkCodes {
         return try? JSONDecoder().decode(LinkAccount.self, from: d)
     }
 
-    struct PairTarget { let host: String; let port: Int; let code: String; var deviceId: String = "" }
+    struct PairTarget { let host: String; let port: Int; let code: String }
 
     static func parsePair(_ text: String) -> PairTarget? {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard t.hasPrefix(pairPrefix) else { return nil }
-        let parts = t.dropFirst(pairPrefix.count).split(separator: ":", omittingEmptySubsequences: false).map(String.init)
-        guard parts.count == 3 || parts.count == 4, let port = Int(parts[1]) else { return nil }
-        return PairTarget(host: parts[0], port: port, code: parts[2], deviceId: parts.count == 4 ? parts[3] : "")
+        let parts = t.dropFirst(pairPrefix.count).split(separator: ":").map(String.init)
+        guard parts.count == 3 || parts.count == 4, let port = Int(parts[1]) else { return nil } // 4. Teil (1.1.143) ignorieren
+        return PairTarget(host: parts[0], port: port, code: parts[2])
     }
 
-    static func pairQr(ip: String, port: Int, code: String, deviceId: String = "") -> String {
-        "\(pairPrefix)\(ip):\(port):\(code)" + (deviceId.isEmpty ? "" : ":\(deviceId)")
-    }
+    static func pairQr(ip: String, port: Int, code: String) -> String { "\(pairPrefix)\(ip):\(port):\(code)" }
     static func newCode() -> String { String(Int.random(in: 100000...999999)) }
 
     /** IPv4 im WLAN (en0) bzw. erstes privates Netz. */
@@ -273,7 +271,7 @@ final class LinkService: ObservableObject {
             return (429, #"{"ok":false,"error":"Zu viele falsche Codes – bitte 10 Minuten warten"}"#)
         }
         if method == "GET" && path == "/portiva/hello" {
-            let h = LinkHello(name: deviceName, platform: UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone", port: port, deviceId: app?.deviceId)
+            let h = LinkHello(name: deviceName, platform: UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone", port: port)
             return (200, String(decoding: (try? JSONEncoder().encode(h)) ?? Data(), as: UTF8.self))
         }
         if method == "POST" && path == "/portiva/pair" {
@@ -386,22 +384,6 @@ final class LinkService: ObservableObject {
     }
 
     /** Zugang an das Geraet schicken, dessen Empfangs-Code gescannt wurde (Port 0 = Samsung holt ab). */
-    /** Zugang aus einem Einrichtungs-Code ans Geraet schicken (inkl. VPN fuer Android/Windows). */
-    func sendSetup(_ target: LinkCodes.PairTarget, _ s: SetupPayload) async -> String? {
-        if target.port == 0 { offer(target.code, s.account); return nil }
-        let pair = LinkPair(code: target.code, account: s.account, from: deviceName, vpn: s.vpn, vpnRequired: s.vpnRequired)
-        let body = (try? JSONEncoder().encode(pair)) ?? Data()
-        return await Self.post(host: target.host, port: target.port, path: "/portiva/pair", body: body)
-    }
-
-    /** Geraetenummer eines Portiva-Geraets abfragen (leer, wenn unbekannt). */
-    nonisolated static func deviceId(host: String, port: Int) async -> String {
-        guard let url = URL(string: "http://\(host):\(port)/portiva/hello") else { return "" }
-        var r = URLRequest(url: url); r.timeoutInterval = 3
-        guard let res = try? await URLSession.shared.data(for: r), let h = try? JSONDecoder().decode(LinkHello.self, from: res.0) else { return "" }
-        return h.deviceId ?? ""
-    }
-
     func sendAccount(_ target: LinkCodes.PairTarget, _ p: Profile) async -> String? {
         if target.port == 0 { offer(target.code, LinkAccount(p)); return nil }
         let body = (try? JSONEncoder().encode(LinkPair(code: target.code, account: LinkAccount(p), from: deviceName))) ?? Data()

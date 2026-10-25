@@ -3,7 +3,7 @@ import { isVega } from '../vega';
 import { h, toast } from '../util';
 import { dialog, choose, go, activateProfile } from '../app';
 import { profiles } from '../store';
-import { deviceId, accountQr, pairQr, newCode, qrImage, localIp, discover, fetchOffer, fromAccount, sendPlay, probe, saveHost, sendPair, toAccount } from '../link';
+import { accountQr, pairQr, newCode, qrImage, localIp, discover, fetchOffer, fromAccount, sendPlay, probe, saveHost, sendPair, toAccount } from '../link';
 import { field } from './common';
 
 /** Grosser QR-Code eines Zugangs (Handy/Tablet scannt ihn unter „Neuer Zugang → QR-Code scannen“). */
@@ -60,8 +60,7 @@ export async function receiveAccount() {
           '1. Am Handy Portiva öffnen → Benutzer wechseln.\n' +
           '2. Beim gewünschten Zugang auf das QR-Symbol tippen.\n' +
           '3. „An TV-Stick / Fernseher senden“ → diesen Code scannen.\n\n' +
-          `Code ${code} · Gerätenummer ${deviceId()} · Handy und Fernseher im selben WLAN.\n\n` +
-          'Einrichtungs-Code bekommen? Am Handy: Neuer Zugang → „Einrichtungs-Code einlösen“ → „Auf Receiver / TV einrichten“ → diesen QR scannen.'),
+          `Code ${code} · Handy und Fernseher im selben WLAN.`),
         status)),
     buttons: [{ label: 'Abbrechen' }],
     onClose: () => { open = false; },

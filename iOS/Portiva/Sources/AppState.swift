@@ -223,14 +223,6 @@ final class AppState: ObservableObject {
     private(set) var source: ContentSource?
     lazy var link: LinkService = LinkService(app: self)
 
-    /** Geraetenummer (fuer Einrichtungs-Codes), einmal zufaellig erzeugt. */
-    lazy var deviceId: String = {
-        if let id = UserDefaults.standard.string(forKey: "portiva.deviceId") { return id }
-        let id = SetupCode.newDeviceId()
-        UserDefaults.standard.set(id, forKey: "portiva.deviceId")
-        return id
-    }()
-
     init() {
         if let data = Keychain.load(), let list = try? JSONDecoder().decode([Profile].self, from: data) { profiles = list }
         if let p = profiles.first(where: { $0.id == settings.lastProfileId }) ?? profiles.first { activate(p) }

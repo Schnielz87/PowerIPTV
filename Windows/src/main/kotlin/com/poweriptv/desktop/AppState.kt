@@ -338,24 +338,7 @@ class AppState(val window: WindowState) {
     val link = com.poweriptv.app.link.LinkService(
         deviceName = { deviceName() }, platform = "windows",
         onPlay = { receivePlay(it) }, onPair = { receivePair(it) },
-        deviceId = { deviceId },
     ).also { it.start() }
-
-    /** Gerätenummer dieses PCs (für Einrichtungs-Codes), einmal zufällig erzeugt. */
-    val deviceId: String by lazy {
-        val store = com.poweriptv.desktop.data.JsonKeyValueStore("device")
-        store.getString("id", null) ?: com.poweriptv.app.link.SetupCode.newDeviceId().also { id -> store.edit { putString("id", id) } }
-    }
-
-    /** VPN aus einem Einrichtungs-Code übernehmen; liefert einen Hinweis (null = kein VPN im Code). */
-    fun applySetupVpn(conf: String?, required: Boolean): String? {
-        if (conf.isNullOrBlank()) return null
-        val r = vpn.saveConfig(conf)
-        if (r.isFailure) return "VPN konnte nicht übernommen werden: ${r.exceptionOrNull()?.message}"
-        if (required) settings.update { it.copy(vpnRequired = true) }
-        return if (required) "VPN eingerichtet, Kill-Switch an: oben „VPN“ → „Verbinden“ (ohne VPN läuft nichts)."
-        else "VPN eingerichtet: oben „VPN“ → „Verbinden“."
-    }
 
     fun deviceName(): String = System.getenv("COMPUTERNAME")?.takeIf { it.isNotBlank() }?.let { "PC $it" } ?: "Windows-PC"
 
@@ -373,9 +356,7 @@ class AppState(val window: WindowState) {
         val code = linkPairCode.value ?: return false
         if (!com.poweriptv.app.link.LinkSecurity.sameCode(p.code, code)) return false
         linkPairCode.value = null
-        val prof = importAccount(p.account)
-        applySetupVpn(p.vpn, p.vpnRequired)
-        linkReceived.value = prof
+        linkReceived.value = importAccount(p.account)
         return true
     }
 
