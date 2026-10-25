@@ -109,6 +109,21 @@ fun HomeScreen(app: AppState) {
     }
     var account by remember { mutableStateOf<AccountInfo?>(null) }
     LaunchedEffect(app.source) { account = runCatching { app.source?.accountInfo() }.getOrNull() }
+    // Mitteilung vom Server (Anbieter): einmalig zeigen, wenn neu oder geaendert; danach als Hinweis-Pill
+    var showMsg by remember { mutableStateOf(false) }
+    val msgStore = remember { com.poweriptv.desktop.data.JsonKeyValueStore("server_msg") }
+    LaunchedEffect(account?.message) {
+        val m = account?.message ?: return@LaunchedEffect
+        if (msgStore.getString("seen", null) != m.hashCode().toString()) showMsg = true
+    }
+    account?.message?.let { msg ->
+        if (showMsg) androidx.compose.material3.AlertDialog(
+            onDismissRequest = { msgStore.edit { putString("seen", msg.hashCode().toString()) }; showMsg = false },
+            title = { Text("Mitteilung vom Anbieter") },
+            text = { Text(msg) },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { msgStore.edit { putString("seen", msg.hashCode().toString()) }; showMsg = false }) { Text("OK") } },
+        )
+    }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(28.dp), verticalArrangement = Arrangement.spacedBy(26.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -120,6 +135,7 @@ fun HomeScreen(app: AppState) {
                         acc.expiresAt?.let { Pill("Gültig bis " + SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY).format(Date(it))) }
                         acc.maxConnections?.let { Pill("Streams: ${acc.activeConnections ?: "0"} / $it") }
                         acc.status?.let { Pill(it, if (it.equals("Active", true)) Success.copy(alpha = 0.25f) else Warning.copy(alpha = 0.3f)) }
+                        if (acc.message != null) Box(Modifier.clickable { showMsg = true }.handCursor()) { Pill("✉ Mitteilung vom Anbieter", Warning.copy(alpha = 0.3f)) }
                     }
                 }
             }

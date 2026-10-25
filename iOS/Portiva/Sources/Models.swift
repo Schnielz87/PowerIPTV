@@ -104,6 +104,19 @@ struct AccountInfo {
     var expiresAt: Date?
     var maxConnections: Int?
     var activeConnections: Int? = nil
+    /** Mitteilung des Anbieters (Xtream user_info.message). */
+    var message: String? = nil
+}
+
+/** Server-Mitteilung saeubern: HTML-Tags weg, Leerraum zusammenfassen, Laenge begrenzen. */
+func cleanServerMessage(_ raw: String?) -> String? {
+    guard var t = raw else { return nil }
+    t = t.replacingOccurrences(of: "<br\\s*/?>", with: "\n", options: [.regularExpression, .caseInsensitive])
+    t = t.replacingOccurrences(of: "<[^>]*>", with: "", options: .regularExpression)
+    for (a, b) in [("&amp;", "&"), ("&lt;", "<"), ("&gt;", ">"), ("&quot;", "\""), ("&#39;", "'")] { t = t.replacingOccurrences(of: a, with: b) }
+    t = t.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.joined(separator: "\n")
+    t = t.replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines)
+    return t.isEmpty ? nil : String(t.prefix(1000))
 }
 
 /** Ein Eintrag zum Abspielen (Film, Folge, Sender). */

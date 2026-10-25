@@ -93,6 +93,7 @@ private suspend fun sendAccount(container: AppContainer, target: LinkCodes.PairT
  */
 @Composable
 fun AccountQrDialog(container: AppContainer, profile: Profile, onDismiss: () -> Unit) {
+    com.poweriptv.app.ui.components.SecureWindow() // QR enthaelt die Zugangsdaten -> keine Bildschirmfotos
     val account = remember(profile) { LinkCodes.toAccount(profile) }
     val scope = rememberCoroutineScope()
     var status by remember { mutableStateOf<String?>(null) }

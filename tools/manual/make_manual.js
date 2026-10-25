@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.141 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.142 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -99,6 +99,7 @@ c.push(h1('4. Startseite'));
 c.push(bullet([b('Kopfzeile: '), t('Logo, Benutzer-Männchen, Cast, Suche, Aktualisieren und VPN-Status – gleich groß und gleichmäßig verteilt.')]));
 c.push(bullet([b('Benutzer-Männchen (oben neben dem Logo): '), t('antippen → Liste aller Zugänge; der aktive ist blau mit Haken markiert. Ein Tipp auf einen anderen Zugang wechselt sofort. Bearbeiten und Löschen gibt es nur unter „Benutzer wechseln“.')]));
 c.push(bullet([b('Große Kacheln: '), t('Live TV, Filme, Serien.')]));
+c.push(bullet([b('Mitteilung vom Anbieter: '), t('schickt dein IPTV-Anbieter eine Nachricht (z.B. Wartung, Verlängerung), erscheint sie beim Start einmal als Hinweis und bleibt danach im Konto-Bereich der Startseite lesbar (Windows: Feld „✉ Mitteilung vom Anbieter“, Samsung-TV/Fire TV: Kachel unter „Mehr“, Enigma2: in der Kopfzeile). Eine neue oder geänderte Mitteilung wird wieder einmal angezeigt. Gilt für alle Geräte.')]));
 c.push(bullet([b('Kleine Kacheln: '), t('Suche, Programmführer, Favoriten, Aufnahmen, Downloads, Empfehlungen, Multi-View, VPN, Einstellungen.')]));
 c.push(bullet([b('Weiterschauen: '), t('angefangene Filme mit Fortschritt und Restzeit sowie die zuletzt gesehene Folge jeder Serie.')]));
 c.push(bullet([b('Zuletzt gesehen: '), t('getrennt nach Live TV, Filme und Serien. Ein Tipp auf „Alle anzeigen ›“ öffnet die große Übersicht mit Reitern; lange drücken entfernt einen Eintrag.')]));
@@ -329,6 +330,7 @@ c.push(step('Im Player oben auf das Übertragen-Symbol (wie bei Chromecast) oder
 c.push(tip('Wird ein Gerät nicht gefunden: Alle Geräte müssen im selben Heimnetz hängen – WLAN oder LAN-Kabel ist egal. Klappt die automatische Suche trotzdem nicht, im Fenster „An Gerät senden“ unten die IP-Adresse des Geräts eingeben und „Verbinden“ drücken (Samsung-TV: „＋ Gerät per IP-Adresse …“). Das Gerät wird gemerkt und beim nächsten Mal automatisch angezeigt.'));
 c.push(step('Unter „Portiva-Geräte“ erscheinen alle Geräte mit geöffnetem Portiva im Heimnetz (TV-Stick, Tablet, Handy, Windows-PC) → Gerät wählen. Darüber stehen wie bisher Chromecast-Geräte.', 'n12'));
 c.push(step('Der Film läuft dort an derselben Stelle weiter (Live TV: derselbe Sender), hier wird gestoppt. Der Enigma2-Receiver wartet dafür, bis der Film geladen und spulbar ist, springt dann an die Stelle und prüft, ob es geklappt hat (unten erscheint „▶ Weiter ab 30:00“) – das kann ein paar Sekunden dauern.', 'n12'));
+c.push(tip('Sicherheit: Portiva Link nimmt nur Anfragen aus deinem eigenen Heimnetz an (Router-Adressen wie 192.168.x.x, 10.x.x.x). Webseiten im Browser können keine Befehle schicken. Nach 5 falschen Codes ist das anfragende Gerät für 10 Minuten gesperrt („Zu viele falsche Codes“), damit niemand den Code durchprobieren kann. Angenommen werden nur echte Stream-Adressen (http/https). Der Zugangs-QR und die Passwort-Eingabe sind am Android-Gerät vor Bildschirmfotos und der Vorschau unter „Zuletzt verwendet“ geschützt.'));
 c.push(tip('Portiva muss auf dem Zielgerät geöffnet sein (Android ab Version 10 erlaubt Apps im Hintergrund nicht, sich selbst zu öffnen). Samsung-Fernseher können senden, aber nichts empfangen. Windows fragt beim ersten Mal nach der Firewall – „Zulassen“ wählen.'));
 
 // 17 iPhone & iPad

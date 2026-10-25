@@ -4,6 +4,15 @@ import { yearOf } from './rules';
 
 export const T = { LIVE: 'LIVE', MOVIE: 'MOVIE', SERIES: 'SERIES' };
 
+/** Server-Mitteilung (user_info.message) saeubern: HTML weg, Leerraum zusammenfassen, Laenge begrenzen. */
+export function cleanMessage(raw) {
+  if (raw == null || typeof raw === 'object') return null;
+  let t = String(raw).replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+  t = t.split('\n').map((l) => l.trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return t ? t.slice(0, 1000) : null;
+}
+
 const str = (v) => (v == null || v === false || v === 'null' || String(v).trim() === '' ? null : String(v));
 const num = (v) => { const n = parseFloat(v); return isNaN(n) ? null : n; };
 const arr = (v) => (Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.keys(v).map((k) => v[k]) : []));
@@ -54,6 +63,7 @@ export class XtreamSource {
       expiresAt: num(info.exp_date) ? num(info.exp_date) * 1000 : null,
       maxConnections: str(info.max_connections),
       activeConnections: str(info.active_cons),
+      message: cleanMessage(info.message),
     };
   }
 

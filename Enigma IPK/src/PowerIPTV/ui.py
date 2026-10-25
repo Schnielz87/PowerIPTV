@@ -328,7 +328,7 @@ class PortivaHome(Screen):
             self["status"].setText(link.status_text() + "   (Handy/PC: im Player „An Gerät senden“)")
         except Exception:
             pass
-        run_async(self, self.source.account_text, lambda t: self["sub"].setText(t or ""), lambda m: self["sub"].setText("Verbindung fehlgeschlagen: " + m))
+        run_async(self, self.source.account_text, self.account_loaded, lambda m: self["sub"].setText("Verbindung fehlgeschlagen: " + m))
         src, profile_id = self.source, pid()
 
         def adult_scan():
@@ -340,6 +340,20 @@ class PortivaHome(Screen):
                     pass
             store.purge_history(profile_id)
         run_async(self, adult_scan, lambda r: None, lambda m: None)
+
+    def account_loaded(self, text):
+        self["sub"].setText(text or "")
+        # Mitteilung vom Server (Anbieter): einmalig anzeigen, wenn neu oder geaendert
+        msg = getattr(self.source, "message", None)
+        if not msg:
+            return
+        s = store.settings()
+        if s.get("server_msg_seen") == msg:
+            return
+        s["server_msg_seen"] = msg
+        store.save_settings(s)
+        if getattr(self.session, "current_dialog", self) is self:
+            self.session.open(MessageBox, "Mitteilung vom Anbieter:\n\n" + msg, MessageBox.TYPE_INFO)
 
     def after_first(self, *args):
         if store.active_profile():

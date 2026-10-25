@@ -169,6 +169,98 @@ object LinkCodes {
 }
 
 /**
+ * Schutz des Empfangs-Dienstes (geteilt Android/Windows):
+ *  - nur Geraete aus dem eigenen Heimnetz (private/lokale Adressen) werden bedient,
+ *  - Webseiten im Browser duerfen keine Befehle schicken (Origin-Pruefung, Schutz vor DNS-Rebinding per Host-Pruefung),
+ *  - falsche Codes werden gezaehlt: nach 5 Fehlversuchen ist das Geraet 10 Minuten gesperrt (kein Durchprobieren),
+ *  - nur gueltige Stream-Adressen (http/https/rtsp/rtmp) und begrenzte Feldlaengen werden angenommen.
+ */
+object LinkSecurity {
+    private const val WINDOW_MS = 10 * 60_000L
+    private const val MAX_FAILS_PER_HOST = 5
+    private const val MAX_FAILS_TOTAL = 25
+    private val fails = ConcurrentHashMap<String, MutableList<Long>>()
+    private val totalFails = java.util.Collections.synchronizedList(mutableListOf<Long>())
+
+    /** Adresse aus dem Heimnetz? (10/8, 172.16/12, 192.168/16, 169.254/16, Loopback, IPv6 fe80::/10 und fc00::/7) */
+    fun isLocal(a: InetAddress?): Boolean {
+        if (a == null) return false
+        if (a.isLoopbackAddress || a.isSiteLocalAddress || a.isLinkLocalAddress) return true
+        if (a is java.net.Inet6Address) {
+            val b0 = a.address[0].toInt() and 0xff
+            if (b0 and 0xfe == 0xfc) return true // Unique Local Address (fc00::/7)
+        }
+        return false
+    }
+
+    /** Anfrage aus einer Webseite im Browser (CSRF)? Apps (Android, Windows, iOS, Receiver) schicken keinen Origin,
+     *  die Samsung-TV-App "file://" bzw. "null". */
+    fun isWebsiteOrigin(origin: String?): Boolean {
+        val o = origin?.trim()?.lowercase() ?: return false
+        return o.startsWith("http://") || o.startsWith("https://")
+    }
+
+    /** Host-Kopfzeile muss eine IP-Adresse oder ein lokaler Name sein – Schutz gegen DNS-Rebinding. */
+    fun isLocalHostHeader(host: String?): Boolean {
+        if (host.isNullOrBlank()) return true
+        var h = host.trim().lowercase()
+        if (h.startsWith("[")) return h.substringBefore(']').length > 1 // IPv6-Literal
+        h = h.substringBefore(':')
+        if (h.matches(Regex("\\d{1,3}(\\.\\d{1,3}){3}"))) return true
+        if (!h.contains('.')) return true // localhost, Geraetename
+        return listOf(".local", ".lan", ".home", ".home.arpa", ".fritz.box", ".box", ".internal").any { h.endsWith(it) }
+    }
+
+    private fun recent(list: MutableList<Long>, now: Long): Int {
+        synchronized(list) { list.removeAll { it < now - WINDOW_MS }; return list.size }
+    }
+
+    /** Gesperrt wegen zu vieler falscher Codes? */
+    fun blocked(host: String): Boolean {
+        val now = System.currentTimeMillis()
+        val l = fails[host]
+        return (l != null && recent(l, now) >= MAX_FAILS_PER_HOST) || recent(totalFails, now) >= MAX_FAILS_TOTAL
+    }
+
+    fun fail(host: String) {
+        val now = System.currentTimeMillis()
+        val l = fails.getOrPut(host) { java.util.Collections.synchronizedList(mutableListOf()) }
+        synchronized(l) { l.add(now) }
+        synchronized(totalFails) { totalFails.add(now) }
+    }
+
+    fun success(host: String) { fails.remove(host) }
+
+    private fun okUrl(u: String?, max: Int = 4096, schemes: List<String> = listOf("http://", "https://")): Boolean {
+        if (u.isNullOrEmpty()) return true
+        if (u.length > max || u.any { it.code < 0x20 }) return false
+        val l = u.lowercase()
+        return schemes.any { l.startsWith(it) }
+    }
+
+    fun validPlay(p: LinkPlay): Boolean =
+        p.url.isNotBlank() && okUrl(p.url, schemes = listOf("http://", "https://", "rtsp://", "rtmp://")) &&
+            okUrl(p.logo, 2048) && p.title.length <= 300 && p.from.length <= 100 &&
+            p.positionMs >= 0 && p.durationMs >= 0
+
+    /** Zugangs-Adresse: auch ohne "http://" erlaubt (wird spaeter ergaenzt), aber kein fremdes Schema (file:, content:, …). */
+    private fun okServer(u: String, max: Int = 4096): Boolean {
+        if (u.isEmpty()) return true
+        if (u.length > max || u.any { it.code < 0x20 }) return false
+        val l = u.lowercase()
+        return if (Regex("^[a-z][a-z0-9+.-]*:(?!\\d)").containsMatchIn(l)) l.startsWith("http://") || l.startsWith("https://") else true
+    }
+
+    fun validAccount(a: LinkAccount): Boolean =
+        a.name.length <= 100 && a.username.length <= 256 && a.password.length <= 256 &&
+            okServer(a.serverUrl, 2048) && okServer(a.m3uUrl) && okServer(a.epgUrl) && a.type.length <= 20
+
+    /** Codes in gleichbleibender Zeit vergleichen. */
+    fun sameCode(a: String?, b: String?): Boolean =
+        a != null && b != null && java.security.MessageDigest.isEqual(a.toByteArray(), b.toByteArray())
+}
+
+/**
  * Empfangs-Dienst (Android/Windows). Laeuft im Hintergrund, solange die App offen ist.
  * onPlay/onPair werden auf einem Hintergrund-Thread aufgerufen und liefern true bei Erfolg.
  */
@@ -226,6 +318,7 @@ class LinkService(
         while (!sock.isClosed) {
             val pkt = DatagramPacket(buf, buf.size)
             runCatching { sock.receive(pkt) }.onFailure { if (sock.isClosed) return }
+            if (!LinkSecurity.isLocal(pkt.address)) continue
             if (String(pkt.data, 0, pkt.length, Charsets.UTF_8).trim() != DISCOVER_MSG) continue
             if (port == 0) continue
             val reply = json.encodeToString(hello()).toByteArray(Charsets.UTF_8)
@@ -235,6 +328,8 @@ class LinkService(
 
     private fun handle(c: Socket) {
         c.use { sock ->
+            // Nur Geraete aus dem eigenen Heimnetz – alles andere wird ohne Antwort geschlossen
+            if (!LinkSecurity.isLocal(sock.inetAddress)) return
             sock.soTimeout = 8000
             val input = sock.getInputStream()
             val head = readHead(input) ?: return
@@ -243,10 +338,18 @@ class LinkService(
             if (req.size < 2) return
             val method = req[0].uppercase()
             val path = req[1].substringBefore('?')
-            val length = lines.drop(1).firstOrNull { it.lowercase().startsWith("content-length:") }
-                ?.substringAfter(':')?.trim()?.toIntOrNull() ?: 0
-            val body = if (length in 1..200_000) String(readExactly(input, length), Charsets.UTF_8) else ""
-            val (code, text) = route(method, path, body)
+            fun header(name: String) = lines.drop(1).firstOrNull { it.lowercase().startsWith("$name:") }?.substringAfter(':')?.trim()
+            val length = header("content-length")?.toIntOrNull() ?: 0
+            val peer = sock.inetAddress.hostAddress ?: "?"
+            val (code, text) = when {
+                LinkSecurity.isWebsiteOrigin(header("origin")) || !LinkSecurity.isLocalHostHeader(header("host")) ->
+                    403 to """{"ok":false,"error":"Nicht erlaubt"}"""
+                length > 64_000 -> 413 to """{"ok":false}"""
+                else -> {
+                    val body = if (length > 0) String(readExactly(input, length), Charsets.UTF_8) else ""
+                    route(method, path, body, peer)
+                }
+            }
             val bytes = text.toByteArray(Charsets.UTF_8)
             val out = sock.getOutputStream()
             out.write((
@@ -262,23 +365,41 @@ class LinkService(
         }
     }
 
-    private fun route(method: String, path: String, body: String): Pair<Int, String> {
+    private fun route(method: String, path: String, body: String, peer: String): Pair<Int, String> {
         if (method == "OPTIONS") return 204 to ""
+        val guarded = path == "/portiva/pair" || path.startsWith("/portiva/offer/")
+        if (guarded && LinkSecurity.blocked(peer)) {
+            return 429 to """{"ok":false,"error":"Zu viele falsche Codes – bitte 10 Minuten warten"}"""
+        }
         return when {
             method == "GET" && path == "/portiva/hello" -> 200 to json.encodeToString(hello())
             method == "POST" && path == "/portiva/play" -> {
-                val p = runCatching { json.decodeFromString<LinkPlay>(body) }.getOrNull() ?: return 400 to """{"ok":false}"""
+                val p = runCatching { json.decodeFromString<LinkPlay>(body) }.getOrNull()
+                if (p == null || !LinkSecurity.validPlay(p)) return 400 to """{"ok":false,"error":"Ungueltige Adresse"}"""
                 if (onPlay(p)) 200 to """{"ok":true}""" else 409 to """{"ok":false,"error":"Portiva ist auf dem Geraet nicht geoeffnet"}"""
             }
             method == "POST" && path == "/portiva/pair" -> {
-                val p = runCatching { json.decodeFromString<LinkPair>(body) }.getOrNull() ?: return 400 to """{"ok":false}"""
-                if (onPair(p)) 200 to """{"ok":true}""" else 403 to """{"ok":false,"error":"Code passt nicht"}"""
+                val p = runCatching { json.decodeFromString<LinkPair>(body) }.getOrNull()
+                if (p == null || !LinkSecurity.validAccount(p.account)) { LinkSecurity.fail(peer); return 400 to """{"ok":false}""" }
+                if (onPair(p)) { LinkSecurity.success(peer); 200 to """{"ok":true}""" } else {
+                    LinkSecurity.fail(peer)
+                    403 to """{"ok":false,"error":"Code passt nicht"}"""
+                }
             }
             method == "GET" && path.startsWith("/portiva/offer/") -> {
                 val code = path.removePrefix("/portiva/offer/")
-                val o = offers[code]
-                if (o == null || o.second < System.currentTimeMillis()) return 404 to """{"ok":false}"""
-                offers.remove(code)
+                // Abgelaufene Angebote entfernen. Liegt gar nichts bereit, ist eine Nachfrage kein Fehlversuch
+                // (der Samsung-TV fragt alle paar Sekunden nach, bis am Handy gescannt wurde).
+                offers.entries.removeIf { it.value.second < System.currentTimeMillis() }
+                if (offers.isEmpty()) return 404 to """{"ok":false}"""
+                val key = offers.keys.firstOrNull { LinkSecurity.sameCode(it, code) }
+                val o = key?.let { offers[it] }
+                if (key == null || o == null || o.second < System.currentTimeMillis()) {
+                    LinkSecurity.fail(peer)
+                    return 404 to """{"ok":false}"""
+                }
+                offers.remove(key)
+                LinkSecurity.success(peer)
                 onOfferTaken?.invoke(o.first)
                 200 to json.encodeToString(o.first)
             }

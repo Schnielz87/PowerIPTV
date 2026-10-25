@@ -4,6 +4,8 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var app: AppState
     @State private var showSwitch = false
+    @State private var showMessage = false
+    @AppStorage("portiva.serverMsgSeen") private var seenMessage = ""
 
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: 12)]
 
@@ -24,6 +26,25 @@ struct HomeView: View {
                         HStack(spacing: 6) { Image(systemName: "person.fill"); Text(app.profile?.name ?? "").lineLimit(1) }
                             .font(.subheadline).padding(.horizontal, 12).padding(.vertical, 8).background(Capsule().fill(Brand.surface))
                     }
+                }
+                // Mitteilung vom Server (Anbieter)
+                if let msg = app.account?.message {
+                    Button { showMessage = true } label: {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "envelope.fill").foregroundColor(.orange)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Mitteilung vom Anbieter").font(.subheadline.bold())
+                                Text(msg).font(.caption).foregroundColor(.secondary).lineLimit(2).multilineTextAlignment(.leading)
+                            }
+                            Spacer()
+                        }
+                        .padding(12).background(RoundedRectangle(cornerRadius: 12).fill(Brand.surface))
+                    }
+                    .buttonStyle(.plain)
+                    .onAppear { if seenMessage != msg { showMessage = true } }
+                    .alert("Mitteilung vom Anbieter", isPresented: $showMessage) {
+                        Button("OK") { seenMessage = msg }
+                    } message: { Text(msg) }
                 }
                 // Grosse Kacheln
                 HStack(spacing: 12) {

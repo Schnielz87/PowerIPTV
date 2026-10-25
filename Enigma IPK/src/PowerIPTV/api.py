@@ -233,7 +233,40 @@ class XtreamSource(object):
             parts.append("Gültig bis " + time.strftime("%d.%m.%Y", time.localtime(exp)))
         if info.get("max_connections"):
             parts.append("%s Verbindung(en)" % info.get("max_connections"))
+        self.message = clean_message(info.get("message"))
+        if self.message:
+            parts.append("✉ Mitteilung: " + _short(self.message.replace("\n", " "), 70))
         return " · ".join(parts)
+
+
+def _short(t, n):
+    """Text auf n Zeichen kuerzen, ohne unter Python 2 ein UTF-8-Zeichen zu zerschneiden."""
+    if not isinstance(t, type(u"")):
+        try:
+            u = t.decode("utf-8", "replace")
+        except AttributeError:
+            return t[:n]
+        return native(u[:n] + (u"…" if len(u) > n else u""))
+    return t[:n] + (u"…" if len(t) > n else u"")
+
+
+def clean_message(raw):
+    """Server-Mitteilung (user_info.message) saeubern: HTML weg, Leerraum zusammenfassen, Laenge begrenzen."""
+    if raw is None or isinstance(raw, (dict, list, bool)):
+        return None
+    t = raw
+    if not isinstance(t, type(u"")):
+        try:
+            t = str(t).decode("utf-8", "replace")  # Python 2: Bytes -> Unicode (sicher kuerzen)
+        except AttributeError:
+            t = str(t)
+    t = re.sub(u"(?i)<br\\s*/?>", u"\n", t)
+    t = re.sub(u"<[^>]*>", u"", t)
+    for a, b in ((u"&amp;", u"&"), (u"&lt;", u"<"), (u"&gt;", u">"), (u"&quot;", u'"'), (u"&#39;", u"'")):
+        t = t.replace(a, b)
+    t = u"\n".join(x.strip() for x in t.split(u"\n"))
+    t = re.sub(u"\n{3,}", u"\n\n", t).strip()
+    return native(t[:1000]) if t else None
 
 
 class M3uSource(object):

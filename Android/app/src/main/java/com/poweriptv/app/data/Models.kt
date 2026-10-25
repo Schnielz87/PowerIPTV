@@ -107,4 +107,6 @@ data class AccountInfo(
     val maxConnections: String?,
     val activeConnections: String?,
     val isTrial: Boolean,
+    /** Mitteilung des Anbieters (Xtream user_info.message), z.B. Wartung oder Verlaengerung. */
+    val message: String? = null,
 )

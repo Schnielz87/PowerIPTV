@@ -8,8 +8,10 @@ UDP-Rundruf auf Port 47801 ("PORTIVA_DISCOVER"). Der Dienst laeuft, solange Enig
 import base64
 import json
 import random
+import re
 import socket
 import threading
+import time
 
 from .compat import native
 
@@ -63,6 +65,109 @@ def account_to_profile(a):
             "username": a.get("username", ""), "password": a.get("password", ""), "m3u": a.get("m3uUrl", "")}
 
 
+# ---------- Schutz (wie LinkSecurity in Android/Windows/iOS) ----------
+_fails = {}
+_total = []
+_lock = threading.Lock()
+_WINDOW = 600
+
+
+def is_local(ip):
+    """Nur Geraete aus dem eigenen Heimnetz: 10/8, 172.16/12, 192.168/16, 169.254/16, Loopback, IPv6 fe80::/fc00::."""
+    ip = (ip or "").lower()
+    if ip.startswith("::ffff:"):
+        ip = ip[7:]
+    if ip in ("::1", "localhost") or ip.startswith("fe8") or ip.startswith("fe9") or ip.startswith("fea") or ip.startswith("feb") \
+            or ip.startswith("fc") or ip.startswith("fd"):
+        return True
+    parts = ip.split(".")
+    if len(parts) != 4:
+        return False
+    try:
+        a, b = int(parts[0]), int(parts[1])
+    except ValueError:
+        return False
+    return a in (10, 127) or (a == 172 and 16 <= b <= 31) or (a == 192 and b == 168) or (a == 169 and b == 254)
+
+
+def request_allowed(origin, host):
+    """Keine Befehle aus Webseiten im Browser (CSRF) und keine fremden Namen im Host (DNS-Rebinding)."""
+    o = (origin or "").strip().lower()
+    if o.startswith("http://") or o.startswith("https://"):
+        return False
+    h = (host or "").strip().lower()
+    if not h or h.startswith("["):
+        return True
+    h = h.split(":")[0]
+    if re.match(r"^\d{1,3}(\.\d{1,3}){3}\Z", h) or "." not in h:
+        return True
+    return any(h.endswith(x) for x in (".local", ".lan", ".home", ".home.arpa", ".fritz.box", ".box", ".internal"))
+
+
+def _recent(lst, now):
+    lst[:] = [t for t in lst if t > now - _WINDOW]
+    return len(lst)
+
+
+def blocked(peer):
+    now = time.time()
+    with _lock:
+        return _recent(_fails.setdefault(peer, []), now) >= 5 or _recent(_total, now) >= 25
+
+
+def _fail(peer):
+    now = time.time()
+    with _lock:
+        _fails.setdefault(peer, []).append(now)
+        _total.append(now)
+
+
+def _ok_url(u, max_len=4096, schemes=("http://", "https://")):
+    if not u:
+        return True
+    if not isinstance(u, (type(u""), str)) or len(u) > max_len or any(ord(c) < 32 for c in u):
+        return False
+    return u.lower().startswith(schemes)
+
+
+def _ok_server(u, max_len=4096):
+    if not u:
+        return True
+    if not isinstance(u, (type(u""), str)) or len(u) > max_len or any(ord(c) < 32 for c in u):
+        return False
+    l = u.lower()
+    if re.match(r"^[a-z][a-z0-9+.-]*:(?![0-9])", l):
+        return l.startswith(("http://", "https://"))
+    return True
+
+
+def _short(v, n):
+    return v is None or (isinstance(v, (type(u""), str)) and len(v) <= n)
+
+
+def valid_play(p):
+    return isinstance(p, dict) and bool(p.get("url")) and \
+        _ok_url(p.get("url"), 4096, ("http://", "https://", "rtsp://", "rtmp://")) and _ok_url(p.get("logo"), 2048) and \
+        _short(p.get("title"), 900) and _short(p.get("from"), 300)
+
+
+def valid_account(a):
+    return isinstance(a, dict) and _short(a.get("name"), 300) and _short(a.get("username"), 768) and \
+        _short(a.get("password"), 768) and _short(a.get("type"), 20) and _ok_server(a.get("serverUrl"), 2048) and \
+        _ok_server(a.get("m3uUrl")) and _ok_server(a.get("epgUrl"))
+
+
+def same_code(a, b):
+    """Codes in gleichbleibender Zeit vergleichen."""
+    if not a or not b:
+        return False
+    try:
+        import hmac
+        return hmac.compare_digest(str(a), str(b))
+    except Exception:
+        return str(a) == str(b)
+
+
 # ---------- Empfangen ----------
 def _in_main(fn, *args):
     """Im Enigma2-Hauptthread ausfuehren (Fallback-Server laeuft in einem eigenen Thread)."""
@@ -73,26 +178,38 @@ def _in_main(fn, *args):
         fn(*args)
 
 
-def _handle(method, path, body, threaded=False):
+def _handle(method, path, body, threaded=False, peer="?"):
     """Gemeinsame Auswertung fuer beide Server-Varianten. Liefert (HTTP-Code, Antwort)."""
+    if path == "/portiva/pair" and blocked(peer):
+        return 429, {"ok": False, "error": "Zu viele falsche Codes – bitte 10 Minuten warten"}
     if method == "GET":
         return (200, hello()) if path == "/portiva/hello" else (404, {"ok": False})
     if path == "/portiva/play":
+        if not valid_play(body):
+            return 400, {"ok": False, "error": "Ungueltige Adresse"}
         if threaded:
             # Fallback-Server laeuft in einem eigenen Thread -> Player im Enigma2-Hauptthread oeffnen
-            if not _state["session"] or not body.get("url"):
+            if not _state["session"]:
                 return 409, {"ok": False}
             _in_main(on_play, body)
             return 200, {"ok": True}
         return (200 if on_play(body) else 409), {"ok": True}
     if path == "/portiva/pair":
+        if not isinstance(body, dict) or not valid_account(body.get("account")):
+            _fail(peer)
+            return 400, {"ok": False}
         if threaded:
-            ok = bool(_state.get("pair_code")) and body.get("code") == _state.get("pair_code") and isinstance(body.get("account"), dict)
+            ok = same_code(body.get("code"), _state.get("pair_code"))
             if ok:
                 _in_main(on_pair, body)
         else:
             ok = on_pair(body)
-        return (200, {"ok": True}) if ok else (403, {"ok": False, "error": "Code passt nicht"})
+        if ok:
+            with _lock:
+                _fails.pop(peer, None)
+            return 200, {"ok": True}
+        _fail(peer)
+        return 403, {"ok": False, "error": "Code passt nicht"}
     return 404, {"ok": False}
 
 
@@ -111,20 +228,42 @@ def _start_twisted():
             request.setHeader(b"Access-Control-Allow-Headers", b"Content-Type")
             return json.dumps(obj).encode("utf-8")
 
+        def _check(self, request):
+            """None = erlaubt, sonst Antwort (fremdes Netz -> Verbindung schliessen, Webseite -> 403)."""
+            peer = getattr(request.getClientAddress(), "host", None) if hasattr(request, "getClientAddress") else request.getClientIP()
+            if not is_local(peer):
+                request.transport.loseConnection()
+                return b""
+            hdr = lambda n: (request.getHeader(n) or b"")
+            dec = lambda v: v.decode("latin-1") if isinstance(v, bytes) else v
+            if not request_allowed(dec(hdr(b"origin")), dec(hdr(b"host"))):
+                return self._send(request, 403, {"ok": False, "error": "Nicht erlaubt"})
+            request.p_peer = peer
+            return None
+
         def render_OPTIONS(self, request):
-            return self._send(request, 204, {})
+            return self._check(request) or self._send(request, 204, {})
 
         def render_GET(self, request):
+            denied = self._check(request)
+            if denied is not None:
+                return denied
             path = request.path.decode() if isinstance(request.path, bytes) else request.path
-            return self._send(request, *_handle("GET", path, {}))
+            return self._send(request, *_handle("GET", path, {}, peer=request.p_peer))
 
         def render_POST(self, request):
+            denied = self._check(request)
+            if denied is not None:
+                return denied
             path = request.path.decode() if isinstance(request.path, bytes) else request.path
             try:
-                body = native(json.loads(request.content.read().decode("utf-8") or "{}"))
+                raw = request.content.read(64001)
+                if len(raw) > 64000:
+                    return self._send(request, 413, {"ok": False})
+                body = native(json.loads(raw.decode("utf-8") or "{}"))
             except Exception:
                 return self._send(request, 400, {"ok": False})
-            return self._send(request, *_handle("POST", path, body))
+            return self._send(request, *_handle("POST", path, body, peer=request.p_peer))
 
     for p in range(LINK_PORT, LINK_PORT + 6):
         if p == UDP_PORT:
@@ -159,19 +298,34 @@ def _start_plain():
             self.end_headers()
             self.wfile.write(data)
 
+        def _denied(self):
+            if not is_local(self.client_address[0]):
+                self.close_connection = True
+                return True
+            if not request_allowed(self.headers.get("Origin"), self.headers.get("Host")):
+                self._send(403, {"ok": False, "error": "Nicht erlaubt"})
+                return True
+            return False
+
         def do_OPTIONS(self):
-            self._send(204, {})
+            if not self._denied():
+                self._send(204, {})
 
         def do_GET(self):
-            self._send(*_handle("GET", self.path.split("?")[0], {}, True))
+            if not self._denied():
+                self._send(*_handle("GET", self.path.split("?")[0], {}, True, self.client_address[0]))
 
         def do_POST(self):
+            if self._denied():
+                return
             try:
                 n = int(self.headers.get("Content-Length") or 0)
+                if n > 64000:
+                    return self._send(413, {"ok": False})
                 body = native(json.loads(self.rfile.read(n).decode("utf-8") or "{}"))
             except Exception:
                 return self._send(400, {"ok": False})
-            self._send(*_handle("POST", self.path.split("?")[0], body, True))
+            self._send(*_handle("POST", self.path.split("?")[0], body, True, self.client_address[0]))
 
     for p in range(LINK_PORT, LINK_PORT + 6):
         if p == UDP_PORT:
@@ -200,7 +354,7 @@ def _start_udp():
         while True:
             try:
                 data, addr = s.recvfrom(1024)
-                if data.strip() == DISCOVER and _state["port"]:
+                if data.strip() == DISCOVER and _state["port"] and is_local(addr[0]):
                     s.sendto(json.dumps(hello()).encode("utf-8"), addr)
             except Exception:
                 pass
@@ -260,7 +414,7 @@ def on_play(p):
 
 def on_pair(body):
     code = _state.get("pair_code")
-    if not code or body.get("code") != code or not isinstance(body.get("account"), dict):
+    if not same_code(body.get("code"), code) or not valid_account(body.get("account")):
         return False
     from . import store
     new = account_to_profile(body["account"])

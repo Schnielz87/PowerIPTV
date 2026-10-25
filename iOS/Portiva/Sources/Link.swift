@@ -83,6 +83,102 @@ enum LinkCodes {
     }
 }
 
+/** Schutz des Empfangs-Dienstes (wie LinkSecurity in Android/Windows): nur Heimnetz, keine Webseiten,
+ *  Sperre nach 5 falschen Codes fuer 10 Minuten, nur gueltige Adressen und begrenzte Feldlaengen. */
+@MainActor
+enum LinkSecurity {
+    private static var fails: [String: [Date]] = [:]
+    private static var total: [Date] = []
+    private static let window: TimeInterval = 600
+
+    static func isLocal(_ endpoint: NWEndpoint) -> Bool {
+        guard case let .hostPort(host, _) = endpoint else { return false }
+        switch host {
+        case .ipv4(let a): return isLocalV4([UInt8](a.rawValue))
+        case .ipv6(let a):
+            if let v4 = a.asIPv4 { return isLocalV4([UInt8](v4.rawValue)) }
+            let b = [UInt8](a.rawValue)
+            if a.isLoopback || a.isLinkLocal { return true }
+            return b.first.map { $0 & 0xfe == 0xfc } ?? false // fc00::/7
+        default: return false
+        }
+    }
+
+    private static func isLocalV4(_ b: [UInt8]) -> Bool {
+        guard b.count == 4 else { return false }
+        return b[0] == 10 || b[0] == 127 || (b[0] == 172 && (16...31).contains(b[1])) ||
+            (b[0] == 192 && b[1] == 168) || (b[0] == 169 && b[1] == 254)
+    }
+
+    static func peer(_ endpoint: NWEndpoint) -> String {
+        if case let .hostPort(host, _) = endpoint { return "\(host)" }
+        return "?"
+    }
+
+    static func isWebsiteOrigin(_ origin: String?) -> Bool {
+        guard let o = origin?.trimmingCharacters(in: .whitespaces).lowercased() else { return false }
+        return o.hasPrefix("http://") || o.hasPrefix("https://")
+    }
+
+    static func isLocalHostHeader(_ host: String?) -> Bool {
+        guard var h = host?.trimmingCharacters(in: .whitespaces).lowercased(), !h.isEmpty else { return true }
+        if h.hasPrefix("[") { return true }
+        h = h.components(separatedBy: ":")[0]
+        if h.range(of: #"^\d{1,3}(\.\d{1,3}){3}$"#, options: .regularExpression) != nil { return true }
+        if !h.contains(".") { return true }
+        return [".local", ".lan", ".home", ".home.arpa", ".fritz.box", ".box", ".internal"].contains { h.hasSuffix($0) }
+    }
+
+    private static func prune(_ l: [Date]) -> [Date] { l.filter { $0 > Date().addingTimeInterval(-window) } }
+
+    static func blocked(_ peer: String) -> Bool {
+        total = prune(total)
+        let mine = prune(fails[peer] ?? [])
+        fails[peer] = mine
+        return mine.count >= 5 || total.count >= 25
+    }
+
+    static func fail(_ peer: String) { fails[peer, default: []].append(Date()); total.append(Date()) }
+    static func success(_ peer: String) { fails[peer] = nil }
+
+    private static func ok(_ u: String?, _ max: Int = 4096, _ schemes: [String] = ["http://", "https://"]) -> Bool {
+        guard let u, !u.isEmpty else { return true }
+        if u.count > max || u.unicodeScalars.contains(where: { $0.value < 0x20 }) { return false }
+        let l = u.lowercased()
+        return schemes.contains { l.hasPrefix($0) }
+    }
+
+    private static func okServer(_ u: String, _ max: Int = 4096) -> Bool {
+        if u.isEmpty { return true }
+        if u.count > max || u.unicodeScalars.contains(where: { $0.value < 0x20 }) { return false }
+        let l = u.lowercased()
+        if l.range(of: #"^[a-z][a-z0-9+.-]*:(?![0-9])"#, options: .regularExpression) != nil {
+            return l.hasPrefix("http://") || l.hasPrefix("https://")
+        }
+        return true
+    }
+
+    static func valid(_ p: LinkPlay) -> Bool {
+        !p.url.isEmpty && ok(p.url, 4096, ["http://", "https://", "rtsp://", "rtmp://"]) && ok(p.logo, 2048) &&
+            p.title.count <= 300 && p.from.count <= 100 && p.positionMs >= 0 && p.durationMs >= 0
+    }
+
+    static func valid(_ a: LinkAccount) -> Bool {
+        a.name.count <= 100 && a.username.count <= 256 && a.password.count <= 256 && a.type.count <= 20 &&
+            okServer(a.serverUrl, 2048) && okServer(a.m3uUrl) && okServer(a.epgUrl)
+    }
+
+    /** Codes in gleichbleibender Zeit vergleichen. */
+    static func sameCode(_ a: String?, _ b: String?) -> Bool {
+        guard let a, let b else { return false }
+        let x = Array(a.utf8), y = Array(b.utf8)
+        guard x.count == y.count else { return false }
+        var d: UInt8 = 0
+        for i in 0..<x.count { d |= x[i] ^ y[i] }
+        return d == 0
+    }
+}
+
 /** Empfangs-Dienst + Senden (Zugang/Wiedergabe). */
 @MainActor
 final class LinkService: ObservableObject {
@@ -116,6 +212,9 @@ final class LinkService: ObservableObject {
 
     // ---------- kleiner HTTP-Dienst ----------
     private func handle(_ c: NWConnection) {
+        // Nur Geraete aus dem eigenen Heimnetz
+        guard LinkSecurity.isLocal(c.endpoint) else { c.cancel(); return }
+        let peer = LinkSecurity.peer(c.endpoint)
         c.start(queue: .main)
         var buffer = Data()
         func receive() {
@@ -123,9 +222,14 @@ final class LinkService: ObservableObject {
                 Task { @MainActor in
                     if let data { buffer.append(data) }
                     if let req = Self.parse(buffer) {
-                        let (code, body) = self?.route(req.method, req.path, req.body) ?? (500, "{}")
-                        Self.respond(c, code, body)
-                    } else if done || err != nil || buffer.count > 200_000 {
+                        let result: (Int, String)
+                        if LinkSecurity.isWebsiteOrigin(req.origin) || !LinkSecurity.isLocalHostHeader(req.host) {
+                            result = (403, #"{"ok":false,"error":"Nicht erlaubt"}"#)
+                        } else {
+                            result = self?.route(req.method, req.path, req.body, peer) ?? (500, "{}")
+                        }
+                        Self.respond(c, result.0, result.1)
+                    } else if done || err != nil || buffer.count > 64_000 {
                         c.cancel()
                     } else { receive() }
                 }
@@ -134,7 +238,7 @@ final class LinkService: ObservableObject {
         receive()
     }
 
-    private struct Request { let method: String; let path: String; let body: Data }
+    private struct Request { let method: String; let path: String; let body: Data; let origin: String?; let host: String? }
 
     private static func parse(_ d: Data) -> Request? {
         guard let headEnd = d.range(of: Data("\r\n\r\n".utf8)) else { return nil }
@@ -142,11 +246,15 @@ final class LinkService: ObservableObject {
         let lines = head.components(separatedBy: "\r\n")
         let first = lines.first?.split(separator: " ") ?? []
         guard first.count >= 2 else { return nil }
-        let length = lines.dropFirst().first { $0.lowercased().hasPrefix("content-length:") }
-            .flatMap { Int($0.split(separator: ":").last?.trimmingCharacters(in: .whitespaces) ?? "") } ?? 0
+        func header(_ name: String) -> String? {
+            guard let line = lines.dropFirst().first(where: { $0.lowercased().hasPrefix(name + ":") }) else { return nil }
+            return String(line.dropFirst(name.count + 1)).trimmingCharacters(in: .whitespaces)
+        }
+        let length = min(Int(header("content-length") ?? "") ?? 0, 64_000)
         let body = d[headEnd.upperBound...]
         if body.count < length { return nil }
-        return Request(method: String(first[0]).uppercased(), path: String(first[1]).components(separatedBy: "?")[0], body: Data(body.prefix(length)))
+        return Request(method: String(first[0]).uppercased(), path: String(first[1]).components(separatedBy: "?")[0],
+                       body: Data(body.prefix(length)), origin: header("origin"), host: header("host"))
     }
 
     private static func respond(_ c: NWConnection, _ code: Int, _ body: String) {
@@ -156,22 +264,32 @@ final class LinkService: ObservableObject {
         c.send(content: Data(head.utf8) + b, completion: .contentProcessed { _ in c.cancel() })
     }
 
-    private func route(_ method: String, _ path: String, _ body: Data) -> (Int, String) {
+    private func route(_ method: String, _ path: String, _ body: Data, _ peer: String) -> (Int, String) {
         let dec = JSONDecoder()
         if method == "OPTIONS" { return (204, "") }
+        if (path == "/portiva/pair" || path.hasPrefix("/portiva/offer/")) && LinkSecurity.blocked(peer) {
+            return (429, #"{"ok":false,"error":"Zu viele falsche Codes – bitte 10 Minuten warten"}"#)
+        }
         if method == "GET" && path == "/portiva/hello" {
             let h = LinkHello(name: deviceName, platform: UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone", port: port)
             return (200, String(decoding: (try? JSONEncoder().encode(h)) ?? Data(), as: UTF8.self))
         }
         if method == "POST" && path == "/portiva/pair" {
-            guard let p = try? dec.decode(LinkPair.self, from: body) else { return (400, #"{"ok":false}"#) }
-            guard let code = pairCode, code == p.code, let app else { return (403, #"{"ok":false,"error":"Code passt nicht"}"#) }
+            guard let p = try? dec.decode(LinkPair.self, from: body), LinkSecurity.valid(p.account) else {
+                LinkSecurity.fail(peer); return (400, #"{"ok":false}"#)
+            }
+            guard LinkSecurity.sameCode(pairCode, p.code), let app else {
+                LinkSecurity.fail(peer); return (403, #"{"ok":false,"error":"Code passt nicht"}"#)
+            }
+            LinkSecurity.success(peer)
             pairCode = nil
             received = app.importAccount(p.account)
             return (200, #"{"ok":true}"#)
         }
         if method == "POST" && path == "/portiva/play" {
-            guard let p = try? dec.decode(LinkPlay.self, from: body), let app else { return (400, #"{"ok":false}"#) }
+            guard let p = try? dec.decode(LinkPlay.self, from: body), LinkSecurity.valid(p), let app else {
+                return (400, #"{"ok":false,"error":"Ungueltige Adresse"}"#)
+            }
             let item = ContentItem(id: "link:\(p.url.hashValue)", name: p.title, type: p.live ? .LIVE : .MOVIE, logo: p.logo)
             app.playing = nil
             app.play([PlayEntry(title: p.title, url: p.url, live: p.live, item: item, startAt: p.live ? 0 : Double(p.positionMs))])
@@ -180,8 +298,14 @@ final class LinkService: ObservableObject {
         }
         if method == "GET" && path.hasPrefix("/portiva/offer/") {
             let code = String(path.dropFirst("/portiva/offer/".count))
-            guard let o = offers[code], o.1 > Date() else { return (404, #"{"ok":false}"#) }
-            offers[code] = nil
+            // Abgelaufene Angebote entfernen; liegt nichts bereit, ist die Nachfrage des Samsung-TV kein Fehlversuch
+            offers = offers.filter { $0.value.1 > Date() }
+            if offers.isEmpty { return (404, #"{"ok":false}"#) }
+            guard let key = offers.keys.first(where: { LinkSecurity.sameCode($0, code) }), let o = offers[key], o.1 > Date() else {
+                LinkSecurity.fail(peer); return (404, #"{"ok":false}"#)
+            }
+            offers[key] = nil
+            LinkSecurity.success(peer)
             onOfferTaken?(o.0)
             return (200, String(decoding: (try? JSONEncoder().encode(o.0)) ?? Data(), as: UTF8.self))
         }

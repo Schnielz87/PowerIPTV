@@ -1,5 +1,5 @@
 // Seitenverwaltung: Stapel von Seiten, Zurueck-Taste, Dialoge, gemeinsamer Zustand.
-import { h, clear, toast } from './util';
+import { h, clear, toast, storage } from './util';
 import { pushScope, popScope, replaceScope, focusFirst, getFocus, setFocus, move, activate, focusable } from './focus';
 import { KEY, isBack, VEGA_KEYS } from './keys';
 import { isVega } from './vega';
@@ -41,6 +41,7 @@ export function activateProfile(p) {
   app.source.accountInfo().then((acc) => {
     app.account = acc;
     app.maxConnections = acc && acc.maxConnections ? parseInt(acc.maxConnections, 10) || null : null;
+    if (acc && acc.message && storage.get('serverMsgSeen', '') !== acc.message) showServerMessage(acc.message);
     const cur = top();
     if (cur && cur.name === 'home' && cur.refresh) cur.refresh();
   });
@@ -49,6 +50,16 @@ export function activateProfile(p) {
     parental.register(p.id, t, c);
     lib.purgeHistory(); // Erwachseneninhalte nie in "Zuletzt gesehen"
   }).catch(() => {}));
+}
+
+/** Mitteilung vom Server (Anbieter) – beim ersten Mal automatisch, sonst ueber die Startseite. */
+export function showServerMessage(msg) {
+  dialog({
+    title: 'Mitteilung vom Anbieter',
+    content: h('p.dialog-text', { style: { whiteSpace: 'pre-line' } }, msg),
+    buttons: [{ label: 'OK', primary: true, onClick: () => storage.set('serverMsgSeen', msg) }],
+    onClose: () => storage.set('serverMsgSeen', msg),
+  });
 }
 
 export function firstProfile() {

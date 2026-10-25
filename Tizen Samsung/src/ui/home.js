@@ -2,7 +2,7 @@
 // kleine Kacheln fuer alle weiteren Bereiche, Benutzer-Maennchen zum schnellen Wechseln.
 import { h, clear, dateDE, toast, storage } from '../util';
 import { focusable } from '../focus';
-import { app, go, choose, activateProfile, askPin } from '../app';
+import { app, go, choose, activateProfile, askPin, showServerMessage } from '../app';
 import { profiles, parental } from '../store';
 import { T } from '../sources';
 import { updates } from '../update';
@@ -25,6 +25,7 @@ export default function home() {
   );
   const rows = h('div');
   const updateTile = smallTile(ICON.update, 'Update', () => go('update'));
+  const msgTile = smallTile(ICON.update, '✉ Mitteilung vom Anbieter', () => { if (app.account && app.account.message) showServerMessage(app.account.message); });
   const tiles = h('div.small-tiles', null,
     smallTile(ICON.search, 'Suche', () => go('search')),
     smallTile(ICON.sync, 'Playlist aktualisieren', refreshPlaylist),
@@ -73,11 +74,14 @@ export default function home() {
 
   function refreshAccount() {
     const a = app.account;
-    if (!a) { accountLine.textContent = ''; return; }
+    if (!a) { accountLine.textContent = ''; if (msgTile.parentNode) msgTile.parentNode.removeChild(msgTile); return; }
     const parts = [];
     if (a.expiresAt) parts.push('Gültig bis ' + dateDE(a.expiresAt));
     if (a.maxConnections) parts.push(`${a.maxConnections} ${a.maxConnections === '1' ? 'Verbindung' : 'Verbindungen'}`);
     accountLine.textContent = parts.join(' · ');
+    // Kachel nur im DOM, wenn es eine Mitteilung gibt (versteckte Elemente koennten sonst Fokus bekommen)
+    if (a.message && !msgTile.parentNode) tiles.insertBefore(msgTile, tiles.firstChild);
+    if (!a.message && msgTile.parentNode) msgTile.parentNode.removeChild(msgTile);
   }
 
   function refreshUpdate() {

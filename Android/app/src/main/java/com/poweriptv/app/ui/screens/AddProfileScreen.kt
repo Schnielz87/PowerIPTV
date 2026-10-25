@@ -53,6 +53,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun AddProfileScreen(container: AppContainer, editId: String?, onDone: () -> Unit, onBack: () -> Unit) {
+    com.poweriptv.app.ui.components.SecureWindow() // Passwort-Eingabe nicht in Bildschirmfotos/App-Vorschau
     val existing = remember(editId) { container.profiles.get(editId) }
     val profileId = remember(editId) { existing?.id ?: container.profiles.newId() }
 

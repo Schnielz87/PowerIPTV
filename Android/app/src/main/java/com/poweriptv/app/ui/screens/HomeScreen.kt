@@ -140,6 +140,19 @@ fun HomeScreen(
     }
     var account by remember { mutableStateOf<AccountInfo?>(null) }
     LaunchedEffect(source) { account = source?.accountInfo() }
+    // Mitteilung vom Server (Anbieter) einmalig als Hinweis zeigen, wenn sie neu ist oder sich geaendert hat
+    val msgCtx = androidx.compose.ui.platform.LocalContext.current
+    account?.message?.let { msg ->
+        val prefs = remember { msgCtx.getSharedPreferences("server_msg", android.content.Context.MODE_PRIVATE) }
+        val sig = msg.hashCode()
+        var seen by remember(msg) { mutableStateOf(prefs.getInt("seen", 0) == sig) }
+        if (!seen) androidx.compose.material3.AlertDialog(
+            onDismissRequest = { prefs.edit().putInt("seen", sig).apply(); seen = true },
+            title = { Text("Mitteilung vom Anbieter") },
+            text = { Text(msg) },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { prefs.edit().putInt("seen", sig).apply(); seen = true }) { Text("OK") } },
+        )
+    }
     val firstFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { firstFocus.requestFocus() } }
 
@@ -504,5 +517,10 @@ private fun AccountCard(info: AccountInfo) {
             Text("Verbindungen: ${info.activeConnections ?: "0"} / ${info.maxConnections}", color = muted)
         }
         if (info.isTrial) Text("Testzugang", color = muted)
+        info.message?.let {
+            Spacer(Modifier.size(4.dp))
+            Text("Mitteilung vom Anbieter", fontWeight = FontWeight.SemiBold)
+            Text(it, color = muted)
+        }
     }
 }

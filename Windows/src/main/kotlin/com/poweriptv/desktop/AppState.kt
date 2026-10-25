@@ -354,7 +354,7 @@ class AppState(val window: WindowState) {
 
     private fun receivePair(p: com.poweriptv.app.link.LinkPair): Boolean {
         val code = linkPairCode.value ?: return false
-        if (p.code != code) return false
+        if (!com.poweriptv.app.link.LinkSecurity.sameCode(p.code, code)) return false
         linkPairCode.value = null
         linkReceived.value = importAccount(p.account)
         return true

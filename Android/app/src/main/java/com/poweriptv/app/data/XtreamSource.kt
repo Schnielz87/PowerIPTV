@@ -67,6 +67,7 @@ class XtreamSource(
         maxConnections = info.str("max_connections"),
         activeConnections = info.str("active_cons"),
         isTrial = info.str("is_trial") == "1",
+        message = info.str("message")?.let(::cleanMessage),
     )
 
     override suspend fun categories(type: ContentType): List<Category> {
@@ -303,4 +304,13 @@ class XtreamSource(
 
         private fun enc(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
     }
+}
+
+/** Server-Mitteilung saeubern: HTML-Tags weg, Leerraum zusammenfassen, Laenge begrenzen. */
+internal fun cleanMessage(raw: String): String? {
+    val t = raw.replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
+        .replace(Regex("<[^>]*>"), "")
+        .replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'")
+        .lines().joinToString("\n") { it.trim() }.replace(Regex("\n{3,}"), "\n\n").trim()
+    return t.takeIf { it.isNotEmpty() }?.take(1000)
 }
