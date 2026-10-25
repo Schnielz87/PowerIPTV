@@ -352,6 +352,7 @@ class PlayerActivity : ComponentActivity() {
 
         videoScale = container.settings.videoScaleEnum()
         play(container.playIndex)
+        lifecycleScope.launch { while (true) { delay(2000); runCatching { liveWatchdog() } } }
 
         setContent {
             PowerTheme {
@@ -759,6 +760,8 @@ class PlayerActivity : ComponentActivity() {
         is StreamRescue.Step.Reconnect -> {
             toast = StreamRescue.message(step)
             lifecycleScope.launch {
+                // Haengt der Player ohne Fehler (Zustand "laeuft"), wirkt prepare() nicht -> erst anhalten, dann neu laden
+                if (player.playbackState != Player.STATE_IDLE) withSwitch { player.stop() }
                 delay(1500)
                 if (behindLive || current()?.live == true) player.seekToDefaultPosition()
                 player.prepare(); player.play()
@@ -774,20 +777,37 @@ class PlayerActivity : ComponentActivity() {
         StreamRescue.Step.GiveUp -> false
     }
 
-    /** Live-Bild steht (Player puffert endlos, ohne Fehler zu melden) -> nach 15 s selbst neu verbinden. */
-    private var stallJob: kotlinx.coroutines.Job? = null
+    /**
+     * Haenger-Waechter fuer Live TV (alle 2 s): Kommt die Wiedergabe 12 s nicht voran – Position steht, oder der Ton
+     * laeuft weiter, aber es kommen keine neuen Bilder –, wird automatisch neu verbunden (Rettungsleiter).
+     * Erkennt auch Haenger, bei denen der Player weder puffert noch einen Fehler meldet.
+     */
+    private var wdPos = -1L
+    private var wdFrames = -1
+    private var wdStuckSince = 0L
 
-    private fun watchLiveStall(state: Int) {
-        if (state != Player.STATE_BUFFERING) { stallJob?.cancel(); stallJob = null; return }
-        if (current()?.live != true || watchingRecording || playingBuffer || timeshiftActive) return
-        if (stallJob?.isActive == true) return
-        stallJob = lifecycleScope.launch {
-            delay(15_000)
-            if (player.playbackState != Player.STATE_BUFFERING || !player.playWhenReady || current()?.live != true) return@launch
-            if (!applyRescue(rescue.next(), behindLive = true)) {
-                error = "Der Sender liefert gerade kein Bild – bitte später erneut versuchen"
-                StreamRescue.connectionsFullMessage(container)?.let { error = it }
-            }
+    private fun liveWatchdog() {
+        val e = current()
+        val active = e?.live == true && player.playWhenReady && error == null && !watchingRecording &&
+            !playingBuffer && !timeshiftActive && !switchingSource &&
+            player.playbackState != Player.STATE_IDLE && player.playbackState != Player.STATE_ENDED
+        if (!active) { wdStuckSince = 0L; wdPos = -1L; wdFrames = -1; return }
+        val pos = player.currentPosition
+        val counters = player.videoDecoderCounters
+        counters?.ensureUpdated()
+        val frames = counters?.renderedOutputBufferCount ?: -1
+        val video = player.videoFormat != null && frames >= 0
+        val moving = wdPos >= 0 && pos != wdPos && (!video || frames != wdFrames)
+        val first = wdPos < 0
+        wdPos = pos; wdFrames = frames
+        val now = System.currentTimeMillis()
+        if (moving || first) { wdStuckSince = 0L; return }
+        if (wdStuckSince == 0L) { wdStuckSince = now; return }
+        if (now - wdStuckSince < 12_000L) return
+        wdStuckSince = 0L; wdPos = -1L; wdFrames = -1
+        if (!applyRescue(rescue.next(), behindLive = true)) {
+            error = "Der Sender liefert gerade kein Bild – bitte später erneut versuchen"
+            lifecycleScope.launch { StreamRescue.connectionsFullMessage(container)?.let { error = it } }
         }
     }
 
@@ -797,7 +817,6 @@ class PlayerActivity : ComponentActivity() {
         }
 
         override fun onPlaybackStateChanged(state: Int) {
-            watchLiveStall(state)
             val now = System.currentTimeMillis()
             if (state == Player.STATE_READY) { wasReady = true; return }
             if (state != Player.STATE_BUFFERING || !wasReady || switchingSource || now - lastSeekAt < 3_000) return
