@@ -202,10 +202,11 @@ class PlayerActivity : ComponentActivity() {
 
         // Online: ueber OkHttp (VPN-Kill-Switch + User-Agent). Lokale Dateien: direkt.
         // Eigene, kuerzere Wartezeiten fuer die Wiedergabe: eine nach laengerer Pause eingeschlafene Verbindung
-        // (Router/Anbieter haben sie still beendet) wird nach 12 s statt 60 s erkannt und neu aufgebaut.
+        // (Router/Anbieter haben sie still beendet) wird nach 20 s statt 60 s erkannt und neu aufgebaut
+        // (nicht kuerzer: manche Live-Sender liefern bei Last kurz keine Daten).
         val playerHttp = container.http.newBuilder()
             .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(12, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .build()
         val dataSourceFactory = DefaultDataSource.Factory(this, OkHttpDataSource.Factory(playerHttp))
@@ -280,26 +281,23 @@ class PlayerActivity : ComponentActivity() {
                 val network = e.errorCode in 2000..2999 || behindLive
                 // Live-Stream kaputt geliefert (Format/Parser) -> anderes Format/Ausweich-Sender lohnen sich auch hier
                 val liveBroken = current()?.live == true && e.errorCode in 3000..3999
+                // Interner Haenger des Standard-Players (Decoder/Bildausgabe reagiert nicht mehr) -> frischer Player;
+                // passiert es beim selben Sender erneut, uebernimmt VLC (laeuft bei wackeligen Live-Streams robuster)
+                if (e.errorCode == PlaybackException.ERROR_CODE_TIMEOUT && cause == null) {
+                    val url = current()?.url
+                    val now = System.currentTimeMillis()
+                    if (url != null && lastTimeoutUrl == url && now - lastTimeoutAt < 10 * 60_000L) {
+                        lastTimeoutUrl = null
+                        if (switchToVlc(force = true)) return
+                    }
+                    lastTimeoutUrl = url; lastTimeoutAt = now
+                    toast = "Player hing – wird neu gestartet …"
+                    lifecycleScope.launch { delay(600); recreate() }
+                    return
+                }
                 if (cause == null && (network || liveBroken)) {
                     if (liveBroken) while (rescue.attempts < 2) rescue.next()  // gleich zu Format/Ausweich-Sender
-                    when (val step = rescue.next()) {
-                        is StreamRescue.Step.Reconnect -> {
-                            toast = StreamRescue.message(step)
-                            lifecycleScope.launch {
-                                delay(1500)
-                                if (behindLive || current()?.live == true) player.seekToDefaultPosition()
-                                player.prepare(); player.play()
-                            }
-                            return
-                        }
-                        is StreamRescue.Step.Format, is StreamRescue.Step.Backup -> {
-                            toast = StreamRescue.message(step)
-                            val idx = if (step is StreamRescue.Step.Backup) step.index else container.playIndex
-                            lifecycleScope.launch { delay(800); rescuing = true; try { play(idx) } finally { rescuing = false } }
-                            return
-                        }
-                        StreamRescue.Step.GiveUp -> Unit
-                    }
+                    if (applyRescue(rescue.next(), behindLive)) return
                 }
                 if (cause == null && (network || liveBroken)) {
                     // Alle Verbindungen belegt? Dann klarer Hinweis statt allgemeinem Fehler
@@ -753,12 +751,53 @@ class PlayerActivity : ComponentActivity() {
     private val stutters = ArrayDeque<Long>()
 
     /** Erkennt Stocken (Puffern mitten in der Wiedergabe, nicht nach dem Spulen) und schaltet den Stabil-Modus zu. */
+    /**
+     * Naechster Schritt der Rettungsleiter (neu verbinden, anderes Format, Ausweich-Sender).
+     * false = aufgeben (Fehler anzeigen).
+     */
+    private fun applyRescue(step: StreamRescue.Step, behindLive: Boolean = false): Boolean = when (step) {
+        is StreamRescue.Step.Reconnect -> {
+            toast = StreamRescue.message(step)
+            lifecycleScope.launch {
+                delay(1500)
+                if (behindLive || current()?.live == true) player.seekToDefaultPosition()
+                player.prepare(); player.play()
+            }
+            true
+        }
+        is StreamRescue.Step.Format, is StreamRescue.Step.Backup -> {
+            toast = StreamRescue.message(step)
+            val idx = if (step is StreamRescue.Step.Backup) step.index else container.playIndex
+            lifecycleScope.launch { delay(800); rescuing = true; try { play(idx) } finally { rescuing = false } }
+            true
+        }
+        StreamRescue.Step.GiveUp -> false
+    }
+
+    /** Live-Bild steht (Player puffert endlos, ohne Fehler zu melden) -> nach 15 s selbst neu verbinden. */
+    private var stallJob: kotlinx.coroutines.Job? = null
+
+    private fun watchLiveStall(state: Int) {
+        if (state != Player.STATE_BUFFERING) { stallJob?.cancel(); stallJob = null; return }
+        if (current()?.live != true || watchingRecording || playingBuffer || timeshiftActive) return
+        if (stallJob?.isActive == true) return
+        stallJob = lifecycleScope.launch {
+            delay(15_000)
+            if (player.playbackState != Player.STATE_BUFFERING || !player.playWhenReady || current()?.live != true) return@launch
+            if (!applyRescue(rescue.next(), behindLive = true)) {
+                error = "Der Sender liefert gerade kein Bild – bitte später erneut versuchen"
+                StreamRescue.connectionsFullMessage(container)?.let { error = it }
+            }
+        }
+    }
+
     private val stutterWatch = object : Player.Listener {
         override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
             if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) lastSeekAt = System.currentTimeMillis()
         }
 
         override fun onPlaybackStateChanged(state: Int) {
+            watchLiveStall(state)
             val now = System.currentTimeMillis()
             if (state == Player.STATE_READY) { wasReady = true; return }
             if (state != Player.STATE_BUFFERING || !wasReady || switchingSource || now - lastSeekAt < 3_000) return
@@ -1549,6 +1588,9 @@ class PlayerActivity : ComponentActivity() {
     }
 
     companion object {
+        /** Letzter interner Haenger (ERROR_CODE_TIMEOUT) – ueberlebt das Neustarten der Activity. */
+        private var lastTimeoutUrl: String? = null
+        private var lastTimeoutAt = 0L
         /** Aktuell laufender Player (es darf nur einen geben). */
         private var active: java.lang.ref.WeakReference<PlayerActivity>? = null
 
