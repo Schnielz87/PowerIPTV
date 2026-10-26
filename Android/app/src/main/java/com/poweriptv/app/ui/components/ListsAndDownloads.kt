@@ -72,7 +72,7 @@ fun AddToListDialog(container: AppContainer, item: ContentItem, onDismiss: () ->
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
+                    TvOutlinedTextField(
                         value = newName,
                         onValueChange = { newName = it },
                         placeholder = { Text("Neue Liste...") },

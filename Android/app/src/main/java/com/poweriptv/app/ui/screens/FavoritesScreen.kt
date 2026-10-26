@@ -26,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import com.poweriptv.app.ui.components.TvOutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
@@ -151,7 +152,7 @@ fun FavoritesScreen(container: AppContainer, onBack: () -> Unit, onOpenDetail: (
             onDismissRequest = { nameDialog = null },
             title = { Text(if (target.isEmpty()) "Neue Liste" else "Liste umbenennen") },
             text = {
-                OutlinedTextField(value = nameInput, onValueChange = { nameInput = it }, singleLine = true, label = { Text("Name") })
+                TvOutlinedTextField(value = nameInput, onValueChange = { nameInput = it }, singleLine = true, label = { Text("Name") })
             },
             confirmButton = {
                 TextButton(enabled = nameInput.isNotBlank(), onClick = {

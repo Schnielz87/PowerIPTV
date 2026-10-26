@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import com.poweriptv.app.ui.components.TvOutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -114,7 +115,7 @@ fun SearchScreen(container: AppContainer, onBack: () -> Unit, onOpenDetail: (Con
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
+                TvOutlinedTextField(
                     value = query, onValueChange = { query = it },
                     placeholder = { Text("Film, Serie oder Sender suchen...") },
                     leadingIcon = { Icon(Icons.Filled.Search, null) },

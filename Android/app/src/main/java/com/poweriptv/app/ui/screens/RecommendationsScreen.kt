@@ -26,6 +26,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import com.poweriptv.app.ui.components.TvOutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -101,7 +102,7 @@ fun RecommendationsScreen(
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
+                TvOutlinedTextField(
                     value = wish, onValueChange = { wish = it },
                     placeholder = { Text("Optional: z.B. \"spannender Thriller\" oder \"lustig fuer Familie\"") },
                     singleLine = true, modifier = Modifier.weight(1f),

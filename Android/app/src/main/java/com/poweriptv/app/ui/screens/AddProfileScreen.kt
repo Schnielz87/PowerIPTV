@@ -26,6 +26,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import com.poweriptv.app.ui.components.TvOutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -148,7 +149,7 @@ fun AddProfileScreen(container: AppContainer, editId: String?, onDone: () -> Uni
                 Tab(selected = type == ProfileType.M3U_FILE, onClick = { type = ProfileType.M3U_FILE }, text = { Text("M3U-Datei") })
             }
 
-            OutlinedTextField(
+            TvOutlinedTextField(
                 value = name, onValueChange = { name = it },
                 label = { Text("Name des Zugangs (beliebig)") },
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
@@ -156,18 +157,18 @@ fun AddProfileScreen(container: AppContainer, editId: String?, onDone: () -> Uni
 
             when (type) {
                 ProfileType.XTREAM -> {
-                    OutlinedTextField(
+                    TvOutlinedTextField(
                         value = server, onValueChange = { server = it },
                         label = { Text("Server-URL (z.B. http://server.com:8080)") },
                         singleLine = true, modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                     )
-                    OutlinedTextField(
+                    TvOutlinedTextField(
                         value = user, onValueChange = { user = it },
                         label = { Text("Benutzername") },
                         singleLine = true, modifier = Modifier.fillMaxWidth(),
                     )
-                    OutlinedTextField(
+                    TvOutlinedTextField(
                         value = pass, onValueChange = { pass = it },
                         label = { Text("Passwort") },
                         singleLine = true, modifier = Modifier.fillMaxWidth(),
@@ -181,7 +182,7 @@ fun AddProfileScreen(container: AppContainer, editId: String?, onDone: () -> Uni
                     )
                 }
                 ProfileType.M3U_URL -> {
-                    OutlinedTextField(
+                    TvOutlinedTextField(
                         value = m3u, onValueChange = { m3u = it },
                         label = { Text("M3U-URL (http://...get.php?...)") },
                         modifier = Modifier.fillMaxWidth(),
@@ -209,7 +210,7 @@ fun AddProfileScreen(container: AppContainer, editId: String?, onDone: () -> Uni
                 }
             }
 
-            OutlinedTextField(
+            TvOutlinedTextField(
                 value = epgUrl, onValueChange = { epgUrl = it },
                 label = { Text("EPG-URL (XMLTV, optional)") },
                 supportingText = {

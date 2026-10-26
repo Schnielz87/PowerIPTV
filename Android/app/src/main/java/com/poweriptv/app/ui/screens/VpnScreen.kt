@@ -33,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import com.poweriptv.app.ui.components.TvOutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -224,7 +225,7 @@ fun VpnScreen(container: AppContainer, onBack: () -> Unit, onConnect: () -> Unit
             onDismissRequest = { showEditor = false },
             title = { Text("WireGuard-Konfiguration") },
             text = {
-                OutlinedTextField(
+                TvOutlinedTextField(
                     value = editorText,
                     onValueChange = { editorText = it },
                     placeholder = { Text("[Interface]\nPrivateKey = ...\nAddress = ...\n\n[Peer]\nPublicKey = ...\nEndpoint = ...") },

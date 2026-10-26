@@ -144,13 +144,13 @@ fun AccountQrDialog(container: AppContainer, profile: Profile, onDismiss: () -> 
             Text(if (showCode) "Code-Eingabe ausblenden" else "Code eingeben (IP-Adresse + Code)")
         }
         if (showCode) {
-            androidx.compose.material3.OutlinedTextField(
+            com.poweriptv.app.ui.components.TvOutlinedTextField(
                 value = codeIp, onValueChange = { codeIp = it.filter { c -> c.isDigit() || c == '.' || c == ':' } },
                 label = { Text("IP-Adresse des Receivers") }, placeholder = { Text("z.B. 192.168.178.40") }, singleLine = true,
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri),
                 modifier = Modifier.fillMaxWidth(),
             )
-            androidx.compose.material3.OutlinedTextField(
+            com.poweriptv.app.ui.components.TvOutlinedTextField(
                 value = codeNum, onValueChange = { codeNum = it.filter(Char::isDigit).take(6) },
                 label = { Text("Code (6 Ziffern)") }, singleLine = true,
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),

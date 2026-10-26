@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import com.poweriptv.app.ui.components.TvOutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -153,17 +154,17 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                OutlinedTextField(
+                TvOutlinedTextField(
                     value = keyInput, onValueChange = { keyInput = it },
                     label = { Text(if (container.ai.hasApiKey()) "Neuer API-Schluessel (sk-...)" else "API-Schluessel (sk-...)") },
                     singleLine = true, modifier = Modifier.fillMaxWidth(),
                     visualTransformation = PasswordVisualTransformation(),
                 )
-                OutlinedTextField(
+                TvOutlinedTextField(
                     value = modelInput, onValueChange = { modelInput = it },
                     label = { Text("Modell") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
+                TvOutlinedTextField(
                     value = urlInput, onValueChange = { urlInput = it },
                     label = { Text("API-Adresse (OpenAI-kompatibel)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                 )
@@ -240,7 +241,7 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 SwitchRow("Zugangsdaten mitsichern", "Profile (Benutzer/Passwort), VPN-Konfiguration und API-Schluessel", withSecrets) { withSecrets = it }
-                OutlinedTextField(
+                TvOutlinedTextField(
                     value = backupPw, onValueChange = { backupPw = it },
                     label = { Text("Passwort (optional, verschluesselt die Datei)") },
                     singleLine = true, modifier = Modifier.fillMaxWidth(),
@@ -270,7 +271,7 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                OutlinedTextField(
+                TvOutlinedTextField(
                     value = tmdbInput, onValueChange = { tmdbInput = it },
                     label = { Text(if (container.ageRatings.hasApiKey()) "Neuer TMDB-API-Schluessel" else "TMDB-API-Schluessel") },
                     singleLine = true, modifier = Modifier.fillMaxWidth(),
@@ -401,7 +402,7 @@ fun SettingsScreen(
                         Text(v.label)
                     }
                 }
-                OutlinedTextField(
+                TvOutlinedTextField(
                     value = uaInput,
                     onValueChange = { uaInput = it },
                     label = { Text("User-Agent") },

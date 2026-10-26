@@ -106,7 +106,7 @@ fun SendToDeviceDialog(
                 }
                 // Geraet per IP-Adresse (falls die automatische Suche es nicht findet, z.B. anderer Netzbereich)
                 if (list != null) Row(verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.material3.OutlinedTextField(
+                    com.poweriptv.app.ui.components.TvOutlinedTextField(
                         value = manualIp,
                         onValueChange = { manualIp = it.filter { c -> c.isDigit() || c == '.' || c == ':' } },
                         placeholder = { Text("IP, z.B. 192.168.178.40") },
