@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -287,60 +289,118 @@ class MultiViewActivity : ComponentActivity() {
             if (lang.isEmpty() || lang !in languages) categories
             else categories.filter { com.poweriptv.app.ui.components.categoryLanguage(it.name) == lang }
         }
-        var channels by remember { mutableStateOf<List<ContentItem>>(emptyList()) }
+        var channels by remember { mutableStateOf<List<ContentItem>?>(null) }
+        /** Sprache waehlen; passt die gewaehlte Kategorie nicht mehr, die erste der Sprache nehmen. */
+        fun selectLang(l: String) {
+            lang = l; container.settings.setCategoryLanguage(l)
+            val cats = if (l.isEmpty()) categories else categories.filter { com.poweriptv.app.ui.components.categoryLanguage(it.name) == l }
+            if (cat != "__fav__" && cats.none { it.id == cat }) cat = cats.firstOrNull()?.id ?: "__fav__"
+        }
+        val favs = remember { container.favorites.favorites.value.filter { it.type == ContentType.LIVE } }
         LaunchedEffect(Unit) {
             val all = runCatching { source.categories(ContentType.LIVE) }.getOrDefault(emptyList())
             categories = all.filterNot { container.parental.requiresPin(source.profile.id, ContentType.LIVE, it) }
-            cat = "__fav__"
+            // Ohne Favoriten gleich mit der ersten Kategorie starten (sonst ist die Senderliste leer)
+            val langs = com.poweriptv.app.ui.components.detectLanguages(categories)
+            val first = (if (lang.isEmpty() || lang !in langs) categories
+                else categories.filter { com.poweriptv.app.ui.components.categoryLanguage(it.name) == lang }).firstOrNull()
+            cat = if (favs.isNotEmpty()) "__fav__" else first?.id ?: "__fav__"
         }
         LaunchedEffect(cat) {
             val c = cat ?: return@LaunchedEffect
-            channels = if (c == "__fav__") container.favorites.favorites.value.filter { it.type == ContentType.LIVE }
+            channels = null
+            kotlinx.coroutines.delay(200) // beim Durchblaettern nicht jede Kategorie laden
+            channels = if (c == "__fav__") favs
             else runCatching { source.items(ContentType.LIVE, c) }.getOrDefault(emptyList())
         }
-        AlertDialog(
+
+        // Fernseher: grosses Fenster mit drei Spalten (Sprache | Kategorie | Sender) – Hoch/Runter in der Spalte,
+        // Links/Rechts wechselt die Spalte. Angewaehlte Sprache/Kategorie wird sofort uebernommen.
+        androidx.compose.ui.window.Dialog(
             onDismissRequest = { pickerFor = null },
-            title = { Text("Kanal fuer Fenster ${slot + 1}") },
-            text = {
-                Column {
-                    if (languages.isNotEmpty()) {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            item {
-                                FilterChip(selected = lang.isEmpty() || lang !in languages,
-                                    onClick = { lang = ""; container.settings.setCategoryLanguage("") }, label = { Text("Alle Sprachen") })
-                            }
-                            items(languages, key = { it }) { l ->
-                                FilterChip(selected = lang == l, onClick = { lang = l; container.settings.setCategoryLanguage(l) }, label = { Text(l) })
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            androidx.compose.material3.Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.fillMaxWidth(0.9f).fillMaxHeight(0.88f),
+            ) {
+                Column(Modifier.padding(18.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Kanal für Fenster ${slot + 1}", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                        TextButton(onClick = { pickerFor = null }, modifier = Modifier.tvFocus(RoundedCornerShape(50))) { Text("Schließen") }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        if (languages.isNotEmpty()) {
+                            PickerColumn("Sprache", Modifier.width(150.dp)) {
+                                item {
+                                    PickerRow("Alle", selected = lang.isEmpty() || lang !in languages, select = false) { selectLang("") }
+                                }
+                                items(languages) { l ->
+                                    PickerRow(l, selected = lang == l, select = false) { selectLang(l) }
+                                }
                             }
                         }
-                        Spacer(Modifier.height(6.dp))
-                    }
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        item { FilterChip(selected = cat == "__fav__", onClick = { cat = "__fav__" }, label = { Text("♥ Favoriten") }) }
-                        items(shownCats, key = { it.id }) { c ->
-                            val name = if (lang.isNotEmpty() && lang in languages) com.poweriptv.app.ui.components.stripLanguage(c.name) else c.name
-                            FilterChip(selected = cat == c.id, onClick = { cat = c.id }, label = { Text(name, maxLines = 1) })
+                        PickerColumn("Kategorie", Modifier.width(260.dp)) {
+                            item { PickerRow("♥ Favoriten (${favs.size})", selected = cat == "__fav__") { cat = "__fav__" } }
+                            items(shownCats) { c ->
+                                val name = if (lang.isNotEmpty() && lang in languages) com.poweriptv.app.ui.components.stripLanguage(c.name) else c.name
+                                PickerRow(name, selected = cat == c.id) { cat = c.id }
+                            }
                         }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    LazyColumn(Modifier.height(320.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
-                        items(channels) { ch ->
-                            Text(
-                                ch.name,
-                                modifier = Modifier.fillMaxWidth()
-                                    .tvFocus(RoundedCornerShape(6.dp), 1f)
-                                    .clickable {
+                        PickerColumn("Sender", Modifier.weight(1f)) {
+                            val list = channels
+                            when {
+                                list == null -> item { Text("Lädt …", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(10.dp)) }
+                                list.isEmpty() -> item {
+                                    Text(
+                                        if (cat == "__fav__") "Noch keine Favoriten – links eine Kategorie wählen." else "Keine Sender in dieser Kategorie.",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(10.dp),
+                                    )
+                                }
+                                else -> items(list) { ch ->
+                                    PickerRow(listOfNotNull(ch.number?.toString(), ch.name).joinToString("  "), selected = false, select = false) {
                                         setSlot(slot, PlayEntry(ch.name, source.streamUrl(ch), ch, live = true))
                                         pickerFor = null
                                     }
-                                    .padding(10.dp),
-                                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            )
+                                }
+                            }
                         }
                     }
                 }
-            },
-            confirmButton = { TextButton(onClick = { pickerFor = null }) { Text("Schliessen") } },
+            }
+        }
+    }
+
+    @Composable
+    private fun PickerColumn(title: String, modifier: Modifier, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+        Column(modifier) {
+            Text(title, style = MaterialTheme.typography.labelLarge, color = BrandCyan, modifier = Modifier.padding(start = 6.dp, bottom = 6.dp))
+            LazyColumn(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+                contentPadding = PaddingValues(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                content = content,
+            )
+        }
+    }
+
+    /** Eine Zeile: deutlicher Fokus-Rahmen; select = true uebernimmt die Auswahl schon beim Anwaehlen (Fernbedienung). */
+    @Composable
+    private fun PickerRow(label: String, selected: Boolean, select: Boolean = true, onClick: () -> Unit) {
+        Text(
+            label,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            color = if (selected) Color(0xFF06101E) else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .then(if (select) Modifier.onFocusChanged { if (it.isFocused && !selected) onClick() } else Modifier)
+                .tvFocus(RoundedCornerShape(8.dp), 1.03f)
+                .background(if (selected) BrandCyan else Color.Transparent)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
         )
     }
 
