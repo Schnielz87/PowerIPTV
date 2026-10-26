@@ -337,7 +337,6 @@ struct SettingsView: View {
     @State private var liveFormat = "ts"
     @State private var autoNext = true
     @State private var dataSaver = "AUTO"
-    @State private var stableMode = "AUTO"
     @State private var sharpen = "OFF"
 
     var body: some View {
@@ -352,13 +351,10 @@ struct SettingsView: View {
                 Picker("Mobile-Daten-Modus", selection: $dataSaver) {
                     Text("Automatisch (nur Mobilfunk)").tag("AUTO"); Text("Immer an").tag("ON"); Text("Aus").tag("OFF")
                 }.onChange(of: dataSaver) { app.settings.dataSaver = $0 }
-                Picker("Stabil-Modus (gegen Stocken)", selection: $stableMode) {
-                    Text("Automatisch").tag("AUTO"); Text("Immer an").tag("ON"); Text("Aus").tag("OFF")
-                }.onChange(of: stableMode) { app.settings.stableMode = $0 }
                 Picker("Bildschärfe", selection: $sharpen) {
                     Text("Aus").tag("OFF"); Text("Leicht").tag("LIGHT"); Text("Stark").tag("STRONG")
                 }.onChange(of: sharpen) { app.settings.sharpen = $0 }
-                Text("Mobile Daten: nimmt unterwegs die SD-Version eines Senders, im WLAN bleibt die volle Qualität. Stabil-Modus: größerer Puffer – schaltet sich bei Mobilfunk oder erkanntem Stocken selbst zu.")
+                Text("Mobile Daten: nimmt unterwegs die SD-Version eines Senders, im WLAN bleibt die volle Qualität.")
                     .font(.footnote).foregroundColor(.secondary)
             }
             Section("Inhalte") {
@@ -376,7 +372,7 @@ struct SettingsView: View {
         .portivaToolbar("Einstellungen")
         .onAppear {
             liveFormat = app.settings.liveFormat; autoNext = app.settings.autoNext
-            dataSaver = app.settings.dataSaver; stableMode = app.settings.stableMode; sharpen = app.settings.sharpen
+            dataSaver = app.settings.dataSaver; sharpen = app.settings.sharpen
         }
     }
 }

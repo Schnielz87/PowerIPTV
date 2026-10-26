@@ -424,13 +424,6 @@ fun SettingsScreen(
                         "Streams die kleinere Stufe. Im WLAN bleibt die volle Qualität.",
                     saver, listOf("AUTO" to "Automatisch (nur im Mobilfunknetz)", "ON" to "Immer an", "OFF" to "Aus"),
                 ) { s.setDataSaver(it) }
-                val stable by s.stableMode.collectAsState()
-                SettingChoice(
-                    "Stabil-Modus (gegen Stocken)",
-                    "Größerer Puffer: der Sender startet etwa 2 Sekunden später, läuft dafür auch bei Aussetzern weiter. " +
-                        "Automatisch: im Mobilfunknetz und wenn Stocken erkannt wird (dann 24 Stunden lang).",
-                    stable, listOf("AUTO" to "Automatisch", "ON" to "Immer an", "OFF" to "Aus"),
-                ) { s.setStableMode(it) }
                 val sharp by s.sharpen.collectAsState()
                 SettingChoice(
                     "Bildschärfe",

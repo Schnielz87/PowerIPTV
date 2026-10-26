@@ -34,19 +34,10 @@ final class Settings: ObservableObject {
     @Published var lastProfileId: String? { didSet { d.set(lastProfileId, forKey: "lastProfileId") } }
     /** Mobile-Daten-Modus: AUTO (nur im Mobilfunknetz) / ON / OFF. */
     @Published var dataSaver: String { didSet { d.set(dataSaver, forKey: "dataSaver") } }
-    /** Stabil-Modus gegen Stocken: AUTO (Mobilfunk oder erkanntes Stocken, 24 h) / ON / OFF. */
-    @Published var stableMode: String { didSet { d.set(stableMode, forKey: "stableMode") } }
     /** Bildschaerfe: OFF / LIGHT / STRONG. */
     @Published var sharpen: String { didSet { d.set(sharpen, forKey: "sharpen") } }
-    var stutterAt: Double {
-        get { d.double(forKey: "stutterAt") }
-        set { d.set(newValue, forKey: "stutterAt") }
-    }
 
     var dataSaverActive: Bool { dataSaver == "ON" || (dataSaver == "AUTO" && Tuning.isCellular) }
-    var stableActive: Bool {
-        stableMode == "ON" || (stableMode == "AUTO" && (Tuning.isCellular || Date().timeIntervalSince1970 - stutterAt < 24 * 3600))
-    }
 
     init() {
         liveFormat = d.string(forKey: "liveFormat") ?? "ts"
@@ -56,7 +47,6 @@ final class Settings: ObservableObject {
         aspect = d.string(forKey: "aspect") ?? "FIT"
         lastProfileId = d.string(forKey: "lastProfileId")
         dataSaver = d.string(forKey: "dataSaver") ?? "AUTO"
-        stableMode = d.string(forKey: "stableMode") ?? "AUTO"
         sharpen = d.string(forKey: "sharpen") ?? "OFF"
         Tuning.warmUp()
     }

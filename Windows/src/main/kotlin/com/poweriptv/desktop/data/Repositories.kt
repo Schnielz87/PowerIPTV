@@ -44,9 +44,9 @@ data class DesktopSettings(
     val hardwareDecoding: Boolean = true,
     /** Netzwerk-Puffer in ms (VLC). */
     val networkCaching: Int = 3000,
-    /** Stabil-Modus gegen Stocken: AUTO (schaltet sich bei erkanntem Stocken fuer 24 h zu) / ON / OFF. */
+    /** Nicht mehr verwendet (Stabil-Modus entfernt) – bleibt, damit alte Einstellungsdateien lesbar bleiben. */
     val stableMode: String = "AUTO",
-    /** Zeitpunkt des zuletzt erkannten Stockens (fuer den automatischen Stabil-Modus). */
+    /** Nicht mehr verwendet. */
     val stutterAt: Long = 0L,
     /** Per IP-Adresse eingetragene Portiva-Geraete (z.B. Enigma2-Receiver in anderem Netzbereich). */
     val linkHosts: List<String> = emptyList(),

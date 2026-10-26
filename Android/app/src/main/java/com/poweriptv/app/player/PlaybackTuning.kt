@@ -19,7 +19,6 @@ import com.poweriptv.app.PlayEntry
 /**
  * Wiedergabe-Feinabstimmung (Standard-Player und VLC):
  *  - Mobile-Daten-Modus: erkennt selbst das Mobilfunknetz; im WLAN bleibt die volle Qualitaet.
- *  - Stabil-Modus: groesserer Puffer gegen Stocken (automatisch bei Mobilfunk oder erkanntem Stocken).
  *  - Bildschaerfe: dezenter Schaerfe-Filter (v.a. fuer SD-Sender).
  */
 object PlaybackTuning {
@@ -37,12 +36,6 @@ object PlaybackTuning {
         "ON" -> true
         "OFF" -> false
         else -> isCellular(context)
-    }
-
-    fun stableActive(container: AppContainer, context: Context): Boolean = when (container.settings.stableMode.value) {
-        "ON" -> true
-        "OFF" -> false
-        else -> isCellular(context) || container.settings.stutterRecently()
     }
 
     /** Schaerfe-Staerke fuer den Filter (0 = aus). */

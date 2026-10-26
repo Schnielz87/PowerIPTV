@@ -797,9 +797,8 @@ class VlcPlayerActivity : ComponentActivity() {
             return
         }
         // Mobile Daten (automatisch im Mobilfunknetz): SD-Version des Senders, mehrstufige Streams kleiner.
-        // Stabil-Modus: groesserer Puffer gegen Stocken. Im WLAN unveraendert volle Qualitaet.
+        // Im WLAN unveraendert volle Qualitaet.
         val saver = !local && PlaybackTuning.dataSaverActive(container, this)
-        val stable = !local && PlaybackTuning.stableActive(container, this)
         val sd = if (saver) PlaybackTuning.sdVariant(entry, container.playQueue) else null
         if (sd != null) toast = "Mobile Daten: SD-Version von ${entry.title}"
         val uri = if (local) Uri.fromFile(File(entry.url)) else Uri.parse(sd?.url ?: entry.url)
@@ -810,12 +809,12 @@ class VlcPlayerActivity : ComponentActivity() {
             // Live: groesserer Puffer gegen Ruckler; Filme/Serien: schneller Start
             if (entry.live) {
                 // Live: grosser Puffer + keine starre Taktsynchronisation -> kein Stocken
-                addOption(":network-caching=${if (stable) 8000 else 4000}")
-                addOption(":live-caching=${if (stable) 8000 else 4000}")
+                addOption(":network-caching=4000")
+                addOption(":live-caching=4000")
                 addOption(":clock-jitter=0")
                 addOption(":clock-synchro=0")
             } else {
-                addOption(":network-caching=${if (stable) 4000 else 1500}") // normal kurz vorpuffern -> Filme starten schneller
+                addOption(":network-caching=1500") // kurz vorpuffern -> Filme starten schneller
                 addOption(":input-fast-seek") // Spulen: naechstes Schluesselbild statt exakt -> deutlich schneller
             }
             // Bricht die Verbindung ab (z.B. beim Spulen), automatisch an derselben Stelle neu verbinden

@@ -318,18 +318,7 @@ class AppState(val window: WindowState) {
         player ?: com.poweriptv.desktop.player.PlayerController(settings.value.networkCaching, settings.value.hardwareDecoding)
             .apply {
                 setVolumeTo(settings.value.volume)
-                // Stabil-Modus + Bildschaerfe (wie Android); Automatik: nach erkanntem Stocken 24 h groesserer Puffer
-                tuning = {
-                    val s = settings.value
-                    val stable = s.stableMode == "ON" || (s.stableMode == "AUTO" && System.currentTimeMillis() - s.stutterAt < 24 * 3600_000L)
-                    stable to s.sharpen
-                }
-                onStutter = {
-                    val s = settings.value
-                    if (s.stableMode == "AUTO" && System.currentTimeMillis() - s.stutterAt > 24 * 3600_000L) {
-                        settings.update { it.copy(stutterAt = System.currentTimeMillis()) } // gilt ab dem naechsten Sender
-                    }
-                }
+                tuning = { settings.value.sharpen } // Bildschaerfe (wie Android)
             }.also { player = it }
 
     // ---------- Portiva Link (Zugang uebertragen, Wiedergabe weitergeben) – wie Android ----------

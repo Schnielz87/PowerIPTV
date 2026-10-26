@@ -3,7 +3,7 @@ import Network
 
 /**
  * Wiedergabe-Feinabstimmung wie Android: Mobile-Daten-Modus (erkennt das Mobilfunknetz selbst, im WLAN volle
- * Qualitaet), Stabil-Modus (groesserer Puffer gegen Stocken) und Bildschaerfe.
+ * Qualitaet) und Bildschaerfe.
  */
 enum Tuning {
     private static let monitor: NWPathMonitor = {

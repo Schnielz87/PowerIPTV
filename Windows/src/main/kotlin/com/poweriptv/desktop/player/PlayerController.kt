@@ -36,10 +36,8 @@ class PlayerController(
     var subtitleBackground: Boolean = false
     /** Ohne Ton (Multi-View: nur das aktive Fenster ist hoerbar). */
     var noAudio: Boolean = false
-    /** Stabil-Modus (groesserer Puffer) und Bildschaerfe ("OFF"/"LIGHT"/"STRONG") – gelesen bei jedem Start. */
-    var tuning: () -> Pair<Boolean, String> = { false to "OFF" }
-    /** Wird gemeldet, wenn mitten in der Wiedergabe gestockt wurde (nicht nach dem Spulen). */
-    var onStutter: (() -> Unit)? = null
+    /** Bildschaerfe ("OFF"/"LIGHT"/"STRONG") – gelesen bei jedem Start. */
+    var tuning: () -> String = { "OFF" }
     /** Stream abgebrochen: true = die Oberflaeche kuemmert sich (neu verbinden/Ausweich-Sender), false = Fehler zeigen. */
     var onBroken: (() -> Boolean)? = null
     /** Rettungsleiter: Versuche seit dem letzten laufenden Bild und bereits probierte Adressen. */
@@ -125,12 +123,7 @@ class PlayerController(
             p.videoSurface().set(Vlc.factory!!.videoSurfaces().newVideoSurface(formatCallback, renderCallback, true))
             p.events().addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
                 override fun opening(mediaPlayer: MediaPlayer) = ui { buffering = true; error = null; ended = false }
-                override fun buffering(mediaPlayer: MediaPlayer, newCache: Float) = ui {
-                    // Stocken: Puffer laeuft leer, obwohl schon gespielt wurde und nicht gerade gespult wird
-                    if (newCache < 50f && !buffering && playing && time > 5000 && pendingSeek == null &&
-                        System.currentTimeMillis() - lastSeekAt > 3000) onStutter?.invoke()
-                    buffering = newCache < 100f
-                }
+                override fun buffering(mediaPlayer: MediaPlayer, newCache: Float) = ui { buffering = newCache < 100f }
                 override fun playing(mediaPlayer: MediaPlayer) = ui { playing = true; buffering = false; rescueAttempts = 0 }
                 override fun paused(mediaPlayer: MediaPlayer) = ui { playing = false }
                 override fun stopped(mediaPlayer: MediaPlayer) = ui { playing = false }
@@ -230,13 +223,12 @@ class PlayerController(
         time = startAt; length = 0L; seekable = false
         audioTracks = emptyList(); subtitleTracks = emptyList()
         pendingSeek = null
-        val (stable, sharpen) = tuning()
+        val sharpen = tuning()
         val base = mediaOptions.map { o ->
             // Live: mindestens 4 s Puffer; Filme: eingestellter Puffer (mind. 1,5 s) -> schnellerer Start.
-            // Stabil-Modus (gegen Stocken): Live 8 s, Filme 4 s Vorrat.
-            if (o.startsWith(":network-caching=")) ":network-caching=" + maxOf(networkCaching, if (live) (if (stable) 8000 else 4000) else (if (stable) 4000 else 1500)) else o
+            if (o.startsWith(":network-caching=")) ":network-caching=" + maxOf(networkCaching, if (live) 4000 else 1500) else o
         } + listOfNotNull(
-            if (live) ":live-caching=${if (stable) 8000 else 4000}" else ":input-fast-seek", // Filme: Spulen zum naechsten Schluesselbild (schneller)
+            if (live) ":live-caching=4000" else ":input-fast-seek", // Filme: Spulen zum naechsten Schluesselbild (schneller)
             // Bildschaerfe (dezenter VLC-Filter, v.a. fuer SD-Sender)
             if (sharpen != "OFF") ":video-filter=sharpen" else null,
             when (sharpen) { "LIGHT" -> ":sharpen-sigma=0.08"; "STRONG" -> ":sharpen-sigma=0.18"; else -> null },

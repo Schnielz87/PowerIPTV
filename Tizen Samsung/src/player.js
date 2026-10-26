@@ -68,9 +68,7 @@ export class Player {
       av.open(url);
       av.setDisplayRect(0, 0, 1920, 1080);
       this.applyAspect();
-      // Stabil-Modus (fest an oder automatisch nach erkanntem Stocken): mindestens "gross"
-      const key = this.stableActive() && this.buffer === 'normal' ? 'gross' : this.buffer;
-      const b = BUFFER_SECONDS[key] || BUFFER_SECONDS.normal;
+      const b = BUFFER_SECONDS[this.buffer] || BUFFER_SECONDS.normal;
       // Erst mit Vorrat starten; nach einem Aussetzer mit mehr Vorrat weiter (verhindert Dauer-Stocken)
       try {
         av.setBufferingParam('PLAYER_BUFFER_FOR_PLAY', 'PLAYER_BUFFER_SIZE_IN_SECOND', this.live ? b[0] + 1 : b[0]);
@@ -78,7 +76,7 @@ export class Player {
       } catch (e) { /* aeltere Firmware */ }
       try { av.setTimeoutForBuffering(25); } catch (e) { /* optional */ }
       av.setListener({
-        onbufferingstart: () => { this.noteStutter(); this.set({ buffering: true }); },
+        onbufferingstart: () => { this.set({ buffering: true }); },
         onbufferingprogress: () => {},
         onbufferingcomplete: () => this.set({ buffering: false }),
         oncurrentplaytime: (ms) => {
@@ -115,23 +113,6 @@ export class Player {
   /** Laeuft seit 30 s wieder stabil -> Rettungsleiter von vorn (neue Aussetzer bekommen wieder 5 Versuche). */
   markProgress() {
     if (this.retries && Date.now() - (this.startedAt || 0) > 30000) this.retries = 0;
-  }
-
-  /** Stabil-Modus aktiv? (fest an oder nach erkanntem Stocken fuer 24 Stunden) */
-  stableActive() {
-    return settings.stableMode === 'on' || (settings.stableMode === 'auto' && Date.now() - (settings.stutterAt || 0) < 24 * 3600 * 1000);
-  }
-
-  /** Puffern mitten in der Wiedergabe (nicht nach dem Spulen) -> 2x in 5 Minuten schaltet die Automatik zu. */
-  noteStutter() {
-    const now = Date.now();
-    if (!this.state.playing || (this.state.time || 0) < 5000 || this.pendingSeek != null || now - (this.lastSeekAt || 0) < 3000) return;
-    this.stutters = (this.stutters || []).filter((t) => now - t < 5 * 60 * 1000).concat(now);
-    if (this.stutters.length >= 2 && settings.stableMode === 'auto' && !this.stableActive()) {
-      this.stutters = [];
-      saveSettings({ stutterAt: now });
-      this.emit('info', 'Stocken erkannt – Stabil-Modus mit größerem Puffer ist ab dem nächsten Sender aktiv');
-    }
   }
 
   /**

@@ -102,13 +102,6 @@ fun SettingsScreen(app: AppState) {
                     }
                 }
                 Text("„Automatisch“: Vorschaubilder nur, wenn dein Zugang eine zweite Verbindung frei hat – sonst springt der Film direkt. „Immer parallel“ braucht eine zweite Verbindung.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Stabil-Modus (gegen Stocken)")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("AUTO" to "Automatisch", "ON" to "Immer an", "OFF" to "Aus").forEach { (k, l) ->
-                        FilterChip(selected = s.stableMode == k, onClick = { app.settings.update { it.copy(stableMode = k) } }, label = { Text(l) }, modifier = Modifier.handCursor())
-                    }
-                }
-                Text("Größerer Puffer: der Sender startet etwas später, läuft dafür auch bei Aussetzern weiter. „Automatisch“ schaltet ihn nach erkanntem Stocken für 24 Stunden zu.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Bildschärfe")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("OFF" to "Aus", "LIGHT" to "Leicht", "STRONG" to "Stark").forEach { (k, l) ->

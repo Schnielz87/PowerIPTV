@@ -226,15 +226,10 @@ class PlayerActivity : ComponentActivity() {
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
         player = ExoPlayer.Builder(this, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
-            // Grosser Puffer gegen Stocken (v.a. Live TV): bis 60 s vorladen, Start nach 2,5 s,
-            // nach einem Aussetzer erst mit 6 s Vorrat weiter (verhindert Dauer-Ruckeln).
-            // Stabil-Modus (Mobilfunk oder erkanntes Stocken): noch mehr Vorrat – Start ~2 s spaeter, dafuer ruhiger.
+            // Puffer: bis 60 s vorladen, Start nach 2,5 s, nach einem Aussetzer mit 6 s Vorrat weiter
             .setLoadControl(
                 androidx.media3.exoplayer.DefaultLoadControl.Builder()
-                    .apply {
-                        if (stableMode) setBufferDurationsMs(40_000, 90_000, 5_000, 12_000)
-                        else setBufferDurationsMs(30_000, 60_000, 2_500, 6_000)
-                    }
+                    .setBufferDurationsMs(30_000, 60_000, 2_500, 6_000)
                     .setPrioritizeTimeOverSizeThresholds(true)
                     .build(),
             )
@@ -247,7 +242,6 @@ class PlayerActivity : ComponentActivity() {
         PlaybackTuning.sharpenAmount(container).takeIf { it > 0f }?.let { amount ->
             runCatching { player.setVideoEffects(listOf(SharpenEffect(amount))); sharpenOn = true }
         }
-        player.addListener(stutterWatch)
         player.addListener(object : Player.Listener {
             override fun onPlayerError(e: PlaybackException) {
                 // Schaerfe-Filter laeuft auf diesem Geraet nicht -> ohne Filter weiter
@@ -743,15 +737,9 @@ class PlayerActivity : ComponentActivity() {
     private val rescue by lazy { StreamRescue(container) }
     private var rescuing = false
 
-    // ---------- Stabil-Modus / Mobile Daten / Schaerfe ----------
-    /** Groesserer Puffer (bei Mobilfunk, erkanntem Stocken oder fest eingeschaltet). */
-    private val stableMode by lazy { PlaybackTuning.stableActive(container, this) }
+    // ---------- Mobile Daten / Schaerfe ----------
     private var sharpenOn = false
-    private var lastSeekAt = 0L
-    private var wasReady = false
-    private val stutters = ArrayDeque<Long>()
 
-    /** Erkennt Stocken (Puffern mitten in der Wiedergabe, nicht nach dem Spulen) und schaltet den Stabil-Modus zu. */
     /**
      * Naechster Schritt der Rettungsleiter (neu verbinden, anderes Format, Ausweich-Sender).
      * false = aufgeben (Fehler anzeigen).
@@ -808,31 +796,6 @@ class PlayerActivity : ComponentActivity() {
         if (!applyRescue(rescue.next(), behindLive = true)) {
             error = "Der Sender liefert gerade kein Bild – bitte später erneut versuchen"
             lifecycleScope.launch { StreamRescue.connectionsFullMessage(container)?.let { error = it } }
-        }
-    }
-
-    private val stutterWatch = object : Player.Listener {
-        override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
-            if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) lastSeekAt = System.currentTimeMillis()
-        }
-
-        override fun onPlaybackStateChanged(state: Int) {
-            val now = System.currentTimeMillis()
-            if (state == Player.STATE_READY) { wasReady = true; return }
-            if (state != Player.STATE_BUFFERING || !wasReady || switchingSource || now - lastSeekAt < 3_000) return
-            stutters.addLast(now)
-            while (stutters.isNotEmpty() && now - stutters.first() > 5 * 60_000L) stutters.removeFirst()
-            // 2x Stocken in 5 Minuten -> Automatik schaltet den Stabil-Modus fuer 24 Stunden zu
-            if (stutters.size >= 2 && !stableMode && container.settings.stableMode.value == "AUTO") {
-                container.settings.markStutter()
-                stutters.clear()
-                if (current()?.live == true) {
-                    toast = "Stocken erkannt – Stabil-Modus mit größerem Puffer wird eingeschaltet …"
-                    lifecycleScope.launch { delay(1200); recreate() } // Player mit groesserem Puffer neu aufbauen
-                } else {
-                    toast = "Stocken erkannt – ab dem nächsten Titel mit größerem Puffer (Stabil-Modus)"
-                }
-            }
         }
     }
 
