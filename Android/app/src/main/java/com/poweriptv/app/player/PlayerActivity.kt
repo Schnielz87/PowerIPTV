@@ -364,6 +364,7 @@ class PlayerActivity : ComponentActivity() {
                                 resizeMode = resizeModeFor(videoScale)
                                 setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { v ->
                                     showOverlay = v == View.VISIBLE
+                                    if (v != View.VISIBLE) zapInfo = false
                                     findViewById<View>(androidx.media3.ui.R.id.exo_settings)?.visibility = View.GONE
                                     applyLiveChrome()
                                 })
@@ -739,6 +740,8 @@ class PlayerActivity : ComponentActivity() {
 
     // ---------- Mobile Daten / Schaerfe ----------
     private var sharpenOn = false
+    /** Leiste wurde nur durch das Umschalten eingeblendet (noch nicht bedient). */
+    private var zapInfo = false
 
     /**
      * Naechster Schritt der Rettungsleiter (neu verbinden, anderes Format, Ausweich-Sender).
@@ -1214,7 +1217,8 @@ class PlayerActivity : ComponentActivity() {
         title = entry.title
         firstFrameAt = 0L; playingSince = 0L
         // Live-TV: beim Umschalten immer kurz die Sender-Infos zeigen
-        if (entry.live) { lastInteraction = System.currentTimeMillis(); playerView?.showController() }
+        // zapInfo: Leiste zeigt nur die Infos – Hoch/Runter schaltet weiter, erst OK holt die Bedienknoepfe
+        if (entry.live) { lastInteraction = System.currentTimeMillis(); zapInfo = true; playerView?.showController() }
         error = null
         finishIntroLearning()
         startIntroLearning(entry)
@@ -1406,8 +1410,16 @@ class PlayerActivity : ComponentActivity() {
         if (event.action == KeyEvent.ACTION_DOWN) lastInteraction = System.currentTimeMillis()
         if (event.action != KeyEvent.ACTION_DOWN) return super.dispatchKeyEvent(event)
         val live = current()?.live == true
-        val controllerVisible = playerView?.isControllerFullyVisible == true
+        // Nach dem Umschalten (zapInfo) zaehlt die Leiste als "nicht bedient": Pfeile schalten weiter
+        val controllerVisible = playerView?.isControllerFullyVisible == true && !zapInfo
         if (showChannels) return super.dispatchKeyEvent(event) // Senderliste bedient sich selbst
+        if (zapInfo && playerView?.isControllerFullyVisible == true &&
+            (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER || event.keyCode == KeyEvent.KEYCODE_BUTTON_A)
+        ) {
+            zapInfo = false
+            playerView?.requestFocus()
+            return true
+        }
         // Serien: OK startet die naechste Folge bzw. ueberspringt das Intro
         if (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER) {
             if (nextCountdown != null) { next(); return true }

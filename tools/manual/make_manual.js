@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.145 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.146 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -166,6 +166,8 @@ c.push(bullet([b('Aufnahme: '), t('Roter Punkt (oder rote Taste) → bis Sendung
 c.push(bullet([b('Catch-up: '), t('Verpasste Sendungen im Programmführer nachträglich ansehen (wenn der Anbieter es unterstützt).')]));
 c.push(bullet([b('VLC-Modus: '), t('Sender mit älterem Videoformat (z.B. RTL, ProSieben, VOX) wechseln automatisch in den VLC-Player.')]));
 c.push(bullet([b('Sender wechseln: '), t('Die Pfeile ⏮ / ⏭ in der Bildmitte schalten zum vorherigen bzw. nächsten Sender der Liste (wie CH+/CH- auf der Fernbedienung).')]));
+c.push(bullet([b('Umschalten mit der Fernbedienung: '), t('Pfeil hoch/runter (oder CH+/CH-) schaltet einen Sender weiter – auch mehrmals hintereinander. Nach dem Umschalten erscheinen nur die Sender-Infos; erst OK holt die Bedienknöpfe (Pause, Senderliste, Einstellungen …). Links = zuletzt gesehener Sender, rechts = Senderliste.')]));
+c.push(bullet([b('Live-Vorschau (Android TV / Fire TV): '), t('In der Senderliste läuft der angewählte Sender klein rechts neben der Liste, darunter „Jetzt“ und „Danach“ aus dem TV-Guide. Die Vorschau startet, sobald du kurz auf einem Sender stehen bleibst; OK schaltet ins Vollbild. Die Vorschau gibt ihre Verbindung vorher frei – auch Zugänge mit nur einer Verbindung funktionieren.')]));
 
 // 9
 c.push(h1('9. Programmführer (EPG) & Erinnerungen'));

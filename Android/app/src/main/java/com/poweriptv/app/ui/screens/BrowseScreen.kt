@@ -89,6 +89,10 @@ import com.poweriptv.app.ui.components.stripLanguage
 import com.poweriptv.app.ui.components.tvFocus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import androidx.compose.ui.unit.coerceIn
+import androidx.compose.ui.focus.onFocusChanged
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 
 /** Einfache Volltextsuche: alle Woerter muessen im Titel vorkommen. */
 fun matchesQuery(name: String, query: String): Boolean {
@@ -134,6 +138,10 @@ fun BrowseScreen(
     /** false = nur in der gewaehlten Kategorie suchen (Standard), true = in allen Kategorien. */
     var searchEverywhere by rememberSaveable { mutableStateOf(false) }
     var searchError by remember { mutableStateOf<String?>(null) }
+    // Live-Vorschau (nur TV, Querformat): angewaehlter Sender laeuft klein neben der Liste
+    val preview = remember { com.poweriptv.app.ui.components.LivePreviewHandle() }
+    var previewItem by remember(type) { mutableStateOf<ContentItem?>(null) }
+    val scope = rememberCoroutineScope()
 
     val lockedIds = remember(categories, parentalOn, parentalUnlocked) {
         container.parental.lockedIds(source.profile.id, type, categories.orEmpty())
@@ -362,19 +370,37 @@ fun BrowseScreen(
                                 else -> "Keine Eintraege"
                             }
                         )
-                        type == ContentType.LIVE -> LazyColumn(contentPadding = PaddingValues(8.dp)) {
+                        type == ContentType.LIVE -> Row(Modifier.fillMaxSize()) {
+                          val withPreview = wide && container.isTvDevice
+                          LazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(8.dp)) {
                             itemsIndexed(shown) { index, item ->
                                 ChannelRow(
                                     item = item,
                                     isFavorite = favorites.any { it.key == item.key },
                                     onToggleFavorite = { container.favorites.toggle(item) },
                                     onLongClick = { actionsFor = item },
+                                    onFocused = if (withPreview) ({ previewItem = item }) else null,
                                     onClick = {
                                         val entries = shown.map { PlayEntry(it.name, source.streamUrl(it), it, live = true) }
-                                        startPlayback(context, container, entries, index)
+                                        if (withPreview) {
+                                            // Verbindung der Vorschau erst freigeben (Zugaenge mit nur 1 Verbindung)
+                                            preview.stop()
+                                            scope.launch { kotlinx.coroutines.delay(350); startPlayback(context, container, entries, index) }
+                                        } else startPlayback(context, container, entries, index)
                                     },
                                 )
                             }
+                          }
+                          if (withPreview) {
+                              val pi = previewItem?.takeIf { p -> shown.any { it.key == p.key } }
+                              val pid = source.profile.id
+                              com.poweriptv.app.ui.components.LivePreviewPane(
+                                  container = container, handle = preview, item = pi,
+                                  url = pi?.let { source.streamUrl(it) },
+                                  blocked = pi != null && container.parental.isItemBlocked(pid, pi),
+                                  modifier = Modifier.width((maxWidth * 0.36f).coerceIn(260.dp, 460.dp)).fillMaxHeight(),
+                              )
+                          }
                         }
                         else -> {
                           val resumeVersion by container.resume.version.collectAsState()
@@ -441,7 +467,7 @@ fun BrowseScreen(
 @Composable
 fun ChannelRow(
     item: ContentItem, isFavorite: Boolean, onToggleFavorite: () -> Unit,
-    onLongClick: (() -> Unit)? = null, onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null, onFocused: (() -> Unit)? = null, onClick: () -> Unit,
 ) {
     Row(
         Modifier
@@ -449,6 +475,7 @@ fun ChannelRow(
             .padding(vertical = 3.dp)
             .clip(RoundedCornerShape(10.dp))
             .tvFocus(RoundedCornerShape(10.dp), 1.02f)
+            .then(if (onFocused != null) Modifier.onFocusChanged { if (it.isFocused) onFocused() } else Modifier)
             // Fernbedienung: Menue-Taste wirkt wie langes Druecken
             .then(if (onLongClick != null) Modifier.onPreviewKeyEvent { e ->
                 if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && e.key == androidx.compose.ui.input.key.Key.Menu) { onLongClick(); true } else false

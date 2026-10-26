@@ -101,6 +101,8 @@ class VlcPlayerActivity : ComponentActivity() {
     private var buffering by mutableStateOf(true)
     private var playing by mutableStateOf(false)
     private var showOverlay by mutableStateOf(true)
+    /** Leiste wurde nur durch das Umschalten eingeblendet (noch nicht bedient). */
+    private var zapInfo = false
     private var toast by mutableStateOf<String?>(null)
     private var scale = VideoScale.FIT
     private var position by mutableStateOf(0L)
@@ -434,7 +436,7 @@ class VlcPlayerActivity : ComponentActivity() {
                 delay(500)
                 val idle = System.currentTimeMillis() - maxOf(lastInteraction, pendingSeekAt) > 5000
                 val busy = userPaused || dragging != null || showFormatDialog || showRecordDialog || error != null || castDialogOpen || showSendDialog
-                if (idle && !busy) { showOverlay = false; controlFocused = false }
+                if (idle && !busy) { showOverlay = false; controlFocused = false; zapInfo = false }
             }
         }
         val live = current()?.live == true
@@ -743,6 +745,8 @@ class VlcPlayerActivity : ComponentActivity() {
         // Live-TV: beim Umschalten immer kurz die Sender-Infos zeigen und Jetzt/Weiter laden
         epg = emptyList()
         if (entry.live) {
+            // nur Infos: Hoch/Runter schaltet weiter, erst OK holt die Bedienknoepfe
+            zapInfo = true
             showOverlay = true; lastInteraction = System.currentTimeMillis()
             entry.item?.let { item ->
                 lifecycleScope.launch {
@@ -1103,6 +1107,16 @@ class VlcPlayerActivity : ComponentActivity() {
             if (showSkipIntro && !showOverlay) { skipIntro(); return true }
         }
         val live = current()?.live == true
+        // Nach dem Umschalten: Infos sichtbar, aber Pfeile schalten weiter; OK holt die Bedienknoepfe
+        if (live && zapInfo && showOverlay) {
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_UP -> { next(); return true }
+                KeyEvent.KEYCODE_DPAD_DOWN -> { previous(); return true }
+                KeyEvent.KEYCODE_DPAD_LEFT -> { zapBack(); return true }
+                KeyEvent.KEYCODE_DPAD_RIGHT -> { zapInfo = false; showOverlay = false; showChannels = true; return true }
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_BUTTON_A -> { zapInfo = false; return true }
+            }
+        }
         if (!live) {
             val step = seekStep
             when (event.keyCode) {
