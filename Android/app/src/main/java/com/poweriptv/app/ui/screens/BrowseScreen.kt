@@ -246,6 +246,7 @@ fun BrowseScreen(
     ) { padding ->
         BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
             val wide = maxWidth > 600.dp
+            val previewWidth = (maxWidth * 0.36f).coerceIn(260.dp, 460.dp)
             val sidebarWidth = if (maxWidth > 900.dp) 300.dp else 250.dp
             Row(Modifier.fillMaxSize()) {
                 if (wide) {
@@ -398,7 +399,7 @@ fun BrowseScreen(
                                   container = container, handle = preview, item = pi,
                                   url = pi?.let { source.streamUrl(it) },
                                   blocked = pi != null && container.parental.isItemBlocked(pid, pi),
-                                  modifier = Modifier.width((maxWidth * 0.36f).coerceIn(260.dp, 460.dp)).fillMaxHeight(),
+                                  modifier = Modifier.width(previewWidth).fillMaxHeight(),
                               )
                           }
                         }
