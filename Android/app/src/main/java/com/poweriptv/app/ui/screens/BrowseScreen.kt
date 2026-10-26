@@ -93,6 +93,8 @@ import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.focus.onFocusChanged
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.focus.focusRequester
 
 /** Einfache Volltextsuche: alle Woerter muessen im Titel vorkommen. */
 fun matchesQuery(name: String, query: String): Boolean {
@@ -470,11 +472,22 @@ fun ChannelRow(
     item: ContentItem, isFavorite: Boolean, onToggleFavorite: () -> Unit,
     onLongClick: (() -> Unit)? = null, onFocused: (() -> Unit)? = null, onClick: () -> Unit,
 ) {
+    // Fernbedienung: Rechts von der Zeile -> Herz, Links vom Herz zurueck auf die Zeile
+    val rowFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val heartFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    var rowFocused by remember { mutableStateOf(false) }
     Row(
         Modifier
             .fillMaxWidth()
             .padding(vertical = 3.dp)
             .clip(RoundedCornerShape(10.dp))
+            .focusRequester(rowFocus)
+            .onFocusChanged { rowFocused = it.isFocused }
+            .onPreviewKeyEvent { e ->
+                if (rowFocused && e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown &&
+                    e.key == androidx.compose.ui.input.key.Key.DirectionRight
+                ) { runCatching { heartFocus.requestFocus() }; true } else false
+            }
             .tvFocus(RoundedCornerShape(10.dp), 1.02f)
             .then(if (onFocused != null) Modifier.onFocusChanged { if (it.isFocused) onFocused() } else Modifier)
             // Fernbedienung: Menue-Taste wirkt wie langes Druecken
@@ -500,7 +513,14 @@ fun ChannelRow(
             Text("$it", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 10.dp))
         }
         Text(item.name, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        IconButton(onClick = onToggleFavorite) {
+        IconButton(
+            onClick = onToggleFavorite,
+            modifier = Modifier.focusRequester(heartFocus).onPreviewKeyEvent { e ->
+                if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && e.key == androidx.compose.ui.input.key.Key.DirectionLeft) {
+                    runCatching { rowFocus.requestFocus() }; true
+                } else false
+            }.tvFocus(CircleShape, 1.15f),
+        ) {
             Icon(
                 if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                 "Favorit",

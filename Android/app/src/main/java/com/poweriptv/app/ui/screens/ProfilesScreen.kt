@@ -55,6 +55,11 @@ import com.poweriptv.app.ui.components.PortivaLogo
 import com.poweriptv.app.ui.components.VpnBadge
 import com.poweriptv.app.ui.theme.Accent
 import com.poweriptv.app.ui.theme.BrandCyan
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.focusRequester
 
 @Composable
 fun ProfilesScreen(
@@ -128,10 +133,26 @@ fun ProfilesScreen(
                 }
                 items(profiles, key = { it.id }) { p ->
                     val active = p.id == activeId
+                    // Fernbedienung: Rechts von der Zeile -> erstes Symbol (QR/Stift/Muell), Links vom ersten Symbol zurueck
+                    val rowFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+                    val firstIcon = remember { androidx.compose.ui.focus.FocusRequester() }
+                    var rowFocused by remember { mutableStateOf(false) }
+                    val backToRow = Modifier.onPreviewKeyEvent { e ->
+                        if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && e.key == androidx.compose.ui.input.key.Key.DirectionLeft) {
+                            runCatching { rowFocus.requestFocus() }; true
+                        } else false
+                    }
                     Row(
                         Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(14.dp))
+                            .focusRequester(rowFocus)
+                            .onFocusChanged { rowFocused = it.isFocused }
+                            .onPreviewKeyEvent { e ->
+                                if (rowFocused && e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown &&
+                                    e.key == androidx.compose.ui.input.key.Key.DirectionRight
+                                ) { runCatching { firstIcon.requestFocus() }; true } else false
+                            }
                             .tvFocus(RoundedCornerShape(14.dp), 1.02f)
                             .background(if (active) Accent.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surface)
                             .then(if (active) Modifier.border(2.dp, BrandCyan, RoundedCornerShape(14.dp)) else Modifier)
@@ -177,12 +198,16 @@ fun ProfilesScreen(
                             )
                         }
                         // QR-Code: diesen Zugang auf ein anderes Geraet uebertragen
-                        if (com.poweriptv.app.link.LinkCodes.canTransfer(p)) {
-                            IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { qrFor = p }) {
+                        val canQr = com.poweriptv.app.link.LinkCodes.canTransfer(p)
+                        if (canQr) {
+                            IconButton(modifier = Modifier.focusRequester(firstIcon).then(backToRow).tvFocus(CircleShape, 1.15f), onClick = { qrFor = p }) {
                                 Icon(androidx.compose.material.icons.Icons.Filled.QrCode2, "Auf anderes Gerät übertragen")
                             }
                         }
-                        IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { onEdit(p.id) }) { Icon(Icons.Filled.Edit, "Bearbeiten") }
+                        IconButton(
+                            modifier = (if (canQr) Modifier else Modifier.focusRequester(firstIcon).then(backToRow)).tvFocus(CircleShape, 1.15f),
+                            onClick = { onEdit(p.id) },
+                        ) { Icon(Icons.Filled.Edit, "Bearbeiten") }
                         IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { toDelete = p }) { Icon(Icons.Filled.Delete, "Loeschen") }
                     }
                 }
