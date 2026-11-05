@@ -150,7 +150,7 @@ fun SettingsScreen(app: AppState) {
                     label = "TMDB-API-Schlüssel (optional)", has = app.ageRatings.hasApiKey(),
                     onSave = { app.ageRatings.setApiKey(it) }, onTest = { app.ageRatings.test() },
                 )
-                Text("Mit TMDB-Schlüssel zeigt die Detailseite die offizielle deutsche FSK; ohne Schlüssel die Angabe deines Anbieters.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Mit TMDB-Schlüssel (kostenlos bei themoviedb.org) zeigt die Detailseite die offizielle deutsche FSK sowie die deutsche Beschreibung und deutsche Genres, auch wenn dein Anbieter nur den englischen Text liefert. Ohne Schlüssel: Angaben deines Anbieters.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             Card("Sicherheit") {

@@ -261,13 +261,14 @@ fun SettingsScreen(
                 backupStatus?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) }
             }
 
-            SettingsSection("Altersfreigaben (FSK)") {
+            SettingsSection("Altersfreigaben (FSK) & deutsche Beschreibungen (TMDB)") {
                 var tmdbInput by remember { mutableStateOf("") }
-                var tmdbStatus by remember { mutableStateOf<String?>(if (container.ageRatings.hasApiKey()) "TMDB verbunden – offizielle FSK wird angezeigt" else null) }
+                var tmdbStatus by remember { mutableStateOf<String?>(if (container.ageRatings.hasApiKey()) "TMDB verbunden – offizielle FSK und deutsche Beschreibungen werden angezeigt" else null) }
                 Text(
                     "Die FSK wird auf der Film-/Serienseite angezeigt. Ohne Schluessel nur, wenn dein Anbieter eine Altersangabe liefert. " +
                         "Fuer die offizielle deutsche FSK bei (fast) allen Titeln: kostenlosen Schluessel bei themoviedb.org anlegen " +
-                        "(Konto → Einstellungen → API) und hier eintragen.",
+                        "(Konto → Einstellungen → API) und hier eintragen. Damit zeigt die Film-/Serienseite auch die deutsche " +
+                        "Beschreibung und deutsche Genres, wenn dein Anbieter nur den englischen Text liefert.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

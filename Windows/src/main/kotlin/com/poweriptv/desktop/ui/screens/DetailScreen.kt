@@ -103,8 +103,15 @@ fun DetailScreen(app: AppState, item: ContentItem) {
     val isFav = favorites.any { it.key == item.key }
     val backdrop = movie?.backdrop ?: series?.backdrop
     val cover = movie?.cover ?: series?.cover ?: item.logo
-    val plot = movie?.plot ?: series?.plot
-    val genre = movie?.genre ?: series?.genre ?: item.genre
+    // Deutsche Beschreibung/Genres von TMDB (viele Anbieter liefern nur den englischen Text)
+    var german by remember(item.key) { mutableStateOf<com.poweriptv.app.data.GermanText?>(null) }
+    LaunchedEffect(item.key, movie, series) {
+        if (movie != null || series != null) german = runCatching {
+            app.ageRatings.german(item.type == ContentType.SERIES, item.name, movie?.releaseDate ?: series?.releaseDate, movie?.tmdbId ?: series?.tmdbId)
+        }.getOrNull()
+    }
+    val plot = german?.plot ?: movie?.plot ?: series?.plot
+    val genre = german?.genre ?: movie?.genre ?: series?.genre ?: item.genre
     val rating = (movie?.rating ?: series?.rating ?: item.rating)?.replace(',', '.')?.toDoubleOrNull()?.takeIf { it > 0 }
     val year = item.year ?: (movie?.releaseDate ?: series?.releaseDate)?.take(4)?.toIntOrNull()
     val age = movie?.age ?: series?.age
@@ -153,6 +160,12 @@ fun DetailScreen(app: AppState, item: ContentItem) {
                     }
                     genre?.let { Text(it, color = BrandCyan) }
                     plot?.let { Text(it, style = MaterialTheme.typography.bodyLarge, lineHeight = 24.sp) }
+                    if (!app.ageRatings.hasApiKey() && com.poweriptv.app.data.AgeRatingRepository.looksEnglish(plot)) {
+                        Text(
+                            "Die Beschreibung kommt so (englisch) vom Anbieter. Mit einem kostenlosen TMDB-Schlüssel (Einstellungen) zeigt Portiva sie auf Deutsch an.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     movie?.director?.let { Text("Regie: $it", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     (movie?.cast ?: series?.cast)?.let { Text("Besetzung: $it", color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis) }
                     if (loading) LinearProgressIndicator(Modifier.width(200.dp))

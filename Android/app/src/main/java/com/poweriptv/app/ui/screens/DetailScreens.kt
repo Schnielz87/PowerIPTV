@@ -270,6 +270,10 @@ fun MovieDetailScreen(container: AppContainer, onBack: () -> Unit) {
         loading = false
         val i = info
         ageRating = container.ageRatings.resolve(false, item.name, i?.releaseDate ?: item.year?.toString(), i?.tmdbId, i?.age)
+        // Deutsche Beschreibung/Genres von TMDB (viele Anbieter liefern nur den englischen Text)
+        container.ageRatings.german(false, item.name, i?.releaseDate ?: item.year?.toString(), i?.tmdbId)?.let { de ->
+            info = info?.copy(plot = de.plot ?: info?.plot, genre = de.genre ?: info?.genre)
+        }
     }
 
     DetailScaffold(item.name, info?.backdrop, onBack, actions = { FavoriteButton(container, item) }) { padding ->
@@ -327,6 +331,7 @@ fun MovieDetailScreen(container: AppContainer, onBack: () -> Unit) {
             item {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     info?.plot?.let { Text(it) }
+                    EnglishPlotHint(container, info?.plot)
                     info?.cast?.let { Text("Besetzung: $it", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
@@ -364,6 +369,9 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
         loading = false
         val i = info
         ageRating = container.ageRatings.resolve(true, item.name, i?.releaseDate ?: item.year?.toString(), i?.tmdbId, i?.age)
+        container.ageRatings.german(true, item.name, i?.releaseDate ?: item.year?.toString(), i?.tmdbId)?.let { de ->
+            info = info?.copy(plot = de.plot ?: info?.plot, genre = de.genre ?: info?.genre)
+        }
     }
 
     DetailScaffold(item.name, info?.backdrop, onBack, actions = { FavoriteButton(container, item) }) { padding ->
@@ -393,6 +401,7 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
                         }
                     }
                     i.plot?.let { plot -> item { Text(plot, Modifier.padding(horizontal = 16.dp)) } }
+                    item { Box(Modifier.padding(horizontal = 16.dp)) { EnglishPlotHint(container, i.plot) } }
                     item {
                         LazyRow(
                             contentPadding = PaddingValues(16.dp),
@@ -474,4 +483,15 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
             }
         }
     }
+}
+
+/** Englische Beschreibung vom Anbieter und kein TMDB-Schluessel -> kurzer Hinweis, wie es deutsch wird. */
+@Composable
+private fun EnglishPlotHint(container: com.poweriptv.app.AppContainer, plot: String?) {
+    if (container.ageRatings.hasApiKey() || !com.poweriptv.app.data.AgeRatingRepository.looksEnglish(plot)) return
+    Text(
+        "Die Beschreibung kommt so (englisch) vom Anbieter. Mit einem kostenlosen TMDB-Schlüssel " +
+            "(Einstellungen → Altersfreigaben & deutsche Beschreibungen) zeigt Portiva sie auf Deutsch an.",
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }

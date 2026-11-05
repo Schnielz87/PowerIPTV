@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.150 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.151 · Oktober 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -153,7 +153,7 @@ c.push(bullet([b('Intro überspringen: '), t('Der Knopf erscheint für 7 Sekunde
 c.push(bullet([b('Gesehen-Markierung: '), t('Fertig geschaute Filme und Folgen bekommen einen grünen Haken (✓), angefangene einen Fortschrittsbalken – in der Übersicht, in der Suche und bei den Folgen. Von Hand umschalten: beim Film über „Gesehen/Ungesehen“ auf der Detailseite, bei Folgen durch langes Drücken (TV: OK gedrückt halten).')]));
 c.push(bullet([b('Detailseite: '), t('Großes Hintergrundbild, FSK-Kennzeichen, Beschreibung, Besetzung, Download und Liste. Bei Serien ist die zuletzt gesehene Folge markiert, angefangene Folgen zeigen einen Fortschrittsbalken.')]));
 c.push(bullet([b('Vorschaubilder beim Spulen: '), t('Beim Ziehen über den Zeitstrahl. Erlaubt dein Zugang nur 1 Verbindung, hält der Film beim Ziehen kurz an und läuft danach an der Zielstelle mit derselben Tonspur weiter – so sind nie zwei Verbindungen gleichzeitig offen. „Immer parallel“ (Einstellungen → Player) lässt den Film weiterlaufen, braucht aber eine 2. Verbindung.')]));
-c.push(tip('Für die offizielle FSK bei fast allen Titeln einen kostenlosen TMDB-Schlüssel unter Einstellungen → Altersfreigaben eintragen.'));
+c.push(tip('Englische Beschreibung bei deutschen Filmen? Die Beschreibung kommt so von deinem Anbieter. Mit einem kostenlosen TMDB-Schlüssel (themoviedb.org → Konto → Einstellungen → API) unter Einstellungen → „Altersfreigaben (FSK) & deutsche Beschreibungen“ zeigt Portiva die deutsche Beschreibung und deutsche Genres an – und die offizielle FSK bei fast allen Titeln. Hat TMDB für einen Titel keinen deutschen Text, bleibt der des Anbieters.'));
 c.push(h2('Wie die App den Vorspann lernt'));
 c.push(p('Es gibt zwei Verfahren, die sich ergänzen:'));
 c.push(bullet([b('Ton-Erkennung (automatisch, Standard-Player): '), t('Die App hört in den ersten 10 Minuten jeder Folge mit und bildet einen Ton-Fingerabdruck. Nach zwei Folgen kennt sie die Vorspann-Musik. Ab der dritten Folge erkennt sie den Vorspann live, egal wo er beginnt, und springt genau an sein Ende. Erkennt sie ihn einmal nicht, lernt sie neu (z.B. neue Staffel).')]));
@@ -202,7 +202,7 @@ c.push(table(['Bereich', 'Was man einstellen kann'], [
   ['VPN', 'WireGuard-Konfiguration, Auto-Verbinden, Kill-Switch („nur mit VPN abspielen“)'],
   ['Kindersicherung', 'Erst mit festgelegter PIN aktiv (grüner Hinweis „AKTIV“ oben). Sperrt Kategorien, Erwachseneninhalte automatisch und gilt überall – auch in Verlauf, Weiterschauen, Favoriten, Suche und Programmführer.'],
   ['KI-Empfehlungen', 'ChatGPT-Schlüssel und Modell'],
-  ['Altersfreigaben (FSK)', 'TMDB-Schlüssel für die offizielle FSK'],
+  ['Altersfreigaben (FSK) & deutsche Beschreibungen', 'TMDB-Schlüssel für die offizielle FSK sowie deutsche Beschreibung und Genres'],
   ['Sichern & Wiederherstellen', 'Alles als Datei sichern (optional mit Zugangsdaten und Passwort) und auf einem anderen Gerät laden'],
   ['Darstellung', 'Ausrichtung auf Handy/Tablet'],
 ], [2800, 6226]));
@@ -271,7 +271,7 @@ c.push(bullet([b('VPN & Sicherheit: '), t('WireGuard-Konfiguration (.conf) impor
 c.push(bullet([b('Favoriten & Listen: '), t('eigene Listen anlegen, umbenennen, löschen. Rechtsklick auf jeden Titel: Favorit, „Zu Liste hinzufügen …“, gesehen markieren, per WhatsApp teilen (nur der Titel, nie der Stream-Link).')]));
 c.push(bullet([b('Player-Extras: '), t('Favorit-Herz, Aufnahme (R), zurück zum vorherigen Sender (B), Sleep-Timer und Untertitel im Zahnrad-Menü, „Intro überspringen“ (lernt wie am Handy aus deinem Vorspulen), Vorschaubilder beim Spulen, Auf Fernseher übertragen (Chromecast / Android TV im Heimnetz).')]));
 c.push(bullet([b('Sichern & Wiederherstellen: '), t('Einstellungen → Sichern & Wiederherstellen. Gleiches Dateiformat wie die Handy-App: eine Handy-Sicherung kann am PC eingespielt werden (Zugänge, Favoriten & Listen, Verlauf, Weiterschauen, Kindersicherung, Kategorien, Schlüssel) – und umgekehrt.')]));
-c.push(bullet([b('FSK: '), t('mit TMDB-Schlüssel (Einstellungen → Altersfreigabe) die offizielle deutsche Freigabe, sonst die Angabe des Anbieters.')]));
+c.push(bullet([b('FSK: '), t('mit TMDB-Schlüssel (Einstellungen) die offizielle deutsche Freigabe sowie deutsche Beschreibung und Genres, sonst die Angaben des Anbieters.')]));
 c.push(bullet([b('Zugänge: '), t('bearbeiten (Stift) und löschen wie am Handy; Passwörter mit dem Windows-Datenschutz verschlüsselt.')]));
 c.push(bullet([b('Update: '), t('Kachel „Update“ neben „Einstellungen“ – ein Klick: sucht bei GitHub, lädt das neue Setup und installiert es (Portiva schließt sich dafür kurz). Zusätzlich automatische Prüfung alle 24 Stunden.')]));
 

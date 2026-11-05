@@ -19,6 +19,9 @@ import java.util.concurrent.ConcurrentHashMap
  */
 data class AgeRating(val fsk: Int?, val label: String, val official: Boolean)
 
+/** Deutsche Beschreibung/Genres von TMDB (viele Anbieter liefern nur den englischen Text). */
+data class GermanText(val plot: String?, val genre: String?)
+
 /**
  * Ermittelt die FSK:
  * 1. Mit TMDB-Schluessel: offizielle deutsche Freigabe (TMDB-ID vom Anbieter oder Titelsuche).
@@ -30,6 +33,7 @@ class AgeRatingRepository(
     private val json: Json,
 ) {
     private val cache = ConcurrentHashMap<String, Result<AgeRating?>>()
+    private val deCache = ConcurrentHashMap<String, GermanText>()
 
     fun apiKey(): String? = secure.read(KEY_FILE)
     fun hasApiKey() = !apiKey().isNullOrBlank()
@@ -48,6 +52,27 @@ class AgeRatingRepository(
         if (result.isSuccess) cache[k] = result
         return result.getOrNull() ?: fromProvider(providerAge)
     }
+
+    /**
+     * Deutsche Beschreibung und Genres von TMDB (nur mit Schluessel). null = kein Schluessel/nichts gefunden.
+     * plot ist null, wenn TMDB fuer den Titel keine deutsche Beschreibung hat.
+     */
+    suspend fun german(series: Boolean, title: String, releaseDate: String?, tmdbId: String?): GermanText? =
+        withContext(Dispatchers.IO) {
+            val key = apiKey()?.takeIf { it.isNotBlank() } ?: return@withContext null
+            val k = "$series|$title|$tmdbId"
+            deCache[k]?.let { return@withContext it }
+            runCatching {
+                val id = tmdbId?.trim()?.takeIf { it.isNotEmpty() && it != "0" && it.all(Char::isDigit) }
+                    ?: search(key, series, cleanTitle(title), yearOf(releaseDate) ?: yearOf(title))
+                    ?: return@runCatching null
+                val o = get(key, if (series) "tv/$id" else "movie/$id", listOf("language" to "de-DE")) ?: return@runCatching null
+                val plot = o.s("overview")?.trim()?.takeIf { it.isNotEmpty() }
+                val genre = (o["genres"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.s("name") }
+                    .joinToString(", ").takeIf { it.isNotEmpty() }
+                GermanText(plot, genre)
+            }.getOrNull()?.also { deCache[k] = it }
+        }
 
     /** Test fuer die Einstellungen: liefert z.B. "FSK 12" fuer einen bekannten Film. */
     suspend fun test(): String {
@@ -131,5 +156,17 @@ class AgeRatingRepository(
             .trim()
 
         fun yearOf(s: String?): String? = s?.let { Regex("(19|20)\\d{2}").find(it)?.value }
+
+        private val EN_WORDS = setOf("the", "and", "of", "to", "is", "with", "his", "her", "their", "after", "when", "who", "they", "was", "for")
+        private val DE_WORDS = setOf("der", "die", "das", "und", "ist", "mit", "sein", "ihr", "nach", "wenn", "sie", "ein", "eine", "nicht", "auf", "für")
+
+        /** Grobe Pruefung, ob ein Text eher englisch ist (fuer den Hinweis auf deutsche Beschreibungen). */
+        fun looksEnglish(text: String?): Boolean {
+            val words = text?.lowercase()?.split(Regex("[^a-zäöüß]+"))?.filter { it.isNotEmpty() } ?: return false
+            if (words.size < 8) return false
+            val en = words.count { it in EN_WORDS }
+            val de = words.count { it in DE_WORDS }
+            return en >= 3 && en > de * 2
+        }
     }
 }
