@@ -34,7 +34,7 @@ BACKDROP = (724, 112, 508, 286)         # Szenenbild hinter Titel/Infos (16:9, i
 FULL_ITEM = (1176, 46)
 PANEL_ITEM = (488, 42)                  # Senderliste im Player
 BIG = (380, 250)
-SMALL = (222, 104)
+SMALL = (185, 104)                      # kleine Kachel Startseite (6 je Reihe, ui.py S_W)
 
 
 def lerp(a, b, t):
@@ -208,6 +208,12 @@ def icon(name, d, cx, cy, r, f, col):
         d.line([P(0, -1), P(0, 0.35)], fill=col, width=lw)
         d.polygon([P(-0.42, 0.0), P(0.42, 0.0), P(0, 0.5)], fill=col)
         d.line([P(-1, 0.45), P(-1, 0.95), P(1, 0.95), P(1, 0.45)], fill=col, width=lw, joint="curve")
+    elif name == "mediathek":
+        d.rounded_rectangle(box(-1, -0.7, 1, 0.75), S(4, f), outline=col, width=lw)
+        d.polygon([P(-0.25, -0.35), P(-0.25, 0.4), P(0.4, 0.02)], fill=col)
+        d.line([P(-0.45, -1.15), P(0, -0.72)], fill=col, width=lw)
+        d.line([P(0.45, -1.15), P(0, -0.72)], fill=col, width=lw)
+        d.line([P(-0.5, 1.0), P(0.5, 1.0)], fill=col, width=lw)
     elif name == "reload":
         d.arc(box(-0.95, -0.95, 0.95, 0.95), 200, 340, fill=col, width=lw)
         d.arc(box(-0.95, -0.95, 0.95, 0.95), 20, 160, fill=col, width=lw)
@@ -374,7 +380,7 @@ def main():
         save(backdrop_shade(bw, bh, f, behind), "backdrop_shade.png")
         for name, src in (("live", "live_tv.jpg"), ("movie", "movies.jpg"), ("series", "series.jpg")):
             save(rounded_photo(os.path.join(SRC, src), BIG[0], BIG[1], f), "big_%s.png" % name)
-        for name in ("continue", "search", "guide", "fav", "recent", "profiles", "receive", "settings", "update", "reload"):
+        for name in ("continue", "search", "guide", "mediathek", "fav", "recent", "profiles", "receive", "settings", "update", "reload"):
             save(small_tile(name, f), "tile_%s.png" % name)
         for name, col in (("red", (225, 29, 46)), ("green", (20, 163, 127)), ("yellow", (255, 204, 0)), ("blue", (30, 91, 216))):
             save(dot(col, f), "key_%s.png" % name)

@@ -37,6 +37,7 @@ sourceSets {
                 "com/poweriptv/app/data/EpgRepository.kt",
                 "com/poweriptv/app/data/PlatformStores.kt",
                 "com/poweriptv/app/data/AgeRatingRepository.kt",
+                "com/poweriptv/app/data/Mediathek.kt",
                 "com/poweriptv/app/parental/ParentalControl.kt",
                 "com/poweriptv/app/ai/AiRecommender.kt",
                 "com/poweriptv/app/record/StreamCapture.kt",

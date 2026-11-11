@@ -5,7 +5,7 @@ import { app, back, choose, go } from '../app';
 import { T } from '../sources';
 
 export const ICON = {
-  live: '📺', movie: '🎬', series: '🎞', search: '🔍', epg: '📅', fav: '❤', ai: '✨', sync: '⟳',
+  mediathek: '📡', live: '📺', movie: '🎬', series: '🎞', search: '🔍', epg: '📅', fav: '❤', ai: '✨', sync: '⟳',
   user: '👤', settings: '⚙', update: '⬇', back: '←', lock: '🔒', pin: '📌', play: '▶', pause: '⏸',
 };
 

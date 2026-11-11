@@ -107,6 +107,8 @@ class AppContainer(private val app: Application) {
     val cast = CastManager(app)
     val ai = AiRecommender({ http }, secure, { settings.aiModel.value }, { settings.aiBaseUrl.value }, { p, t, c -> parental.lockedIds(p, t, c) }, json)
     val ageRatings = com.poweriptv.app.data.AgeRatingRepository({ http }, secure, json)
+    /** Mediatheken ARD/ZDF/Arte & Co. (MediathekView-Datenbank). */
+    val mediathek = com.poweriptv.app.data.MediathekClient({ http }, json)
 
     /** Aktuell ausgewaehlte Quelle (Profil). */
     var source: ContentSource? = null

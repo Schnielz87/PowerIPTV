@@ -30,6 +30,7 @@ export default function home() {
     smallTile(ICON.search, 'Suche', () => go('search')),
     smallTile(ICON.sync, 'Playlist aktualisieren', refreshPlaylist),
     smallTile(ICON.epg, 'TV-Guide (EPG)', () => go('epg')),
+    smallTile(ICON.mediathek, 'Mediathek (ARD, ZDF …)', () => go('mediathek')),
     smallTile(ICON.ai, 'KI-Empfehlungen', () => go('ai')),
     smallTile(ICON.fav, 'Favoriten & Listen', () => go('favorites')),
     smallTile(ICON.user, 'Benutzer wechseln', () => go('profiles')),

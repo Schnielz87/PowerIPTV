@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.CalendarViewWeek
 import androidx.compose.material.icons.filled.FiberSmartRecord
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.OndemandVideo
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.material.icons.filled.Shield
@@ -279,6 +280,7 @@ private fun ToolTiles(app: AppState) {
         Tile("TV-Guide (EPG)", Icons.Filled.CalendarViewWeek) { app.navigate(Screen.Epg) },
         Tile("Aufnahmen", Icons.Filled.FiberSmartRecord) { app.navigate(Screen.Recordings) },
         Tile("Multi-Screen", Icons.Filled.GridView) { app.navigate(Screen.MultiView) },
+        Tile("Mediathek (ARD, ZDF, Arte …)", Icons.Filled.OndemandVideo) { app.navigate(Screen.Mediathek) },
         Tile("KI-Empfehlungen", Icons.Filled.AutoAwesome) { app.navigate(Screen.Recommendations) },
         Tile("Favoriten & Listen", Icons.Filled.Favorite) { app.navigate(Screen.Favorites) },
         Tile("Downloads", Icons.Filled.DownloadForOffline) { app.navigate(Screen.Downloads) },

@@ -39,6 +39,7 @@ mit **eingebautem VPN**, **Offline-Downloads** und **eigenen Favoritenlisten**.
 | **VPN** | WireGuard-VPN eingebaut (.conf importieren oder einfuegen), Kill-Switch, Auto-Connect, Split-Tunneling (nur PowerIPTV), externe VPN-Apps werden erkannt |
 | **Player** | ExoPlayer (Media3): HLS, MPEG-TS, MP4, MKV · Untertitel/Tonspuren · Bild-in-Bild |
 | **Sicherheit** | Zugangsdaten & VPN-Konfig verschluesselt gespeichert (Android Keystore, Windows DPAPI, iOS Schluesselbund, Receiver nur fuer das System lesbar) · Zugangs-QR und Passwort-Eingabe vor Bildschirmfotos geschuetzt (Android) |
+| **Mediathek** | ARD, ZDF, Arte, 3sat, Phoenix, KiKA, dritte Programme, ORF, SRF & Co. – kostenlos und unabhaengig vom IPTV-Zugang (freie MediathekView-Datenbank): Sender waehlen, suchen, neueste Sendungen, HD, Weiterschauen. Alle Geraete |
 | **Mitteilung vom Anbieter** | Nachricht des IPTV-Anbieters (Xtream `user_info.message`) wird beim Start einmal angezeigt und bleibt im Konto-Bereich lesbar – auf allen Geraeten |
 | **Portiva Link** | Zugang per QR auf die eigenen Geraete uebertragen, Wiedergabe an ein anderes Geraet senden · nur im Heimnetz, keine Befehle aus Webseiten, Sperre nach 5 falschen Codes |
 

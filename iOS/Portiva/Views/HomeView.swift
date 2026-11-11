@@ -86,6 +86,7 @@ struct HomeView: View {
                     smallTile("magnifyingglass", "Suche", .search)
                     Button { app.source?.clearCache(); app.show("Playlist wird neu geladen …") } label: { tileLabel("arrow.clockwise", "Playlist aktualisieren") }
                     smallTile("calendar", "TV-Guide (EPG)", .epg)
+                    smallTile("play.tv.fill", "Mediathek (ARD, ZDF …)", .mediathek)
                     smallTile("heart.fill", "Favoriten & Listen", .favorites)
                     smallTile("person.2.fill", "Benutzer wechseln", .profiles)
                     smallTile("gearshape.fill", "Einstellungen", .settings)

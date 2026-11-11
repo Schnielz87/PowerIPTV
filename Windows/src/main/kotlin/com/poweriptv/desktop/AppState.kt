@@ -31,6 +31,7 @@ sealed interface Screen {
     data object Recordings : Screen
     data object Downloads : Screen
     data object Recommendations : Screen
+    data object Mediathek : Screen
     data object Parental : Screen
     data object Vpn : Screen
     data object MultiView : Screen
@@ -92,6 +93,8 @@ class AppState(val window: WindowState) {
         { p, t, c -> parental.lockedIds(p, t, c) }, com.poweriptv.desktop.data.AppJson,
     )
     val ageRatings = com.poweriptv.app.data.AgeRatingRepository({ com.poweriptv.desktop.data.Http }, com.poweriptv.desktop.data.DesktopSecretStore, com.poweriptv.desktop.data.AppJson)
+    /** Mediatheken ARD/ZDF/Arte & Co. (MediathekView-Datenbank). */
+    val mediathek = com.poweriptv.app.data.MediathekClient({ com.poweriptv.desktop.data.Http }, com.poweriptv.desktop.data.AppJson)
     val vpn = com.poweriptv.desktop.data.DesktopVpn(settings)
     val recordings = com.poweriptv.desktop.data.DesktopRecordings { recordingDir() }
     val downloads: com.poweriptv.app.download.DownloadRepository = com.poweriptv.app.download.DownloadRepository(

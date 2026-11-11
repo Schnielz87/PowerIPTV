@@ -141,6 +141,7 @@ private fun Root(app: AppState) {
                     Screen.Recordings -> com.poweriptv.desktop.ui.screens.RecordingsScreen(app)
                     Screen.Downloads -> com.poweriptv.desktop.ui.screens.DownloadsScreen(app)
                     Screen.Recommendations -> com.poweriptv.desktop.ui.screens.RecommendationsScreen(app)
+                    Screen.Mediathek -> com.poweriptv.desktop.ui.screens.MediathekScreen(app)
                     Screen.Parental -> com.poweriptv.desktop.ui.screens.ParentalScreen(app)
                     Screen.Vpn -> com.poweriptv.desktop.ui.screens.VpnScreen(app)
                     Screen.MultiView -> com.poweriptv.desktop.ui.screens.MultiViewScreen(app)

@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.OndemandVideo
 import androidx.compose.material.icons.filled.CalendarViewWeek
 import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.material.icons.filled.Favorite
@@ -109,6 +110,7 @@ fun HomeScreen(
     onEpg: () -> Unit,
     onRecordings: () -> Unit,
     onRecommendations: () -> Unit,
+    onMediathek: () -> Unit,
     onSearch: () -> Unit,
     onOpenDetail: (ContentItem) -> Unit,
     onOpenRecent: (ContentType) -> Unit = {},
@@ -236,6 +238,7 @@ fun HomeScreen(
                     Triple("Multi-Screen", Icons.Filled.GridView, {
                         context.startActivity(Intent(context, MultiViewActivity::class.java))
                     }),
+                    Triple("Mediathek (ARD, ZDF, Arte …)", Icons.Filled.OndemandVideo, onMediathek),
                     Triple("KI-Empfehlungen", Icons.Filled.AutoAwesome, onRecommendations),
                     Triple("Favoriten & Listen", Icons.Filled.Favorite, onFavorites),
                     Triple("Downloads", Icons.Filled.DownloadForOffline, onDownloads),

@@ -131,6 +131,7 @@ export default function playerScreen(params) {
   function urlFor() {
     if (cur.catchup) return cur.catchup.url;
     if (cur.episode) return app.source.episodeUrl(cur.episode);
+    if (cur.item.mediathek) return cur.item.url; // Mediathek: direkte Adresse, unabhaengig vom Zugang
     return app.source.streamUrl(cur.item);
   }
 

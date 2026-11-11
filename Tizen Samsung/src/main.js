@@ -16,10 +16,11 @@ import favorites from './ui/favorites';
 import settingsScreen, { parentalScreen } from './ui/settings';
 import ai from './ui/ai';
 import update from './ui/update';
+import mediathek from './ui/mediathek';
 
 Object.assign(app.screens, {
   splash, profiles, profileEdit, home, browse, detail, player: playerScreen, epg, search, favorites,
-  settings: settingsScreen, parental: parentalScreen, ai, update,
+  settings: settingsScreen, parental: parentalScreen, ai, update, mediathek,
 });
 
 function start() {

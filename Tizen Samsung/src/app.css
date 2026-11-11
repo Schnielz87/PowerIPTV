@@ -298,3 +298,15 @@ body.video-mode #toast { bottom: auto; top: 150px; }
 .p-live-text > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-chhead { display: flex; flex-direction: row; align-items: center; margin-bottom: 16px; }
 .p-chhead h3 { flex: 1 1 auto; margin-bottom: 0; }
+
+/* Mediathek (ARD, ZDF, Arte & Co.) */
+.mt-row { background: #0E1726; border-radius: 14px; padding: 14px 22px; margin: 0 40px 12px 0; }
+.mt-row.focused { background: #3A9BDC; }
+.mt-head { display: flex; flex-direction: row; align-items: center; font-size: 20px; color: #9FB1C9; }
+.mt-ch { background: #5EC4F2; color: #06101E; font-weight: bold; border-radius: 6px; padding: 1px 8px; margin-right: 12px; font-size: 18px; }
+.mt-topic { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mt-title { font-size: 26px; font-weight: bold; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mt-meta { font-size: 20px; color: #9FB1C9; margin-top: 2px; }
+.mt-desc { font-size: 19px; color: #9FB1C9; margin-top: 4px; max-height: 50px; overflow: hidden; }
+.mt-row.focused .mt-head, .mt-row.focused .mt-meta, .mt-row.focused .mt-desc { color: #EAF4FF; }
+.mt-more { margin: 10px 40px 20px 0; }

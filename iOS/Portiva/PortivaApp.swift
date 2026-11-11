@@ -83,6 +83,7 @@ enum Route: Hashable {
     case profiles
     case settings
     case update
+    case mediathek
 
     @ViewBuilder var view: some View {
         switch self {
@@ -94,6 +95,7 @@ enum Route: Hashable {
         case .profiles: ProfilesView(first: false)
         case .settings: SettingsView()
         case .update: UpdateView()
+        case .mediathek: MediathekView()
         }
     }
 }

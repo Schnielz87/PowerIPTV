@@ -40,6 +40,7 @@ object Routes {
     const val RECORDINGS = "recordings"
     const val PARENTAL = "parental"
     const val RECOMMENDATIONS = "recommendations"
+    const val MEDIATHEK = "mediathek"
     const val SEARCH = "search"
     const val RECENT = "recent/{type}"
 
@@ -101,6 +102,7 @@ fun AppNavigation(container: AppContainer, onConnectVpn: () -> Unit) {
                 onEpg = { nav.navigate(Routes.EPG) },
                 onRecordings = { nav.navigate(Routes.RECORDINGS) },
                 onRecommendations = { nav.navigate(Routes.RECOMMENDATIONS) },
+                onMediathek = { nav.navigate(Routes.MEDIATHEK) },
                 onSearch = { nav.navigate(Routes.SEARCH) },
                 onOpenRecent = { nav.navigate(Routes.recent(it)) },
                 onOpenDetail = { item ->
@@ -113,6 +115,9 @@ fun AppNavigation(container: AppContainer, onConnectVpn: () -> Unit) {
                     nav.navigate(Routes.HOME) { popUpTo(nav.graph.id) { inclusive = true } }
                 },
             )
+        }
+        composable(Routes.MEDIATHEK) {
+            com.poweriptv.app.ui.screens.MediathekScreen(container, onBack = { nav.popBackStack() })
         }
         composable(Routes.BROWSE, arguments = listOf(navArgument("type") { type = NavType.StringType })) { entry ->
             val type = ContentType.valueOf(entry.arguments?.getString("type") ?: ContentType.LIVE.name)

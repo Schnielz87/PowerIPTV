@@ -245,9 +245,10 @@ def play(session, source, items, index, on_close=None, keep_stream=False):
 # ---------- Startseite ----------
 TILE_BIG = [("LIVE TV", "Sender & Programm", "live", "live_tv.jpg"), ("FILME", "Filme & Neuheiten", "movie", "movies.jpg"),
             ("SERIEN", "Serien & Staffeln", "series", "series.jpg")]
-TILE_SMALL = [("Weiterschauen", "continue"), ("Suche", "search"), ("TV-Guide", "guide"), ("Favoriten", "fav"), ("Zuletzt gesehen", "recent"),
-              ("Benutzer wechseln", "profiles"), ("Vom Handy empfangen", "receive"), ("Einstellungen", "settings"), ("Update", "update"),
-              ("Playlist aktualisieren", "reload")]
+TILE_SMALL = [("Weiterschauen", "continue"), ("Suche", "search"), ("TV-Guide", "guide"), ("Mediathek", "mediathek"), ("Favoriten", "fav"),
+              ("Zuletzt gesehen", "recent"), ("Benutzer wechseln", "profiles"), ("Vom Handy empf.", "receive"), ("Einstellungen", "settings"),
+              ("Update", "update"), ("Playlist neu laden", "reload")]
+S_COLS, S_W, S_STEP = 6, 185, 203   # kleine Kacheln: 6 je Reihe (muss zu tools/make_skin.py SMALL passen)
 
 
 def _home_skin():
@@ -260,18 +261,18 @@ def _home_skin():
         parts.append('<widget name="bigs%d" position="%d,324" size="360,28" font="Regular;19" halign="center" foregroundColor="#00d0d8e8" '
                      'backgroundColor="#00000000" transparent="1" zPosition="3" />' % (i, x + 10))
     for i, t in enumerate(TILE_SMALL):
-        row, col = divmod(i, 5)
-        x, y = 40 + col * 240, 384 + row * 118
-        parts.append('<ePixmap pixmap="%s" position="%d,%d" size="222,104" alphatest="blend" zPosition="1" />' % (px("tile_%s.png" % t[1]), x, y))
-        parts.append('<widget name="small%d" position="%d,%d" size="206,36" font="Regular;19" halign="center" valign="center" '
-                     'foregroundColor="#00ffffff" backgroundColor="#00101b30" transparent="1" zPosition="2" />' % (i, x + 8, y + 58))
+        row, col = divmod(i, S_COLS)
+        x, y = 40 + col * S_STEP, 384 + row * 118
+        parts.append('<ePixmap pixmap="%s" position="%d,%d" size="%d,104" alphatest="blend" zPosition="1" />' % (px("tile_%s.png" % t[1]), x, y, S_W))
+        parts.append('<widget name="small%d" position="%d,%d" size="%d,36" font="Regular;18" halign="center" valign="center" '
+                     'foregroundColor="#00ffffff" backgroundColor="#00101b30" transparent="1" zPosition="2" />' % (i, x + 6, y + 58, S_W - 12))
     return scale("""<screen name="PortivaHome" position="0,0" size="1280,720" flags="wfNoBorder" backgroundColor="%s">%s
   <widget name="focus_big" position="32,104" size="396,266" pixmap="%s" alphatest="blend" zPosition="5" />
-  <widget name="focus_small" position="32,376" size="238,120" pixmap="%s" alphatest="blend" zPosition="5" />
+  <widget name="focus_small" position="32,376" size="%d,120" pixmap="%s" alphatest="blend" zPosition="5" />
   %s
   <widget name="status" position="40,622" size="1200,28" font="Regular;19" foregroundColor="%s" backgroundColor="#00101b30" transparent="1" />
   <widget name="hint" position="40,662" size="1200,28" font="Regular;18" foregroundColor="%s" backgroundColor="#00101b30" transparent="1" />
-</screen>""" % (BG, head("bg.png"), px("focus_big.png"), px("focus_small.png"), "\n  ".join(parts), CYAN, GREY))
+</screen>""" % (BG, head("bg.png"), px("focus_big.png"), S_W + 16, px("focus_small.png"), "\n  ".join(parts), CYAN, GREY))
 
 
 class PortivaHome(Screen):
@@ -316,7 +317,7 @@ class PortivaHome(Screen):
 
     def update_found(self, info):
         if info:
-            self["small8"].setText("Update %s!" % info["version"])
+            self["small%d" % [t[1] for t in TILE_SMALL].index("update")].setText("Update %s!" % info["version"])
             self["status"].setText("Neue Version %s verfügbar – Kachel „Update“" % info["version"])
 
     def refresh(self, *args):
@@ -371,8 +372,8 @@ class PortivaHome(Screen):
     def rect(pos):
         if pos < 3:
             return 40 + pos * 410, 112, 380, 250
-        row, col = divmod(pos - 3, 5)
-        return 40 + col * 240, 384 + row * 118, 222, 104
+        row, col = divmod(pos - 3, S_COLS)
+        return 40 + col * S_STEP, 384 + row * 118, S_W, 104
 
     def show_focus(self):
         """Leuchtender Rahmen um die gewaehlte Kachel (eigene Grafik fuer grosse und kleine Kacheln)."""
@@ -389,26 +390,31 @@ class PortivaHome(Screen):
         if self.pos < 3:
             row, col = 0, self.pos
         else:
-            row, col = 1 + (self.pos - 3) // 5, (self.pos - 3) % 5
+            row, col = 1 + (self.pos - 3) // S_COLS, (self.pos - 3) % S_COLS
+        rows = 1 + (len(TILE_SMALL) + S_COLS - 1) // S_COLS
+
+        def count(r):  # Kacheln in Reihe r (letzte Reihe kann kuerzer sein)
+            return 3 if r == 0 else min(S_COLS, len(TILE_SMALL) - (r - 1) * S_COLS)
         if dcol:
-            col = max(0, min((3 if row == 0 else 5) - 1, col + dcol))
+            col = max(0, min(count(row) - 1, col + dcol))
         if drow:
-            nrow = max(0, min(2, row + drow))
+            nrow = max(0, min(rows - 1, row + drow))
             if nrow != row:
                 x, y, w, h = self.rect(self.pos)
                 cx = x + w / 2.0
-                n = 3 if nrow == 0 else 5
-                col = min(range(n), key=lambda c: abs(self.rect(c if nrow == 0 else 3 + (nrow - 1) * 5 + c)[0] +
-                                                      self.rect(c if nrow == 0 else 3 + (nrow - 1) * 5 + c)[2] / 2.0 - cx))
+
+                def p(c):
+                    return c if nrow == 0 else 3 + (nrow - 1) * S_COLS + c
+                col = min(range(count(nrow)), key=lambda c: abs(self.rect(p(c))[0] + self.rect(p(c))[2] / 2.0 - cx))
                 row = nrow
-        self.pos = col if row == 0 else 3 + (row - 1) * 5 + col
+        self.pos = col if row == 0 else 3 + (row - 1) * S_COLS + col
         self.show_focus()
 
     def open_tile(self):
         self.open_key(TILE_BIG[self.pos][2] if self.pos < 3 else TILE_SMALL[self.pos - 3][1])
 
     def open_key(self, key):
-        if key not in ("profiles", "receive", "settings", "update") and not self.source:
+        if key not in ("profiles", "receive", "settings", "update", "mediathek") and not self.source:
             return
         if key in ("live", "movie", "series"):
             self.session.open(CategoryScreen, self.source, key)
@@ -444,6 +450,9 @@ class PortivaHome(Screen):
             self.session.open(ContinueScreen, self.source)
         elif key == "search":
             self.search()
+        elif key == "mediathek":
+            from .mediathek import MediathekChannels
+            self.session.open(MediathekChannels)
         elif key == "profiles":
             self.session.openWithCallback(self.refresh, ProfilesScreen)
         elif key == "receive":
