@@ -190,7 +190,8 @@ class XtreamSource(object):
         info = r.get("info") or {}
         return {"plot": info.get("plot") or info.get("description"), "genre": info.get("genre"), "cast": info.get("cast"),
                 "duration": info.get("duration"), "rating": info.get("rating"), "year": info.get("releasedate"),
-                "director": info.get("director"), "cover": info.get("movie_image") or info.get("cover_big")}
+                "director": info.get("director"), "cover": info.get("movie_image") or info.get("cover_big"),
+                "backdrop": backdrop_url(info)}
 
     def series_info(self, item):
         r = self.api("get_series_info", timeout=40, series_id=item["id"]) or {}
@@ -210,7 +211,8 @@ class XtreamSource(object):
         info = r.get("info") or {}
         return {"plot": info.get("plot"), "seasons": seasons, "genre": info.get("genre"), "cast": info.get("cast"),
                 "director": info.get("director"), "rating": info.get("rating"),
-                "year": info.get("releaseDate") or info.get("release_date") or info.get("year")}
+                "year": info.get("releaseDate") or info.get("release_date") or info.get("year"),
+                "backdrop": backdrop_url(info)}
 
     def connections(self):
         """(aktive, erlaubte) Verbindungen laut Anbieter, frisch abgefragt; (None, None) wenn unbekannt."""
@@ -237,6 +239,21 @@ class XtreamSource(object):
         if self.message:
             parts.append("✉ Mitteilung: " + _short(self.message.replace("\n", " "), 70))
         return " · ".join(parts)
+
+
+def backdrop_url(info):
+    """Szenenbild (Hintergrund der Detailseite) aus den Anbieter-Infos; TMDB-Bilder in mittlerer Groesse (schneller)."""
+    b = info.get("backdrop_path") if isinstance(info, dict) else None
+    if isinstance(b, (list, tuple)):
+        b = next((x for x in b if x), None)
+    if not b or not isinstance(b, (str, type(u""))):
+        return None
+    b = b.strip()
+    if b.startswith("/"):
+        b = "https://image.tmdb.org/t/p/w780" + b
+    if "image.tmdb.org" in b:
+        b = re.sub(r"/t/p/(original|w1280)/", "/t/p/w780/", b)
+    return b if b.lower().startswith("http") else None
 
 
 def _short(t, n):

@@ -30,6 +30,7 @@ PIG_INFO = (680, 439, 560, 173)         # Programm unter der Vorschau
 LIST_ITEM = (596, 46)                   # Auswahlbalken linke Liste
 POSTER = (136, 200)                     # Poster-Kachel (Filme/Serien, wie in der App)
 POSTER_INFO = (716, 104, 524, 514)      # Info-Feld rechts neben den Postern (4 x 2)
+BACKDROP = (724, 112, 508, 286)         # Szenenbild hinter Titel/Infos (16:9, im Info-Feld)
 FULL_ITEM = (1176, 46)
 PANEL_ITEM = (488, 42)                  # Senderliste im Player
 BIG = (380, 250)
@@ -300,6 +301,37 @@ def progress(w, h, f):
     return finish(img, w, h, f)
 
 
+def backdrop_shade(w, h, f, behind, radius=12):
+    """Abdunkelung ueber dem Szenenbild (wie die Detailseite der App): leicht abgedunkelt, nach unten
+    weich in den echten Hintergrund des Info-Felds (behind = Ausschnitt aus bg_poster) uebergehend,
+    Ecken abgerundet. So entsteht keine Farbkante, auch wenn das Feld einen leichten Verlauf hat."""
+    img = canvas(w, h, f)
+    W, H = img.size
+    behind = behind.convert("RGBA").resize((W, H), Image.LANCZOS)
+    # bg_poster ist im Feld leicht durchsichtig (ueber der Bildschirmfarbe BG = #070b16) -> deckend vorrechnen,
+    # sonst scheint das Szenenbild unten durch
+    behind = Image.alpha_composite(Image.new("RGBA", (W, H), (7, 11, 22, 255)), behind)
+    panel = behind.getpixel((W // 2, H - 1))[:3]
+    tint = Image.new("RGBA", (W, H))
+    fade_mask = Image.new("L", (W, H))
+    for y in range(H):
+        t = y / (H - 1)
+        fade = 0.0 if t < 0.40 else min(1.0, (t - 0.40) / 0.52)   # ab 92 % ganz der Hintergrund
+        row = Image.new("RGBA", (W, 1))
+        for x in range(W):
+            side = 0.35 * max(0.0, 1 - (x / (W - 1)) / 0.6)         # links etwas dunkler (Titel/Infos)
+            a = min(1.0, 0.50 + 0.50 * side)
+            row.putpixel((x, 0), panel + (int(round(255 * a)),))
+        tint.paste(row, (0, y))
+        fade_mask.paste(int(round(255 * fade ** 1.2)), (0, y, W, y + 1))
+    img = Image.composite(behind, tint, fade_mask)
+    # abgerundete Ecken: ausserhalb der echte Hintergrund (deckend)
+    mask = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, W - 1, H - 1], S(radius, f), fill=255)
+    img = Image.composite(img, behind, mask)
+    return finish(img, w, h, f)
+
+
 def side_panel(f):
     w, h = 520, 720
     img = canvas(w, h, f)
@@ -325,7 +357,8 @@ def main():
         save(background(f), "bg.png")
         save(background(f, panels=[LIST_PANEL, INFO_PANEL]), "bg_list.png")
         save(background(f, panels=[FULL_PANEL]), "bg_full.png")
-        save(background(f, panels=[POSTER_INFO]), "bg_poster.png")
+        bg_poster = background(f, panels=[POSTER_INFO])
+        save(bg_poster, "bg_poster.png")
         save(background(f, panels=[LIST_PANEL, PIG_INFO], hole=PIG, frame=PIG), "bg_live.png")
         save(selection(LIST_ITEM[0], LIST_ITEM[1], f), "sel_list.png")
         save(selection(FULL_ITEM[0], FULL_ITEM[1], f), "sel_full.png")
@@ -335,6 +368,10 @@ def main():
         save(focus_frame(POSTER[0], POSTER[1], f, pad=7, radius=12), "focus_poster.png")
         save(poster_placeholder(POSTER[0], POSTER[1], f), "poster_bg.png")
         save(star(f), "star.png")
+        # Auslauf in den tatsaechlich gezeichneten Hintergrund des Info-Felds (sonst sieht man eine Kante)
+        bx, by, bw, bh = BACKDROP
+        behind = bg_poster.crop((int(round(bx * f)), int(round(by * f)), int(round((bx + bw) * f)), int(round((by + bh) * f))))
+        save(backdrop_shade(bw, bh, f, behind), "backdrop_shade.png")
         for name, src in (("live", "live_tv.jpg"), ("movie", "movies.jpg"), ("series", "series.jpg")):
             save(rounded_photo(os.path.join(SRC, src), BIG[0], BIG[1], f), "big_%s.png" % name)
         for name in ("continue", "search", "guide", "fav", "recent", "profiles", "receive", "settings", "update", "reload"):

@@ -99,6 +99,11 @@ def grid_body():
         parts.append('<widget name="g_rate%d" position="%d,%d" size="100,22" font="Regular;17" foregroundColor="#00f5c518" '
                      'backgroundColor="#00101b30" transparent="1" />' % (k, x + 22, y + G_H + 29))
     # Info-Feld rechts (wie die Detailseite der App): Titel, Genre/Datum/Laufzeit/Bewertung/Regie, Handlung, Besetzung
+    # Dahinter das Szenenbild des Titels, abgedunkelt und nach unten auslaufend (wie in der App)
+    parts += [
+        '<widget name="gi_back" position="724,112" size="508,286" alphatest="off" scale="1" zPosition="-4" />',
+        '<widget name="gi_shade" position="724,112" size="508,286" pixmap="%s" alphatest="blend" zPosition="-3" />' % px("backdrop_shade.png"),
+    ]
     parts += [
         '<widget name="gi_title" position="736,118" size="484,72" font="Regular;28" valign="top" %s />' % TXT,
         '<widget name="gi_meta" position="736,194" size="484,132" font="Regular;19" foregroundColor="%s" backgroundColor="#00101b30" transparent="1" />' % GREY,
@@ -762,6 +767,8 @@ class ItemScreen(Base):
             self["g_rate%d" % k] = Label("")
         for k in ("gi_title", "gi_meta", "gi_plot", "gi_cast"):
             self[k] = Label("")
+        self["gi_back"] = Pixmap()
+        self["gi_shade"] = Pixmap()
         # Pfeiltasten bewegen den Rahmen im Raster (vor der unsichtbaren Liste auswerten)
         self["grid_actions"] = ActionMap(["DirectionActions", "ChannelSelectBaseActions", "InfobarChannelSelection"], {
             "left": lambda: self.grid_move(-1), "right": lambda: self.grid_move(1),
@@ -986,12 +993,14 @@ class ItemScreen(Base):
                     parts += ["", "Weiterschauen ab %d:%02d" % (pos // 60, pos % 60)]
                     i["resume"] = pos
                 if self.poster:
+                    i["backdrop_file"] = fetch_image(i.get("backdrop"))  # Szenenbild als Hintergrund der Infos
                     return {"text": "", "i": i}  # Poster liegt schon links, kein Cover noetig
                 return {"text": "\n".join(parts), "logo": fetch_image(i.get("cover") or item.get("logo"))}
         elif self.poster and kind == "series":
             def work():
                 i = dict(self.source.series_info(item) or {})
                 i.pop("seasons", None)
+                i["backdrop_file"] = fetch_image(i.get("backdrop"))
                 return {"text": "", "i": i}
         else:
             def work():
@@ -1062,6 +1071,13 @@ class ItemScreen(Base):
             plot = plot[:330].rsplit(" ", 1)[0] + " …"
         self["gi_plot"].setText(plot)
         self["gi_cast"].setText(("Besetzung: " + clean(i.get("cast"))[:200]) if clean(i.get("cast")) else "")
+        back = i.get("backdrop_file")
+        if back:
+            show_image(self["gi_back"], back)
+            self["gi_shade"].show()
+        else:
+            self["gi_back"].hide()
+            self["gi_shade"].hide()
 
     def ok(self):
         n, item = self.current()
