@@ -93,7 +93,10 @@ class SyncManager(private val c: AppContainer) {
 
     /** Server-Seite (/portiva/sync, Hintergrund-Thread). null = Benutzer hier nicht eingerichtet. */
     fun handle(req: SyncRequest): SyncReply? {
-        val p = c.profiles.profiles.value.firstOrNull { canSync(it) && key(it) == req.account } ?: return null
+        val p = c.profiles.profiles.value.firstOrNull { canSync(it) && key(it) == req.account } ?: run {
+            com.poweriptv.app.util.DiagLog.log("Sync", "Anfrage von „${req.from}“: dieser Benutzer ist hier nicht eingerichtet")
+            return null
+        }
         val merged = synchronized(lock) {
             val before = export(p)
             SyncCore.merge(before, req.data).also { apply(p, it, before) }
@@ -134,6 +137,7 @@ class SyncManager(private val c: AppContainer) {
                 else -> failed += reply.error ?: d.name
             }
         }
+        com.poweriptv.app.util.DiagLog.log("Sync", "${devices.size} Geräte gefunden (${devices.joinToString { "${it.name} ${it.platform}" }}), abgeglichen: ${done.size}, Fehler: ${failed.joinToString("; ")}")
         return buildString {
             if (done.isEmpty()) append("Kein Gerät mit diesem Benutzer gefunden.\nAuf dem anderen Gerät muss derselbe Zugang eingerichtet und Portiva geöffnet sein.")
             else {

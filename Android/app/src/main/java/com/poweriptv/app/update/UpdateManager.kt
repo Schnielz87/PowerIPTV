@@ -129,8 +129,10 @@ class UpdateManager(private val context: Context, http: () -> OkHttpClient, json
             }.onSuccess {
                 _progress.value = null
                 _status.value = "Installation wird geöffnet …"
+                com.poweriptv.app.util.DiagLog.log("Update", "${r.tag} geladen (${file.length() / 1024} KB), Installation geöffnet")
                 install(file)
             }.onFailure {
+                com.poweriptv.app.util.DiagLog.log("Update", "Download fehlgeschlagen: ${it.javaClass.simpleName}: ${it.message}")
                 _progress.value = null
                 _status.value = it.message ?: "Download fehlgeschlagen"
             }

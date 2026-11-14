@@ -43,6 +43,7 @@ import com.poweriptv.app.data.Orientation
 import com.poweriptv.app.data.VideoScale
 import com.poweriptv.app.data.PlayerEngine
 import com.poweriptv.app.util.LocalIsTv
+import com.poweriptv.app.ui.components.DiagLogSection
 import com.poweriptv.app.data.SettingsRepository
 import com.poweriptv.app.ui.components.PowerTopBar
 import com.poweriptv.app.ui.components.tvFocus
@@ -281,6 +282,8 @@ fun SettingsScreen(
                 }
                 backupStatus?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) }
             }
+
+            SettingsSection("Fehlerprotokoll (Probleme melden)") { DiagLogSection() }
 
             SettingsSection("Altersfreigaben (FSK) & deutsche Beschreibungen (TMDB)") {
                 var tmdbInput by remember { mutableStateOf("") }

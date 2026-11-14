@@ -44,6 +44,7 @@ class PowerIptvApp : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        com.poweriptv.app.util.DiagLog.init(this)
         container = AppContainer(this)
         container.cast.init() // Google Cast (nur mit Google-Play-Diensten, nicht auf TV-Geraeten)
         // Portiva Link: sichtbare Activities zaehlen (Wiedergabe von anderen Geraeten nur bei geoeffneter App)

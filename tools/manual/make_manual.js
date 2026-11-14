@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.159 · November 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.160 · November 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -219,6 +219,7 @@ c.push(tip('Beim Umzug vom Handy auf den Fire TV: Sicherung mit Passwort erstell
 
 // 13
 c.push(h1('13. Hilfe bei Problemen'));
+c.push(p('Fehlerprotokoll (Probleme melden): Die Android-App (Handy, Tablet, TV-Stick) schreibt mit, was beim Abspielen passiert – welcher Player startet, wie lange das Laden dauert, welche Bild-/Tonformate der Film hat, warum zu VLC gewechselt wird, Hänger, Fehler und Abstürze. Wenn etwas nicht klappt: direkt danach Einstellungen → „Fehlerprotokoll (Probleme melden)“ → „Als QR-Code“. Den Code mit der Handy-Kamera scannen, den Text kopieren und an den Support schicken (Seite 1 = neueste Ereignisse, mit „Älter ▶“ weitere Seiten). „Anzeigen“ zeigt die letzten Ereignisse zum Abfotografieren. Benutzername und Passwort werden nie mitgeschrieben; das Protokoll bleibt auf dem Gerät.'));
 c.push(table(['Problem', 'Lösung'], [
   ['Bild bleibt beim Spulen stehen', 'Behoben ab 1.1.79: Bei Zugängen mit nur 1 Stream öffnet die Vorschau keine 2. Verbindung mehr. Ab 1.1.80 gibt es die Vorschaubilder dort trotzdem wieder: Der Film hält beim Ziehen kurz an. Ab 1.1.84 spult der Player schneller: mehrere Tipps auf ⏪10/10⏩ werden zu einem Sprung zusammengefasst und es wird zum nächsten Schlüsselbild gesprungen (kein langes Nachladen bis zur exakten Sekunde). Hängt das Bild länger als 10 Sekunden, lädt der Player den Stream automatisch an derselben Stelle neu.'],
   ['Bild-in-Bild (Mini-Fenster)', 'Läuft ein Film oder Sender und du drückst die Home-Taste bzw. wischst nach Hause („Kreis“), spielt das Video in einem kleinen Fenster weiter – in beiden Playern (Standard und VLC). Das Fenster lässt sich verschieben; antippen und vergrößern bringt dich zurück, ✕ beendet die Wiedergabe. Nur Handy/Tablet (Fire TV unterstützt es für fremde Apps nicht). Klappt es nicht, ist Bild-in-Bild für die App in Android ausgeschaltet – Portiva zeigt dann einen Hinweis: Einstellungen → Apps → PowerIPTV → Bild-in-Bild einschalten (bei Samsung: Einstellungen → Apps → ⋮ → Spezieller Zugriff → Bild-in-Bild).'],

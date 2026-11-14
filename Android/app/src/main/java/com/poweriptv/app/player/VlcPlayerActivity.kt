@@ -175,6 +175,7 @@ class VlcPlayerActivity : ComponentActivity() {
         libVlc = container.vlc // app-weit vorgeladen
         mediaPlayer = MediaPlayer(libVlc)
         mediaPlayer.setEventListener { event ->
+            vlcLog(event)
             when (event.type) {
                 MediaPlayer.Event.Buffering -> buffering = event.buffering < 100f
                 MediaPlayer.Event.Playing -> {
@@ -607,6 +608,40 @@ class VlcPlayerActivity : ComponentActivity() {
     private var recoveries = 0
     private var lastRecoveryAt = 0L
 
+    private var vlcStartedAt = 0L
+    private var vlcPlayingLogged = false
+    private var vlcBufferLogged = -1
+
+    /** Wichtige VLC-Ereignisse ins Fehlerprotokoll (Puffern nur in 25-%-Schritten). */
+    private fun vlcLog(event: MediaPlayer.Event) {
+        val since = System.currentTimeMillis() - vlcStartedAt
+        when (event.type) {
+            MediaPlayer.Event.Opening -> com.poweriptv.app.util.DiagLog.log("VLC", "Verbinde … ($since ms)")
+            MediaPlayer.Event.Buffering -> {
+                val step = (event.buffering / 25f).toInt()
+                if (step != vlcBufferLogged && !vlcPlayingLogged) { vlcBufferLogged = step; com.poweriptv.app.util.DiagLog.log("VLC", "Puffer ${event.buffering.toInt()} % ($since ms)") }
+            }
+            MediaPlayer.Event.Playing -> if (!vlcPlayingLogged) {
+                vlcPlayingLogged = true
+                val tracks = runCatching {
+                    val m = mediaPlayer.media
+                    (0 until (m?.trackCount ?: 0)).mapNotNull { i ->
+                        when (val t = m?.getTrack(i)) {
+                            is org.videolan.libvlc.interfaces.IMedia.VideoTrack -> "Bild ${t.codec} ${t.width}x${t.height}"
+                            is org.videolan.libvlc.interfaces.IMedia.AudioTrack -> "Ton ${t.codec} ${t.channels}ch"
+                            else -> null
+                        }
+                    }.joinToString(", ")
+                }.getOrDefault("")
+                com.poweriptv.app.util.DiagLog.log("VLC", "Spielt nach $since ms" + if (tracks.isNotBlank()) " – $tracks" else "")
+            }
+            MediaPlayer.Event.Vout -> com.poweriptv.app.util.DiagLog.log("VLC", "Bildausgaben: ${event.voutCount} ($since ms)")
+            MediaPlayer.Event.EncounteredError -> com.poweriptv.app.util.DiagLog.log("VLC", "Fehler beim Abspielen ($since ms)")
+            MediaPlayer.Event.EndReached -> com.poweriptv.app.util.DiagLog.log("VLC", "Ende erreicht (${runCatching { mediaPlayer.time / 1000 }.getOrDefault(0)} s)")
+            else -> Unit
+        }
+    }
+
     private fun checkStall() {
         val e = current() ?: return
         if (scrubSuspended || userPaused || error != null || watchingRecording || blockedRec != null) { stallSince = 0L; return }
@@ -627,12 +662,14 @@ class VlcPlayerActivity : ComponentActivity() {
             val target = (if (pendingSeek > 0 && now - pendingSeekAt < 30_000) pendingSeek else lastTick).coerceAtLeast(0)
             if (target > 0 && length > 0) container.resume.save(e.url, target, length)
             toast = "Bild hing – VLC startet ohne Hardware-Beschleunigung neu …"
+            com.poweriptv.app.util.DiagLog.log("VLC", "Hänger (keine Zeit seit ${limit / 1000} s) – Neustart mit Software-Decoder bei ${target / 1000} s")
             lastTick = -1L
             play(container.playIndex)
             return
         }
         if (++recoveries > 3) { error = "Der Stream hängt – bitte später erneut versuchen"; buffering = false; return }
         lastRecoveryAt = now
+        com.poweriptv.app.util.DiagLog.log("VLC", "Hänger – Neuladen Nr. $recoveries (Zeit stand bei ${lastTick / 1000} s)")
         // Ziel: letzter Sprung (falls gerade gespult wurde), sonst die zuletzt laufende Stelle
         val target = if (!e.live) (if (pendingSeek > 0 && now - pendingSeekAt < 30_000) pendingSeek else lastTick).coerceAtLeast(0) else 0L
         toast = "Verbindung hing – wird neu geladen …"
@@ -856,6 +893,9 @@ class VlcPlayerActivity : ComponentActivity() {
             media.addOption(":start-time=${resumeTarget / 1000.0}")
         }
         startTimeUsed = resumeTarget > 0
+        vlcStartedAt = System.currentTimeMillis(); vlcPlayingLogged = false; vlcBufferLogged = -1
+        com.poweriptv.app.util.DiagLog.log("VLC", "Start „${entry.title}“ ${if (entry.live) "Live" else "Film/Folge"}" +
+            "${if (resumeTarget > 0) " ab ${formatTime(resumeTarget)}" else ""} · Decoder ${if (softwareVod && !entry.live) "Software" else "Hardware"} – ${sd?.url ?: entry.url}")
         mediaPlayer.media = media
         media.release()
         mediaPlayer.play()

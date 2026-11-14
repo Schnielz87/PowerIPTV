@@ -244,6 +244,7 @@ class PlayerActivity : ComponentActivity() {
         }
         player.addListener(object : Player.Listener {
             override fun onPlayerError(e: PlaybackException) {
+                com.poweriptv.app.util.DiagLog.log("Player", "Fehler ${e.errorCodeName}: ${e.message}${e.cause?.let { c -> " / ${c.javaClass.simpleName}: ${c.message}" } ?: ""}")
                 // Schaerfe-Filter laeuft auf diesem Geraet nicht -> ohne Filter weiter
                 if (sharpenOn && (e.errorCode == PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED ||
                         e.errorCode == PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED)) {
@@ -267,7 +268,7 @@ class PlayerActivity : ComponentActivity() {
                     e.errorCode == PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED ||
                     e.errorCode == PlaybackException.ERROR_CODE_DECODING_FAILED
                 ) {
-                    if (switchToVlc()) return
+                    if (switchToVlc(reason = "Decoder-Fehler ${e.errorCodeName}")) return
                 }
                 val cause = generateSequence(e as Throwable) { it.cause }.firstOrNull { it is VpnRequiredException }
                 // Netzwerk-Aussetzer: automatisch neu verbinden (Live: an den aktuellen Live-Punkt, Filme: gleiche Stelle)
@@ -282,7 +283,7 @@ class PlayerActivity : ComponentActivity() {
                     val now = System.currentTimeMillis()
                     if (url != null && lastTimeoutUrl == url && now - lastTimeoutAt < 10 * 60_000L) {
                         lastTimeoutUrl = null
-                        if (switchToVlc(force = true)) return
+                        if (switchToVlc(force = true, reason = "Standard-Player hing zweimal")) return
                     }
                     lastTimeoutUrl = url; lastTimeoutAt = now
                     toast = "Player hing – wird neu gestartet …"
@@ -301,7 +302,10 @@ class PlayerActivity : ComponentActivity() {
             }
 
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_READY) { error = null; rescue.recovered() }
+                if (state == Player.STATE_READY) {
+                    error = null; rescue.recovered()
+                    if (!exoReadyLogged) { exoReadyLogged = true; com.poweriptv.app.util.DiagLog.log("Player", "Bereit nach ${System.currentTimeMillis() - exoStartedAt} ms") }
+                }
                 // Aufnahme ist zu Ende -> wieder normal live schauen
                 if (state == Player.STATE_ENDED && current()?.live == true && watchingRecording) { play(container.playIndex); return }
                 if (state == Player.STATE_ENDED && current()?.live != true) {
@@ -315,13 +319,25 @@ class PlayerActivity : ComponentActivity() {
             override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) = updatePip()
 
             override fun onTracksChanged(tracks: Tracks) {
+                if (!tracksLogged && !tracks.isEmpty) {
+                    tracksLogged = true
+                    val desc = tracks.groups.filter { it.type == C.TRACK_TYPE_VIDEO || it.type == C.TRACK_TYPE_AUDIO }.flatMap { g ->
+                        (0 until g.length).map { i ->
+                            val f = g.getTrackFormat(i)
+                            val kind = if (g.type == C.TRACK_TYPE_VIDEO) "Bild" else "Ton"
+                            val res = if (f.width > 0) " ${f.width}x${f.height}" else ""
+                            "$kind ${f.sampleMimeType?.substringAfter('/') ?: f.codecs ?: "?"}$res${if (g.isTrackSupported(i)) "" else " (nicht unterstützt)"}"
+                        }
+                    }
+                    com.poweriptv.app.util.DiagLog.log("Player", "Spuren: ${desc.joinToString(", ")}")
+                }
                 panelTick++ // Einstellungsleiste/Untertitel-Knopf zeigen die neue Auswahl
                 matchFrameRate()
                 // Videospur vorhanden, aber kein Decoder dafuer (z.B. MPEG-2) -> nur Ton, kein Bild
                 val video = tracks.groups.filter { it.type == C.TRACK_TYPE_VIDEO }
                 val unsupported = video.isNotEmpty() && video.none { g -> (0 until g.length).any { g.isTrackSupported(it) } }
                 // Bild ohne Ton/Ton ohne Bild will niemand -> auch bei fest eingestelltem Standard-Player auf VLC
-                if (unsupported && !switchToVlc(force = true)) {
+                if (unsupported && !switchToVlc(force = true, reason = "Videoformat nicht unterstützt")) {
                     toast = "Videoformat wird von diesem Geraet nicht unterstuetzt – in den Einstellungen \"VLC\" waehlen"
                     return
                 }
@@ -330,7 +346,7 @@ class PlayerActivity : ComponentActivity() {
                 val audio = tracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
                 val noAudio = audio.isNotEmpty() && audio.none { g -> (0 until g.length).any { g.isTrackSupported(it) } }
                 // Bild ohne Ton will niemand -> auch bei fest eingestelltem Standard-Player auf VLC wechseln
-                if (noAudio && !switchToVlc(force = true)) {
+                if (noAudio && !switchToVlc(force = true, reason = "Tonformat nicht abspielbar (${audioCodecs(audio)})")) {
                     toast = "Tonformat (${audioCodecs(audio)}) kann der Standard-Player hier nicht abspielen"
                 }
             }
@@ -818,13 +834,18 @@ class PlayerActivity : ComponentActivity() {
         if (playingSince == 0L) { playingSince = now; return }
         if (now - playingSince > 6_000) {
             toast = "Kein Bild im Standard-Player – wechsle zu VLC …"
-            switchToVlc(force = true)
+            switchToVlc(force = true, reason = "kein Bild nach 6 s")
         }
     }
 
-    private fun switchToVlc(force: Boolean = false): Boolean {
+    private var exoStartedAt = 0L
+    private var exoReadyLogged = false
+    private var tracksLogged = false
+
+    private fun switchToVlc(force: Boolean = false, reason: String = ""): Boolean {
         if (switchedToVlc) return true
         if (!force && container.settings.playerEngineEnum() != PlayerEngine.AUTO) return false
+        com.poweriptv.app.util.DiagLog.log("Player", "Wechsel zu VLC: $reason")
         switchedToVlc = true
         val entry = current() ?: return false
         // Nur diesen Stream merken (nicht die ganze Kategorie) – andere Titel bleiben im Standard-Player
@@ -961,7 +982,7 @@ class PlayerActivity : ComponentActivity() {
 
     private fun selectTrack(type: Int, option: TrackOption) {
         if (option.key.startsWith(VLC_KEY)) {
-            if (!switchToVlc(force = true)) toast = "Diese Tonspur kann nur der VLC-Player abspielen"
+            if (!switchToVlc(force = true, reason = "Tonspur gewählt, die nur VLC kann")) toast = "Diese Tonspur kann nur der VLC-Player abspielen"
             return
         }
         val params = player.trackSelectionParameters.buildUpon()
@@ -1266,6 +1287,8 @@ class PlayerActivity : ComponentActivity() {
         // Filme/Serien: an der zuletzt gesehenen Stelle weitermachen
         val resumeAt = if (entry.live) 0L else container.resume.get(entry.url)
         if (resumeAt > 0) toast = "▶ Weiter ab ${formatTime(resumeAt)}"
+        exoStartedAt = System.currentTimeMillis(); exoReadyLogged = false; tracksLogged = false
+        com.poweriptv.app.util.DiagLog.log("Player", "Start „${entry.title}“ ${if (entry.live) "Live" else "Film/Folge"}${if (resumeAt > 0) " ab ${formatTime(resumeAt)}" else ""} – $playUrl")
         withSwitch {
             if (resumeAt > 0) player.setMediaItem(builder.build(), resumeAt) else player.setMediaItem(builder.build())
             player.prepare()
