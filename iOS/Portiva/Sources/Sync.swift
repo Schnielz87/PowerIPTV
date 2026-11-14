@@ -160,7 +160,7 @@ enum SyncCore {
         return s
     }
 
-    static func canSync(_ p: Profile) -> Bool { p.type != .M3U_FILE && (!p.username.isEmpty || !p.m3uUrl.isEmpty) }
+    static func canSync(_ p: Profile) -> Bool { !p.username.isEmpty || !p.m3uUrl.isEmpty }
 
     static func accountKey(_ p: Profile) -> String {
         let raw = p.username.trimmingCharacters(in: .whitespaces).isEmpty
