@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.160 · November 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.161 · November 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -205,16 +205,16 @@ c.push(bullet([b('Bild-in-Bild: '), t('Auf dem Handy läuft der Sender beim Verl
 
 // 12
 c.push(h1('12. Einstellungen'));
-c.push(table(['Bereich', 'Was man einstellen kann'], [
-  ['Player', 'Start-Klang an/aus (kurzer Kino-Klang beim App-Start, das Logo erscheint auf den Schlag), Automatisch / Standard / VLC, VLC-Leistung (Automatisch / Schnell / Qualität), Bildwiederholrate (AFR), Bildformat, Vorschaubilder beim Spulen'],
-  ['Live-Format & User-Agent', 'Stream-Format (TS/HLS) und Kennung gegenüber dem Anbieter'],
-  ['VPN', 'WireGuard-Konfiguration, Auto-Verbinden, Kill-Switch („nur mit VPN abspielen“)'],
-  ['Kindersicherung', 'Erst mit festgelegter PIN aktiv (grüner Hinweis „AKTIV“ oben). Sperrt Kategorien, Erwachseneninhalte automatisch und gilt überall – auch in Verlauf, Weiterschauen, Favoriten, Suche und Programmführer.'],
-  ['KI-Empfehlungen', 'ChatGPT-Schlüssel und Modell'],
-  ['Altersfreigaben (FSK) & deutsche Beschreibungen', 'TMDB-Schlüssel für die offizielle FSK sowie deutsche Beschreibung und Genres'],
-  ['Sichern & Wiederherstellen', 'Alles als Datei sichern (optional mit Zugangsdaten und Passwort) und auf einem anderen Gerät laden'],
-  ['Darstellung', 'Ausrichtung auf Handy/Tablet'],
-], [2800, 6226]));
+c.push(p('Die Einstellungen sind in Reiter aufgeteilt (Handy, Tablet, TV-Stick). Am Fernseher wechselt der Inhalt schon beim Ansteuern eines Reiters mit links/rechts; mit „runter“ geht es in die Einstellungen des Reiters.'));
+c.push(table(['Reiter', 'Was man dort einstellen kann'], [
+  ['Wiedergabe', 'Player: Automatisch / Standard / VLC, gemerkte VLC-Sender zurücksetzen, VLC-Leistung (Automatisch / Schnell / Qualität), Bildwiederholrate automatisch anpassen (AFR), Vorschaubilder beim Spulen, Bildformat. Dazu das Live-TV-Stream-Format (TS/HLS).'],
+  ['Bild & Netz', 'Mobile-Daten-Modus (SD-Version unterwegs), Bildschärfe (Aus/Leicht/Stark), User-Agent (nur ändern, wenn der Anbieter es verlangt).'],
+  ['Sicherheit', 'VPN & Kill-Switch („nur mit VPN abspielen“), Kindersicherung (erst mit festgelegter PIN aktiv – sperrt Kategorien und Erwachseneninhalte überall, auch in Verlauf, Weiterschauen und Favoriten), Aufnahmen.'],
+  ['Daten', 'Sichern & Wiederherstellen (alles als Datei, optional mit Zugangsdaten und Passwort; am Fernseher direkt in den Ordner „Download“), Downloads (parallele Verbindungen).'],
+  ['Dienste', 'KI-Empfehlungen (ChatGPT-Schlüssel, Modell, Adresse), Altersfreigaben (FSK) & deutsche Beschreibungen (TMDB-Schlüssel).'],
+  ['System', 'Darstellung & Klang (Bildschirmausrichtung auf Handy/Tablet, Start-Klang), Fehlerprotokoll (Probleme melden), Info zur Version.'],
+], [2200, 6826]));
+c.push(p('Windows hat dieselben Reiter als Knöpfe oben: Wiedergabe (Player, Tastenkürzel), Zugang & Netz (aktiver Zugang, Playlist aktualisieren, Zugänge verwalten, User-Agent), Sicherheit (Kindersicherung, VPN), Daten (Downloads & Aufnahmen, Sichern & Wiederherstellen), Dienste (KI, FSK/TMDB), System (Start-Klang, Vollbild, Bilder-Cache, Über). Auf iPhone, Samsung-TV und Receiver sind die Einstellungen kurz genug und bleiben eine Liste mit Abschnitten.'));
 c.push(tip('Beim Umzug vom Handy auf den Fire TV: Sicherung mit Passwort erstellen, Datei z.B. per Cloud auf das andere Gerät bringen und dort unter „Sicherung laden“ wiederherstellen.'));
 
 // 13

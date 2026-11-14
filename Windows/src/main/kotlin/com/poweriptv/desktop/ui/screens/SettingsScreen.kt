@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
@@ -50,148 +51,162 @@ import java.util.Locale
 @Composable
 fun SettingsScreen(app: AppState) {
     val s by app.settings.state.collectAsState()
+    var tab by remember { mutableStateOf(0) }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(
             Modifier.widthIn(max = 860.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(28.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             Text("Einstellungen", style = MaterialTheme.typography.headlineMedium)
-
-            Card("Zugang") {
-                Text("Aktiver Zugang: ${app.profile?.name ?: "–"}")
-                app.source?.lastRefresh?.takeIf { it > 0 }?.let {
-                    Text(
-                        "Playlist zuletzt aktualisiert: " + SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY).format(Date(it)),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedButton(onClick = { app.refresh() }, enabled = !app.refreshing, modifier = Modifier.handCursor()) {
-                        Text(if (app.refreshing) "Wird aktualisiert …" else "Playlist aktualisieren")
-                    }
-                    OutlinedButton(onClick = { app.navigate(Screen.Profiles) }, modifier = Modifier.handCursor()) { Text("Zugänge verwalten") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                SettingsTabs.forEachIndexed { i, label ->
+                    FilterChip(selected = tab == i, onClick = { tab = i }, label = { Text(label) }, modifier = Modifier.handCursor())
                 }
             }
 
-            Card("Player") {
-                Toggle("Hardware-Beschleunigung (Grafikkarte dekodiert das Video)", s.hardwareDecoding) { v -> app.settings.update { it.copy(hardwareDecoding = v) } }
-                Toggle("Nächste Folge automatisch abspielen", s.autoNextEpisode) { v -> app.settings.update { it.copy(autoNextEpisode = v) } }
-                Text("Puffer (bei Rucklern erhöhen)")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(1500 to "Kurz", 3000 to "Normal", 6000 to "Groß", 10000 to "Sehr groß").forEach { (ms, l) ->
-                        FilterChip(selected = s.networkCaching == ms, onClick = { app.settings.update { it.copy(networkCaching = ms) } }, label = { Text(l) }, modifier = Modifier.handCursor())
+            when (tab) {
+                0 -> {
+                    Card("Player") {
+                        Toggle("Hardware-Beschleunigung (Grafikkarte dekodiert das Video)", s.hardwareDecoding) { v -> app.settings.update { it.copy(hardwareDecoding = v) } }
+                        Toggle("Nächste Folge automatisch abspielen", s.autoNextEpisode) { v -> app.settings.update { it.copy(autoNextEpisode = v) } }
+                        Text("Puffer (bei Rucklern erhöhen)")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(1500 to "Kurz", 3000 to "Normal", 6000 to "Groß", 10000 to "Sehr groß").forEach { (ms, l) ->
+                                FilterChip(selected = s.networkCaching == ms, onClick = { app.settings.update { it.copy(networkCaching = ms) } }, label = { Text(l) }, modifier = Modifier.handCursor())
+                            }
+                        }
+                        Text("Bildformat (Standard)")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            AspectModes.forEach { (k, l) ->
+                                FilterChip(selected = s.aspect == k, onClick = { app.settings.update { it.copy(aspect = k) } }, label = { Text(l) }, modifier = Modifier.handCursor())
+                            }
+                        }
+                        Text("Untertitel-Größe")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("KLEIN" to "Klein", "NORMAL" to "Normal", "GROSS" to "Groß", "SEHR_GROSS" to "Sehr groß").forEach { (k, l) ->
+                                FilterChip(selected = s.subtitleSize == k, onClick = { app.settings.update { it.copy(subtitleSize = k) } }, label = { Text(l) }, modifier = Modifier.handCursor())
+                            }
+                        }
+                        Toggle("Untertitel mit dunklem Hintergrund", s.subtitleBackground) { v -> app.settings.update { it.copy(subtitleBackground = v) } }
+                        Text("Vorschaubilder beim Spulen")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("AUTO" to "Automatisch", "ALWAYS" to "Immer parallel", "OFF" to "Aus").forEach { (k, l) ->
+                                FilterChip(selected = s.scrubPreview == k, onClick = { app.settings.update { it.copy(scrubPreview = k, scrubBlocked = false) } }, label = { Text(l) }, modifier = Modifier.handCursor())
+                            }
+                        }
+                        Text("„Automatisch“: Vorschaubilder nur, wenn dein Zugang eine zweite Verbindung frei hat – sonst springt der Film direkt. „Immer parallel“ braucht eine zweite Verbindung.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Bildschärfe")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("OFF" to "Aus", "LIGHT" to "Leicht", "STRONG" to "Stark").forEach { (k, l) ->
+                                FilterChip(selected = s.sharpen == k, onClick = { app.settings.update { it.copy(sharpen = k) } }, label = { Text(l) }, modifier = Modifier.handCursor())
+                            }
+                        }
+                        Text("Dezenter Schärfe-Filter, vor allem für SD-Sender. Wirkt beim nächsten Sender/Film.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Live-TV-Format (Xtream)")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("ts" to "MPEG-TS (.ts)", "m3u8" to "HLS (.m3u8)").forEach { (k, l) ->
+                                FilterChip(selected = s.liveFormat == k, onClick = { app.settings.update { it.copy(liveFormat = k) } }, label = { Text(l) }, modifier = Modifier.handCursor())
+                            }
+                        }
+                        Vlc.error?.let { Text("VLC: $it", color = MaterialTheme.colorScheme.error) }
                     }
-                }
-                Text("Bildformat (Standard)")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AspectModes.forEach { (k, l) ->
-                        FilterChip(selected = s.aspect == k, onClick = { app.settings.update { it.copy(aspect = k) } }, label = { Text(l) }, modifier = Modifier.handCursor())
-                    }
-                }
-                Text("Untertitel-Größe")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("KLEIN" to "Klein", "NORMAL" to "Normal", "GROSS" to "Groß", "SEHR_GROSS" to "Sehr groß").forEach { (k, l) ->
-                        FilterChip(selected = s.subtitleSize == k, onClick = { app.settings.update { it.copy(subtitleSize = k) } }, label = { Text(l) }, modifier = Modifier.handCursor())
-                    }
-                }
-                Toggle("Untertitel mit dunklem Hintergrund", s.subtitleBackground) { v -> app.settings.update { it.copy(subtitleBackground = v) } }
-                Text("Vorschaubilder beim Spulen")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("AUTO" to "Automatisch", "ALWAYS" to "Immer parallel", "OFF" to "Aus").forEach { (k, l) ->
-                        FilterChip(selected = s.scrubPreview == k, onClick = { app.settings.update { it.copy(scrubPreview = k, scrubBlocked = false) } }, label = { Text(l) }, modifier = Modifier.handCursor())
-                    }
-                }
-                Text("„Automatisch“: Vorschaubilder nur, wenn dein Zugang eine zweite Verbindung frei hat – sonst springt der Film direkt. „Immer parallel“ braucht eine zweite Verbindung.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Bildschärfe")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("OFF" to "Aus", "LIGHT" to "Leicht", "STRONG" to "Stark").forEach { (k, l) ->
-                        FilterChip(selected = s.sharpen == k, onClick = { app.settings.update { it.copy(sharpen = k) } }, label = { Text(l) }, modifier = Modifier.handCursor())
-                    }
-                }
-                Text("Dezenter Schärfe-Filter, vor allem für SD-Sender. Wirkt beim nächsten Sender/Film.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Live-TV-Format (Xtream)")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("ts" to "MPEG-TS (.ts)", "m3u8" to "HLS (.m3u8)").forEach { (k, l) ->
-                        FilterChip(selected = s.liveFormat == k, onClick = { app.settings.update { it.copy(liveFormat = k) } }, label = { Text(l) }, modifier = Modifier.handCursor())
-                    }
-                }
-                Vlc.error?.let { Text("VLC: $it", color = MaterialTheme.colorScheme.error) }
-            }
-
-            Card("Downloads & Aufnahmen") {
-                Text("Parallele Verbindungen pro Download")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(0 to "Automatisch", 1 to "1", 2 to "2", 3 to "3", 4 to "4").forEach { (n, l) ->
-                        FilterChip(selected = s.downloadConnections == n, onClick = { app.settings.update { it.copy(downloadConnections = n) } }, label = { Text(l) }, modifier = Modifier.handCursor())
+                    Card("Tastenkürzel im Player") {
+                        Shortcuts.forEach { (k, d) ->
+                            Row { Text(k, modifier = Modifier.width(220.dp), color = MaterialTheme.colorScheme.tertiary); Text(d) }
+                        }
                     }
                 }
-                Text("Viele Anbieter drosseln pro Verbindung – mehrere Verbindungen laden schneller (zählen aber zum Stream-Limit).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                FolderRow("Download-Ordner", app.downloadDir()) { f -> app.settings.update { it.copy(downloadDir = f) } }
-                FolderRow("Aufnahme-Ordner", app.recordingDir()) { f -> app.settings.update { it.copy(recordingDir = f) } }
-            }
-
-            Card("KI-Empfehlungen (ChatGPT)") {
-                SecretKeyEditor(
-                    label = "OpenAI-API-Schlüssel", has = app.ai.hasApiKey(),
-                    onSave = { app.ai.setApiKey(it) }, onTest = { app.ai.testConnection() },
-                )
-                var model by remember { mutableStateOf(s.aiModel) }
-                var url by remember { mutableStateOf(s.aiBaseUrl) }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(model, { model = it }, label = { Text("Modell") }, singleLine = true, modifier = Modifier.weight(1f))
-                    OutlinedTextField(url, { url = it }, label = { Text("API-Adresse") }, singleLine = true, modifier = Modifier.weight(2f))
-                    OutlinedButton(onClick = { app.settings.update { it.copy(aiModel = model.trim().ifBlank { "gpt-4o-mini" }, aiBaseUrl = url.trim().trimEnd('/').ifBlank { "https://api.openai.com/v1" }) } }, modifier = Modifier.handCursor()) { Text("Übernehmen") }
+                1 -> {
+                    Card("Zugang") {
+                        Text("Aktiver Zugang: ${app.profile?.name ?: "–"}")
+                        app.source?.lastRefresh?.takeIf { it > 0 }?.let {
+                            Text(
+                                "Playlist zuletzt aktualisiert: " + SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY).format(Date(it)),
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedButton(onClick = { app.refresh() }, enabled = !app.refreshing, modifier = Modifier.handCursor()) {
+                                Text(if (app.refreshing) "Wird aktualisiert …" else "Playlist aktualisieren")
+                            }
+                            OutlinedButton(onClick = { app.navigate(Screen.Profiles) }, modifier = Modifier.handCursor()) { Text("Zugänge verwalten") }
+                        }
+                                    var ua by remember { mutableStateOf(s.userAgent) }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(ua, { ua = it }, label = { Text("User-Agent (nur ändern, wenn dein Anbieter es verlangt)") }, singleLine = true, modifier = Modifier.weight(1f))
+                            OutlinedButton(onClick = { app.settings.update { it.copy(userAgent = ua.ifBlank { com.poweriptv.desktop.data.USER_AGENT }) } }, modifier = Modifier.handCursor()) { Text("Übernehmen") }
+                        }
+                    }
                 }
-                Text("Den Schlüssel bekommst du unter platform.openai.com → API keys. Es werden nur Titel übertragen, nie Zugangsdaten.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-
-            Card("Altersfreigabe (FSK)") {
-                SecretKeyEditor(
-                    label = "TMDB-API-Schlüssel (optional)", has = app.ageRatings.hasApiKey(),
-                    onSave = { app.ageRatings.setApiKey(it) }, onTest = { app.ageRatings.test() },
-                )
-                Text("Mit TMDB-Schlüssel (kostenlos bei themoviedb.org) zeigt die Detailseite die offizielle deutsche FSK sowie die deutsche Beschreibung und deutsche Genres, auch wenn dein Anbieter nur den englischen Text liefert. Ohne Schlüssel: Angaben deines Anbieters.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-
-            Card("Sicherheit") {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedButton(onClick = { app.navigate(Screen.Parental) }, modifier = Modifier.handCursor()) { Text("Kindersicherung") }
-                    OutlinedButton(onClick = { app.navigate(Screen.Vpn) }, modifier = Modifier.handCursor()) { Text("VPN & Sicherheit") }
+                2 -> {
+                    Card("Sicherheit") {
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedButton(onClick = { app.navigate(Screen.Parental) }, modifier = Modifier.handCursor()) { Text("Kindersicherung") }
+                            OutlinedButton(onClick = { app.navigate(Screen.Vpn) }, modifier = Modifier.handCursor()) { Text("VPN & Sicherheit") }
+                        }
+                    }
                 }
-                var ua by remember { mutableStateOf(s.userAgent) }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(ua, { ua = it }, label = { Text("User-Agent (nur ändern, wenn dein Anbieter es verlangt)") }, singleLine = true, modifier = Modifier.weight(1f))
-                    OutlinedButton(onClick = { app.settings.update { it.copy(userAgent = ua.ifBlank { com.poweriptv.desktop.data.USER_AGENT }) } }, modifier = Modifier.handCursor()) { Text("Übernehmen") }
+                3 -> {
+                    Card("Downloads & Aufnahmen") {
+                        Text("Parallele Verbindungen pro Download")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(0 to "Automatisch", 1 to "1", 2 to "2", 3 to "3", 4 to "4").forEach { (n, l) ->
+                                FilterChip(selected = s.downloadConnections == n, onClick = { app.settings.update { it.copy(downloadConnections = n) } }, label = { Text(l) }, modifier = Modifier.handCursor())
+                            }
+                        }
+                        Text("Viele Anbieter drosseln pro Verbindung – mehrere Verbindungen laden schneller (zählen aber zum Stream-Limit).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        FolderRow("Download-Ordner", app.downloadDir()) { f -> app.settings.update { it.copy(downloadDir = f) } }
+                        FolderRow("Aufnahme-Ordner", app.recordingDir()) { f -> app.settings.update { it.copy(recordingDir = f) } }
+                    }
+                    Card("Sichern & Wiederherstellen") {
+                        BackupSection(app)
+                    }
                 }
-            }
-
-            Card("Sichern & Wiederherstellen") {
-                BackupSection(app)
-            }
-
-            Card("Allgemein") {
-                Toggle("Start-Klang beim Öffnen", s.introSound) { v -> app.settings.update { it.copy(introSound = v) } }
-                Toggle("Im Vollbild starten", s.startFullscreen) { v -> app.settings.update { it.copy(startFullscreen = v) } }
-                var cleared by remember { mutableStateOf(false) }
-                OutlinedButton(onClick = { ImageLoader.clearDisk(); cleared = true }, modifier = Modifier.handCursor()) {
-                    Text(if (cleared) "Bilder-Cache geleert" else "Bilder-Cache leeren")
+                4 -> {
+                    Card("KI-Empfehlungen (ChatGPT)") {
+                        SecretKeyEditor(
+                            label = "OpenAI-API-Schlüssel", has = app.ai.hasApiKey(),
+                            onSave = { app.ai.setApiKey(it) }, onTest = { app.ai.testConnection() },
+                        )
+                        var model by remember { mutableStateOf(s.aiModel) }
+                        var url by remember { mutableStateOf(s.aiBaseUrl) }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(model, { model = it }, label = { Text("Modell") }, singleLine = true, modifier = Modifier.weight(1f))
+                            OutlinedTextField(url, { url = it }, label = { Text("API-Adresse") }, singleLine = true, modifier = Modifier.weight(2f))
+                            OutlinedButton(onClick = { app.settings.update { it.copy(aiModel = model.trim().ifBlank { "gpt-4o-mini" }, aiBaseUrl = url.trim().trimEnd('/').ifBlank { "https://api.openai.com/v1" }) } }, modifier = Modifier.handCursor()) { Text("Übernehmen") }
+                        }
+                        Text("Den Schlüssel bekommst du unter platform.openai.com → API keys. Es werden nur Titel übertragen, nie Zugangsdaten.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Card("Altersfreigabe (FSK)") {
+                        SecretKeyEditor(
+                            label = "TMDB-API-Schlüssel (optional)", has = app.ageRatings.hasApiKey(),
+                            onSave = { app.ageRatings.setApiKey(it) }, onTest = { app.ageRatings.test() },
+                        )
+                        Text("Mit TMDB-Schlüssel (kostenlos bei themoviedb.org) zeigt die Detailseite die offizielle deutsche FSK sowie die deutsche Beschreibung und deutsche Genres, auch wenn dein Anbieter nur den englischen Text liefert. Ohne Schlüssel: Angaben deines Anbieters.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
-                Text("Daten-Ordner: ${AppDirs.root.absolutePath}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-
-            Card("Tastenkürzel im Player") {
-                Shortcuts.forEach { (k, d) ->
-                    Row { Text(k, modifier = Modifier.width(220.dp), color = MaterialTheme.colorScheme.tertiary); Text(d) }
+                5 -> {
+                    Card("Allgemein") {
+                        Toggle("Start-Klang beim Öffnen", s.introSound) { v -> app.settings.update { it.copy(introSound = v) } }
+                        Toggle("Im Vollbild starten", s.startFullscreen) { v -> app.settings.update { it.copy(startFullscreen = v) } }
+                        var cleared by remember { mutableStateOf(false) }
+                        OutlinedButton(onClick = { ImageLoader.clearDisk(); cleared = true }, modifier = Modifier.handCursor()) {
+                            Text(if (cleared) "Bilder-Cache geleert" else "Bilder-Cache leeren")
+                        }
+                        Text("Daten-Ordner: ${AppDirs.root.absolutePath}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Card("Über") {
+                        Text("Portiva – PowerIPTV für Windows · Version $AppVersion")
+                        Text("Wiedergabe mit VLC (libVLC) · Daten bleiben auf diesem PC.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
-            }
-
-            Card("Über") {
-                Text("Portiva – PowerIPTV für Windows · Version $AppVersion")
-                Text("Wiedergabe mit VLC (libVLC) · Daten bleiben auf diesem PC.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
 }
+
+/** Reiter wie in der Android-App (Zugang & Netz statt Bild & Netz: die Bildschaerfe steht hier beim Player). */
+val SettingsTabs = listOf("Wiedergabe", "Zugang & Netz", "Sicherheit", "Daten", "Dienste", "System")
 
 val AspectModes = listOf("fit" to "Original", "fill" to "Zoomen", "stretch" to "Strecken", "16:9" to "16:9", "4:3" to "4:3")
 
