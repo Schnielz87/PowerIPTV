@@ -247,11 +247,32 @@ fun SettingsScreen(
                     singleLine = true, modifier = Modifier.fillMaxWidth(),
                     visualTransformation = PasswordVisualTransformation(),
                 )
+                val tvBackup = LocalIsTv.current
+                fun backupName() = "PowerIPTV-Sicherung-" + java.text.SimpleDateFormat("yyyy-MM-dd-HHmm", java.util.Locale.GERMANY).format(java.util.Date()) + ".json"
+                fun exportDirect() {
+                    scope.launch {
+                        backupStatus = "Sichere..."
+                        backupStatus = runCatching {
+                            val where = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                container.backup.exportToDownloads(backupName(), withSecrets, backupPw.ifBlank { null })
+                            }
+                            "Gespeichert in $where" + if (backupPw.isBlank() && withSecrets) " (unverschluesselt – enthaelt Zugangsdaten)" else ""
+                        }.getOrElse { "Fehler: ${it.message}" }
+                    }
+                }
+                val storagePermission = androidx.activity.compose.rememberLauncherForActivityResult(
+                    androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+                ) { granted -> if (granted) exportDirect() else backupStatus = "Ohne Speicher-Berechtigung kann die Sicherung nicht gespeichert werden" }
                 Row {
                     TextButton(onClick = {
-                        val name = "PowerIPTV-Sicherung-" + java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.GERMANY).format(java.util.Date()) + ".json"
-                        runCatching { exportLauncher.launch(name) }.onFailure { backupStatus = "Dateiauswahl ist auf diesem Geraet nicht verfuegbar" }
-                    }) { Text("Sicherung erstellen") }
+                        if (tvBackup) {
+                            // Fernseher: direkt in "Download" (das System-Fenster ist per Fernbedienung kaum bedienbar)
+                            val need = android.os.Build.VERSION.SDK_INT < 29 && androidx.core.content.ContextCompat.checkSelfPermission(
+                                ctx, android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                            if (need) storagePermission.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) else exportDirect()
+                        } else runCatching { exportLauncher.launch(backupName()) }.onFailure { backupStatus = "Dateiauswahl ist auf diesem Geraet nicht verfuegbar" }
+                    }) { Text(if (tvBackup) "Sicherung in „Download“ speichern" else "Sicherung erstellen") }
                     TextButton(onClick = {
                         runCatching { importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream", "*/*")) }
                             .onFailure { backupStatus = "Dateiauswahl ist auf diesem Geraet nicht verfuegbar" }

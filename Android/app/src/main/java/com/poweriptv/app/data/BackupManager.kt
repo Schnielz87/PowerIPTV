@@ -33,6 +33,31 @@ class BackupManager(private val context: Context, private val secure: SecureStor
     fun isEncrypted(text: String): Boolean =
         runCatching { (json.parseToJsonElement(text) as JsonObject)["encrypted"]?.jsonPrimitive?.booleanOrNull == true }.getOrDefault(false)
 
+    /**
+     * Fernseher/TV-Stick: ohne Dateiauswahl direkt in den oeffentlichen Ordner "Download" speichern
+     * (das System-Speichern-Fenster ist dort mit der Fernbedienung kaum bedienbar). Liefert den Speicherort.
+     * Bis Android 9 wird dafuer die Speicher-Berechtigung gebraucht (wird vorher abgefragt).
+     */
+    fun exportToDownloads(name: String, includeSecrets: Boolean, password: String?): String {
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.Downloads.DISPLAY_NAME, name)
+                put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/json")
+                put(android.provider.MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
+            }
+            val uri = context.contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                ?: throw java.io.IOException("Download-Ordner nicht verfuegbar")
+            export(uri, includeSecrets, password)
+            return "Download/$name"
+        }
+        @Suppress("DEPRECATION")
+        val dir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+        dir.mkdirs()
+        val file = File(dir, name)
+        export(Uri.fromFile(file), includeSecrets, password)
+        return file.absolutePath
+    }
+
     fun export(uri: Uri, includeSecrets: Boolean, password: String?) {
         val data = buildJsonObject {
             put("prefs", JsonObject(prefsNames().associateWith { prefsToJson(it) }))
