@@ -69,6 +69,9 @@ Ohne diese Secrets wird mit einem wechselnden Debug-Schluessel signiert (dann vo
 
 ## Fire TV / Android TV
 
+**Installieren mit der App „Downloader“:** Code **1665340** eingeben – fuehrt immer zur neuesten APK
+(`github.com/Schnielz87/PowerIPTV/releases/latest/download/PowerIPTV.apk`).
+
 Eine APK fuer alles: Die App erkennt Fernseher und TV-Sticks automatisch (Fire TV, Android TV, Google TV)
 und schaltet in den TV-Modus: immer Querformat, Vollbild, Sicherheitsrand gegen Overscan,
 Bedienung komplett per Fernbedienung, Suchfelder oeffnen die Tastatur erst nach „OK“.
