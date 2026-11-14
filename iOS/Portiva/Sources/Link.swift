@@ -229,7 +229,7 @@ final class LinkService: ObservableObject {
                             result = self?.route(req.method, req.path, req.body, peer) ?? (500, "{}")
                         }
                         Self.respond(c, result.0, result.1)
-                    } else if done || err != nil || buffer.count > 64_000 {
+                    } else if done || err != nil || buffer.count > 4_000_000 {
                         c.cancel()
                     } else { receive() }
                 }
@@ -250,7 +250,7 @@ final class LinkService: ObservableObject {
             guard let line = lines.dropFirst().first(where: { $0.lowercased().hasPrefix(name + ":") }) else { return nil }
             return String(line.dropFirst(name.count + 1)).trimmingCharacters(in: .whitespaces)
         }
-        let length = min(Int(header("content-length") ?? "") ?? 0, 64_000)
+        let length = min(Int(header("content-length") ?? "") ?? 0, 4_000_000)
         let body = d[headEnd.upperBound...]
         if body.count < length { return nil }
         return Request(method: String(first[0]).uppercased(), path: String(first[1]).components(separatedBy: "?")[0],
@@ -295,6 +295,11 @@ final class LinkService: ObservableObject {
             app.play([PlayEntry(title: p.title, url: p.url, live: p.live, item: item, startAt: p.live ? 0 : Double(p.positionMs))])
             app.show(p.from.isEmpty ? "Wiedergabe übernommen" : "Von „\(p.from)“ übernommen")
             return (200, #"{"ok":true}"#)
+        }
+        if method == "POST" && path == "/portiva/sync" {
+            guard let r = try? dec.decode(SyncRequest.self, from: body), r.account.count == 64, let app else { return (400, #"{"ok":false}"#) }
+            let reply = app.handleSync(r) ?? SyncReply(ok: false, name: deviceName, error: "Benutzer auf „\(deviceName)“ nicht eingerichtet", unknown: true)
+            return (200, String(decoding: (try? JSONEncoder().encode(reply)) ?? Data(), as: UTF8.self))
         }
         if method == "GET" && path.hasPrefix("/portiva/offer/") {
             let code = String(path.dropFirst("/portiva/offer/".count))

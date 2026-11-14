@@ -110,6 +110,7 @@ final class Library: ObservableObject {
 
     @discardableResult
     func toggleFavorite(_ i: ContentItem) -> Bool {
+        syncMeta.touch("I|\(SyncCore.defaultList)|\(i.key)", deleted: isFavorite(i))
         if isFavorite(i) { favorites.removeAll { $0.key == i.key } } else { favorites.insert(i, at: 0) }
         store("fav", favorites)
         return isFavorite(i)
@@ -125,6 +126,7 @@ final class Library: ObservableObject {
     func toggleInList(_ listId: String, _ i: ContentItem) -> Bool {
         guard let idx = lists.firstIndex(where: { $0.id == listId }) else { return false }
         let had = lists[idx].items.contains { $0.key == i.key }
+        syncMeta.touch("I|\(listId)|\(i.key)", deleted: had)
         if had { lists[idx].items.removeAll { $0.key == i.key } } else { lists[idx].items.insert(i, at: 0) }
         store("lists", lists)
         return !had
@@ -136,6 +138,7 @@ final class Library: ObservableObject {
         let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
         lists.append(FavoriteList(id: id, name: n.isEmpty ? "Neue Liste" : n))
         store("lists", lists)
+        syncMeta.touch("L|\(id)")
         return id
     }
 
@@ -144,11 +147,13 @@ final class Library: ObservableObject {
         guard !n.isEmpty, let idx = lists.firstIndex(where: { $0.id == listId }) else { return }
         lists[idx].name = n
         store("lists", lists)
+        syncMeta.touch("L|\(listId)")
     }
 
     func deleteList(_ listId: String) {
         lists.removeAll { $0.id == listId }
         store("lists", lists)
+        syncMeta.touch("L|\(listId)", deleted: true)
     }
 
     static func positionKey(_ e: PlayEntry) -> String { e.episode.map { "EPISODE:\($0.id)" } ?? e.item?.key ?? e.url }
@@ -190,6 +195,35 @@ final class Library: ObservableObject {
     func removeHistory(_ i: ContentItem) {
         history.removeAll { $0.item.key == i.key }
         store("hist", history)
+    }
+
+    /** Zusammengefuehrten Stand vom Synchronisieren uebernehmen (Weiterschauen nur, wo das andere Geraet neuer ist). */
+    func applySync(_ merged: SyncData, before: SyncData) {
+        let (local, stamps) = SyncLists.apply(merged.lists)
+        favorites = (local.first { $0.id == SyncCore.defaultList }?.items ?? []).map { $0.content }
+        lists = local.filter { $0.id != SyncCore.defaultList }.map { FavoriteList(id: $0.id, name: $0.name, items: $0.items.map { $0.content }) }
+        store("fav", favorites); store("lists", lists)
+        syncMeta.setAll(stamps)
+
+        var localTs: [String: Int64] = [:]
+        for r in before.resume { localTs[r.k] = r.ts }
+        let incoming = merged.resume.filter { $0.item != nil && $0.ts > (localTs[$0.k] ?? 0) }
+        guard !incoming.isEmpty else { return }
+        var entries: [HistoryEntry] = []
+        for r in incoming {
+            guard let item = r.item?.content else { continue }
+            let ep = r.ep.map { Episode(id: $0.id, season: $0.season, episodeNum: $0.num, title: $0.title, ext: $0.ext) }
+            let key = ep.map { "EPISODE:\($0.id)" } ?? item.key
+            if r.done { positions[key] = nil; watched.insert(key) }
+            else if r.pos > 10_000 { positions[key] = Double(r.pos) } else { positions[key] = nil }
+            entries.append(HistoryEntry(item: item, episode: ep, position: Double(r.done ? r.dur : r.pos), duration: Double(r.dur),
+                                        updated: Double(r.ts) / 1000))
+        }
+        let keys = Set(entries.map { $0.item.key })
+        history = Array((entries + history.filter { !keys.contains($0.item.key) })
+            .filter { !AdultContent.isAdultItem(pid, $0.item) }
+            .sorted { $0.updated > $1.updated }.prefix(150))
+        store("hist", history); store("pos", positions); store("watched", Array(watched))
     }
 
     var continueWatching: [HistoryEntry] {

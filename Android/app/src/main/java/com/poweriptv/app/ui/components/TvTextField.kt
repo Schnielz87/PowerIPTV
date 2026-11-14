@@ -58,6 +58,8 @@ fun TvOutlinedTextField(
     singleLine: Boolean = false,
     maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
     minLines: Int = 1,
+    /** Am Fernseher sofort in die Eingabe springen und die Tastatur oeffnen (z.B. Namensfeld in einem Dialog). */
+    autoEdit: Boolean = false,
 ) {
     val isTv = LocalIsTv.current
     if (!isTv) {
@@ -71,7 +73,7 @@ fun TvOutlinedTextField(
         return
     }
 
-    var editing by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf(autoEdit) }
     var fieldFocused by remember { mutableStateOf(false) }
     val fieldFocus = remember { FocusRequester() }
     val boxFocus = remember { FocusRequester() }
@@ -84,7 +86,14 @@ fun TvOutlinedTextField(
         editing = false
         if (direction == null || !focusManager.moveFocus(direction)) runCatching { boxFocus.requestFocus() }
     }
-    LaunchedEffect(editing) { if (editing) runCatching { fieldFocus.requestFocus() } }
+    LaunchedEffect(editing) {
+        if (editing) {
+            // Im Dialog ist das Feld erst nach dem ersten Bild bereit
+            if (autoEdit) kotlinx.coroutines.delay(150)
+            runCatching { fieldFocus.requestFocus() }
+            if (autoEdit) keyboard?.show()
+        }
+    }
 
     Box(
         modifier

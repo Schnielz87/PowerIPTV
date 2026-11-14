@@ -21,7 +21,31 @@ class ResumeRepository(context: Context) {
         val nearEnd = positionMs >= durationMs - maxOf(60_000L, durationMs / 20)
         if (nearEnd) { clear(url); markWatched(url, true); return }
         if (positionMs < 30_000L) clear(url)
-        else prefs.edit().putLong(url, positionMs).putLong("$url|d", durationMs).apply()
+        else prefs.edit().putLong(url, positionMs).putLong("$url|d", durationMs).putLong("t|$url", System.currentTimeMillis()).apply()
+        _version.value++
+    }
+
+    // ---------- Synchronisieren: wann wurde der Stand zuletzt geaendert (ms, 0 = unbekannt) ----------
+    fun changedAt(url: String): Long = prefs.getLong("t|$url", 0L)
+    fun duration(url: String): Long = prefs.getLong("$url|d", 0L)
+    fun seriesChangedAt(seriesKey: String): Long = prefs.getLong("t|series|$seriesKey", 0L)
+
+    /** Stand von einem anderen Geraet uebernehmen (mit dessen Zeitstempel). */
+    fun applySynced(url: String, positionMs: Long, durationMs: Long, done: Boolean, ts: Long) {
+        prefs.edit().apply {
+            if (done) { putBoolean("w|$url", true); remove(url); remove("$url|d") }
+            else if (positionMs >= 30_000L) { putLong(url, positionMs); putLong("$url|d", durationMs.coerceAtLeast(positionMs)) }
+            else { remove(url); remove("$url|d") }
+            putLong("t|$url", ts)
+        }.apply()
+        _version.value++
+    }
+
+    fun applySyncedSeries(seriesKey: String, url: String?, label: String, ts: Long) {
+        prefs.edit().apply {
+            if (url == null) remove("series|$seriesKey") else putString("series|$seriesKey", "$url\n$label")
+            putLong("t|series|$seriesKey", ts)
+        }.apply()
         _version.value++
     }
 
@@ -41,7 +65,7 @@ class ResumeRepository(context: Context) {
 
     /** Zuletzt gesehene Folge einer Serie merken (fuer "Weiterschauen"). */
     fun setLastEpisode(seriesKey: String, url: String, label: String) {
-        prefs.edit().putString("series|$seriesKey", "$url\n$label").apply()
+        prefs.edit().putString("series|$seriesKey", "$url\n$label").putLong("t|series|$seriesKey", System.currentTimeMillis()).apply()
     }
 
     /** (URL, Anzeigename z.B. "S2E5 Titel") der zuletzt gesehenen Folge. */
@@ -63,7 +87,7 @@ class ResumeRepository(context: Context) {
 
     /** Film/Folge als gesehen (oder wieder ungesehen) markieren. */
     fun markWatched(url: String, watched: Boolean) {
-        prefs.edit().apply { if (watched) putBoolean("w|$url", true) else remove("w|$url") }.apply()
+        prefs.edit().apply { if (watched) putBoolean("w|$url", true) else remove("w|$url"); putLong("t|$url", System.currentTimeMillis()) }.apply()
         if (watched) clear(url)
         _version.value++
     }
@@ -72,13 +96,13 @@ class ResumeRepository(context: Context) {
 
     /** Serie aus "Weiterschauen" nehmen (Fortschritt der Folgen bleibt). */
     fun clearLastEpisode(seriesKey: String) {
-        prefs.edit().remove("series|$seriesKey").apply()
+        prefs.edit().remove("series|$seriesKey").putLong("t|series|$seriesKey", System.currentTimeMillis()).apply()
         _version.value++
     }
 
     fun clear(url: String) {
         if (!prefs.contains(url)) return
-        prefs.edit().remove(url).remove("$url|d").apply()
+        prefs.edit().remove(url).remove("$url|d").putLong("t|$url", System.currentTimeMillis()).apply()
         _version.value++
     }
 }

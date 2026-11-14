@@ -71,6 +71,23 @@ def delete_profile(pid):
     save("profiles", d)
 
 
+# ---------- Zeitstempel fuer "Synchronisieren" (ms je Aenderung, negativ = entfernt; siehe sync.py) ----------
+def sync_touch(pid, key, deleted=False):
+    if not pid:
+        return
+    all_ = load("syncmeta", {})
+    m = all_.get(pid, {})
+    t = int(time.time() * 1000)
+    m[key] = -t if deleted else t
+    all_[pid] = m
+    save("syncmeta", all_)
+
+
+def _item_key(item):
+    k = {"live": "LIVE", "movie": "MOVIE", "series": "SERIES"}.get(item.get("kind"), "MOVIE")
+    return "%s:%s" % (k, item.get("id"))
+
+
 # ---------- Favoriten (je Zugang) ----------
 def _fav_key(item):
     return "%s:%s" % (item.get("kind"), item.get("id"))
@@ -97,6 +114,7 @@ def toggle_favorite(pid, item):
         added = True
     all_[pid] = lst
     save("favorites", all_)
+    sync_touch(pid, "I|default|" + _item_key(item), not added)
     return added
 
 
@@ -130,6 +148,7 @@ def toggle_in_list(pid, list_id, item):
             l["items"] = [slim(item)] + items
             added = True
     _save_lists(pid, lst)
+    sync_touch(pid, "I|%s|%s" % (list_id, _item_key(item)), not added)
     return added
 
 
@@ -138,6 +157,7 @@ def create_list(pid, name):
     lid = "%x" % int(time.time() * 1000)
     lst.append({"id": lid, "name": (name or "").strip() or "Neue Liste", "items": []})
     _save_lists(pid, lst)
+    sync_touch(pid, "L|" + lid)
     return lid
 
 
@@ -147,10 +167,12 @@ def rename_list(pid, list_id, name):
         if l.get("id") == list_id and (name or "").strip():
             l["name"] = name.strip()
     _save_lists(pid, lst)
+    sync_touch(pid, "L|" + list_id)
 
 
 def delete_list(pid, list_id):
     _save_lists(pid, [l for l in lists(pid) if l.get("id") != list_id])
+    sync_touch(pid, "L|" + list_id, True)
 
 
 ITEM_KEYS = ("kind", "id", "name", "logo", "ext", "number", "url", "group", "_kind", "cat", "archive", "series_id", "series_name")

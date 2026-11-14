@@ -1,6 +1,20 @@
 package com.poweriptv.app.ui.screens
 
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.ImeAction
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -67,23 +81,49 @@ fun FavoritesScreen(container: AppContainer, onBack: () -> Unit, onOpenDetail: (
     var nameDialog by remember { mutableStateOf<String?>(null) } // null = zu, "" = neu, sonst listId
     var nameInput by remember { mutableStateOf("") }
     var confirmDelete by remember { mutableStateOf(false) }
+    var syncMessage by remember { mutableStateOf<String?>(null) }
+    var syncing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val firstButton = remember { FocusRequester() }
 
     val current = lists.firstOrNull { it.id == selectedId } ?: lists.firstOrNull()
     val selectedIndex = lists.indexOf(current).coerceAtLeast(0)
 
     Scaffold(
         topBar = {
-            PowerTopBar("Favoriten & Listen", onBack = onBack, actions = {
-                IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { nameInput = ""; nameDialog = "" }) { Icon(Icons.Filled.Add, "Neue Liste") }
-                if (current != null && current.id != FavoritesRepository.DEFAULT_ID) {
-                    IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { nameInput = current.name; nameDialog = current.id }) { Icon(Icons.Filled.Edit, "Umbenennen") }
-                    IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, "Liste loeschen") }
-                }
-            })
+            PowerTopBar("Favoriten & Listen", onBack = onBack)
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
+            // Knoepfe im Inhalt (nicht nur oben in der Leiste) – so auch mit der Fernbedienung gut erreichbar
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                item {
+                    ListButton(Icons.Filled.Add, "Neue Liste", Modifier.focusRequester(firstButton)) { nameInput = ""; nameDialog = "" }
+                }
+                if (current != null && current.id != FavoritesRepository.DEFAULT_ID) {
+                    item { ListButton(Icons.Filled.Edit, "Umbenennen") { nameInput = current.name; nameDialog = current.id } }
+                    item { ListButton(Icons.Filled.Delete, "Liste löschen") { confirmDelete = true } }
+                }
+                item {
+                    ListButton(Icons.Filled.Sync, "Synchronisieren") {
+                        val p = source?.profile
+                        if (p == null) { syncMessage = "Kein Zugang ausgewählt"; return@ListButton }
+                        syncMessage = "Suche Geräte im Heimnetz …"; syncing = true
+                        scope.launch {
+                            val msg = withContext(Dispatchers.IO) {
+                                runCatching { container.sync.syncAll(p) { m -> scope.launch { syncMessage = m } } }
+                                    .getOrElse { "Synchronisieren fehlgeschlagen: ${it.message}" }
+                            }
+                            syncing = false; syncMessage = msg
+                        }
+                    }
+                }
+            }
+            LaunchedEffect(Unit) { if (container.isTvDevice) runCatching { firstButton.requestFocus() } }
             ScrollableTabRow(selectedTabIndex = selectedIndex, edgePadding = 8.dp) {
                 lists.forEach { l ->
                     Tab(
@@ -152,16 +192,40 @@ fun FavoritesScreen(container: AppContainer, onBack: () -> Unit, onOpenDetail: (
             onDismissRequest = { nameDialog = null },
             title = { Text(if (target.isEmpty()) "Neue Liste" else "Liste umbenennen") },
             text = {
-                TvOutlinedTextField(value = nameInput, onValueChange = { nameInput = it }, singleLine = true, label = { Text("Name") })
+                TvOutlinedTextField(
+                    value = nameInput, onValueChange = { nameInput = it }, singleLine = true, label = { Text("Name") }, autoEdit = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                )
             },
             confirmButton = {
-                TextButton(enabled = nameInput.isNotBlank(), onClick = {
+                TextButton(enabled = nameInput.isNotBlank(), modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = {
                     if (target.isEmpty()) selectedId = container.favorites.createList(nameInput)
                     else container.favorites.renameList(target, nameInput)
                     nameDialog = null
                 }) { Text("Speichern") }
             },
             dismissButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { nameDialog = null }) { Text("Abbrechen") } },
+        )
+    }
+
+    syncMessage?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { if (!syncing) syncMessage = null },
+            title = { Text("Synchronisieren") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (syncing) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    Text(msg)
+                    if (!syncing) Text(
+                        "Gleicht Favoriten, eigene Listen und „Weiterschauen“ mit allen Geräten im Heimnetz ab, " +
+                            "auf denen derselbe Zugang eingerichtet und Portiva geöffnet ist.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                if (!syncing) TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { syncMessage = null }) { Text("OK") }
+            },
         )
     }
 
@@ -179,5 +243,14 @@ fun FavoritesScreen(container: AppContainer, onBack: () -> Unit, onOpenDetail: (
             },
             dismissButton = { TextButton(modifier = Modifier.tvFocus(RoundedCornerShape(50), 1.06f), onClick = { confirmDelete = false }) { Text("Abbrechen") } },
         )
+    }
+}
+
+@Composable
+private fun ListButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    OutlinedButton(onClick = onClick, modifier = modifier.tvFocus(RoundedCornerShape(50), 1.06f)) {
+        Icon(icon, null, Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(label)
     }
 }

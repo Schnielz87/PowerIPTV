@@ -5,6 +5,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import com.poweriptv.app.link.SyncList
+import com.poweriptv.app.link.SyncLists
+import com.poweriptv.app.link.SyncMeta
+import com.poweriptv.app.link.toContent
+import com.poweriptv.app.link.toSync
 import kotlinx.serialization.json.Json
 import java.util.UUID
 
@@ -22,6 +29,9 @@ data class FavoriteList(
 class FavoritesRepository(context: Context, private val json: Json) {
     private val prefs = context.getSharedPreferences("favorite_lists", Context.MODE_PRIVATE)
     private val serializer = ListSerializer(FavoriteList.serializer())
+    /** Zeitstempel der Aenderungen (fuer "Synchronisieren"), pro Profil. */
+    private val metaPrefs = context.getSharedPreferences("sync_meta", Context.MODE_PRIVATE)
+    private val metaSerializer = MapSerializer(String.serializer(), Long.serializer())
 
     private val _lists = MutableStateFlow<List<FavoriteList>>(emptyList())
     /** Alle Listen, die erste ist immer die Standard-Liste. */
@@ -65,7 +75,31 @@ class FavoritesRepository(context: Context, private val json: Json) {
     fun isInList(listId: String, item: ContentItem) =
         _lists.value.firstOrNull { it.id == listId }?.items?.any { it.key == item.key } == true
 
+    fun meta(profileId: String) = SyncMeta(
+        load = { metaPrefs.getString(profileId, null)?.let { runCatching { json.decodeFromString(metaSerializer, it) }.getOrNull() }.orEmpty() },
+        store = { metaPrefs.edit().putString(profileId, json.encodeToString(metaSerializer, it)).apply() },
+    )
+
+    private fun touch(key: String, deleted: Boolean = false) { profileId?.let { meta(it).touch(key, deleted) } }
+
+    private fun stored(profileId: String): List<FavoriteList> =
+        ensureDefault(prefs.getString(profileId, null)?.let { runCatching { json.decodeFromString(serializer, it) }.getOrNull() }.orEmpty())
+
+    /** Listen eines Profils im Abgleich-Format (auch fuer ein gerade nicht aktives Profil). */
+    fun exportSync(profileId: String): List<SyncList> =
+        SyncLists.export(stored(profileId).map { l -> SyncLists.Local(l.id, l.name, l.items.map { it.toSync() }) }, meta(profileId))
+
+    /** Zusammengefuehrten Stand speichern. */
+    fun applySync(profileId: String, merged: List<SyncList>) {
+        val (local, stamps) = SyncLists.apply(merged)
+        val lists = ensureDefault(local.map { l -> FavoriteList(l.id, l.name, l.items.map { it.toContent() }) })
+        prefs.edit().putString(profileId, json.encodeToString(serializer, lists)).apply()
+        meta(profileId).setAll(stamps)
+        if (profileId == this.profileId) publish(lists)
+    }
+
     fun toggleInList(listId: String, item: ContentItem) = update { lists ->
+        touch("I|$listId|${item.key}", deleted = isInList(listId, item))
         lists.map { l ->
             if (l.id != listId) l
             else if (l.items.any { it.key == item.key }) l.copy(items = l.items.filterNot { it.key == item.key })
@@ -76,19 +110,22 @@ class FavoritesRepository(context: Context, private val json: Json) {
     fun createList(name: String): String {
         val id = UUID.randomUUID().toString()
         update { it + FavoriteList(id, name.trim().ifBlank { "Neue Liste" }) }
+        touch("L|$id")
         return id
     }
 
     fun renameList(listId: String, name: String) = update { lists ->
+        if (name.isNotBlank()) touch("L|$listId")
         lists.map { if (it.id == listId && name.isNotBlank()) it.copy(name = name.trim()) else it }
     }
 
     fun deleteList(listId: String) {
         if (listId == DEFAULT_ID) return
         update { lists -> lists.filterNot { it.id == listId } }
+        touch("L|$listId", deleted = true)
     }
 
-    fun clear(profileId: String) = prefs.edit().remove(profileId).apply()
+    fun clear(profileId: String) { prefs.edit().remove(profileId).apply(); metaPrefs.edit().remove(profileId).apply() }
 
     companion object {
         const val DEFAULT_ID = "default"

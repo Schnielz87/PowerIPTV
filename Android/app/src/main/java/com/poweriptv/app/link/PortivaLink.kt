@@ -270,6 +270,8 @@ class LinkService(
     private val platform: String,
     private val onPlay: (LinkPlay) -> Boolean,
     private val onPair: (LinkPair) -> Boolean,
+    /** Synchronisieren: Stand des anderen Geraets zusammenfuehren; null = Zugang hier nicht vorhanden. */
+    private val onSync: ((SyncRequest) -> SyncReply?)? = null,
 ) {
     private val json = LinkCodes.json
     @Volatile var port: Int = 0
@@ -345,7 +347,7 @@ class LinkService(
             val (code, text) = when {
                 LinkSecurity.isWebsiteOrigin(header("origin")) || !LinkSecurity.isLocalHostHeader(header("host")) ->
                     403 to """{"ok":false,"error":"Nicht erlaubt"}"""
-                length > 64_000 -> 413 to """{"ok":false}"""
+                length > (if (path == "/portiva/sync") 4_000_000 else 64_000) -> 413 to """{"ok":false}"""
                 else -> {
                     val body = if (length > 0) String(readExactly(input, length), Charsets.UTF_8) else ""
                     route(method, path, body, peer)
@@ -386,6 +388,13 @@ class LinkService(
                     LinkSecurity.fail(peer)
                     403 to """{"ok":false,"error":"Code passt nicht"}"""
                 }
+            }
+            method == "POST" && path == "/portiva/sync" -> {
+                val r = runCatching { json.decodeFromString<SyncRequest>(body) }.getOrNull()
+                if (r == null || !Regex("[0-9a-f]{64}").matches(r.account)) return 400 to """{"ok":false}"""
+                val reply = runCatching { onSync?.invoke(r) }.getOrNull()
+                    ?: SyncReply(false, name = deviceName(), error = "Benutzer auf „${deviceName()}“ nicht eingerichtet", unknown = true)
+                200 to json.encodeToString(reply)
             }
             method == "GET" && path.startsWith("/portiva/offer/") -> {
                 val code = path.removePrefix("/portiva/offer/")
@@ -505,6 +514,23 @@ object LinkClient {
     fun sendPlay(d: LinkDevice, play: LinkPlay): String? = post(d.host, d.port, "/portiva/play", json.encodeToString(play))
 
     fun sendPair(host: String, port: Int, pair: LinkPair): String? = post(host, port, "/portiva/pair", json.encodeToString(pair))
+
+    /** Synchronisieren mit einem Geraet: eigener Stand hin, zusammengefuehrter Stand zurueck. */
+    fun sync(d: LinkDevice, req: SyncRequest): SyncReply = try {
+        val c = URL("http://${d.host}:${d.port}/portiva/sync").openConnection() as HttpURLConnection
+        c.requestMethod = "POST"
+        c.doOutput = true
+        c.connectTimeout = 4000; c.readTimeout = 20000
+        c.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+        c.outputStream.use { it.write(json.encodeToString(req).toByteArray(Charsets.UTF_8)) }
+        val code = c.responseCode
+        val text = runCatching { (if (code < 300) c.inputStream else c.errorStream)?.bufferedReader()?.readText() }.getOrNull().orEmpty()
+        c.disconnect()
+        if (code == 404) SyncReply(false, name = d.name, error = "Portiva auf „${d.name}“ ist zu alt – bitte dort aktualisieren")
+        else runCatching { json.decodeFromString<SyncReply>(text) }.getOrNull() ?: SyncReply(false, name = d.name, error = "Fehler $code")
+    } catch (e: Exception) {
+        SyncReply(false, name = d.name, error = "„${d.name}“ nicht erreichbar")
+    }
 
     private fun post(host: String, port: Int, path: String, body: String): String? = try {
         val c = URL("http://$host:$port$path").openConnection() as HttpURLConnection

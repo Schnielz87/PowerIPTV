@@ -67,7 +67,7 @@ class PowerIptvApp : Application(), ImageLoaderFactory {
 }
 
 /** Einfache manuelle Dependency Injection. */
-class AppContainer(private val app: Application) {
+class AppContainer(val app: Application) {
     /** App-Kontext (z.B. fuer die Netz-Erkennung im Mobile-Daten-Modus). */
     val appContext: android.content.Context get() = app
     val json = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -267,7 +267,11 @@ class AppContainer(private val app: Application) {
         platform = if (com.poweriptv.app.util.DeviceInfo.isTv(app)) "android-tv" else "android",
         onPlay = { receivePlay(it) },
         onPair = { receivePair(it) },
+        onSync = { sync.handle(it) },
     )
+
+    /** Favoriten, Listen und Weiterschauen mit anderen Geraeten abgleichen. */
+    val sync by lazy { SyncManager(this) }
 
     fun deviceName(): String {
         val n = runCatching { android.provider.Settings.Global.getString(app.contentResolver, "device_name") }.getOrNull()

@@ -1,6 +1,12 @@
 package com.poweriptv.desktop.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.ContextMenuArea
 import androidx.compose.foundation.ContextMenuItem
 import androidx.compose.foundation.layout.Row
@@ -53,6 +59,9 @@ fun FavoritesScreen(app: AppState) {
     var renameFor by remember { mutableStateOf<com.poweriptv.desktop.data.FavoriteList?>(null) }
     var deleteFor by remember { mutableStateOf<com.poweriptv.desktop.data.FavoriteList?>(null) }
     var newList by remember { mutableStateOf(false) }
+    var syncMessage by remember { mutableStateOf<String?>(null) }
+    var syncing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val current = lists.firstOrNull { it.id == tab }
     val itemsAll = if (tab == "default" || current == null) favoritesAll else current.items
     val favorites = remember(itemsAll, pOn, pUnl) { app.parental.visible(app.profile?.id, itemsAll) }
@@ -60,6 +69,15 @@ fun FavoritesScreen(app: AppState) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Favoriten & Listen", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
             TextButton(onClick = { newList = true }, modifier = Modifier.handCursor()) { Text("+ Neue Liste") }
+            TextButton(onClick = {
+                syncing = true; syncMessage = "Suche Geräte im Heimnetz …"
+                scope.launch {
+                    val msg = withContext(Dispatchers.IO) {
+                        runCatching { app.syncAll { m -> syncMessage = m } }.getOrElse { "Synchronisieren fehlgeschlagen: ${it.message}" }
+                    }
+                    syncing = false; syncMessage = msg
+                }
+            }, enabled = !syncing, modifier = Modifier.handCursor()) { Text("⟳ Synchronisieren") }
         }
         Spacer(Modifier.height(10.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -117,6 +135,24 @@ fun FavoritesScreen(app: AppState) {
                 }) { Text("Speichern") }
             },
             dismissButton = { TextButton(onClick = { newList = false; renameFor = null }) { Text("Abbrechen") } },
+        )
+    }
+    syncMessage?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { if (!syncing) syncMessage = null },
+            title = { Text("Synchronisieren") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (syncing) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    Text(msg)
+                    if (!syncing) Text(
+                        "Gleicht Favoriten, eigene Listen und „Weiterschauen“ mit allen Geräten im Heimnetz ab, " +
+                            "auf denen derselbe Zugang eingerichtet und Portiva geöffnet ist.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = { if (!syncing) TextButton(onClick = { syncMessage = null }, modifier = Modifier.handCursor()) { Text("OK") } },
         )
     }
     deleteFor?.let { l ->

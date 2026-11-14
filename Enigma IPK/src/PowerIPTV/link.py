@@ -3,6 +3,7 @@
 Portiva Link auf dem Receiver – gleiches Protokoll wie Android/Windows/Samsung/iOS:
   GET  /portiva/hello   -> wer bin ich        POST /portiva/play -> hier weiterschauen
   POST /portiva/pair    -> Zugang uebernehmen (nur mit dem gerade angezeigten Code)
+  POST /portiva/sync    -> Favoriten, Listen und Weiterschauen abgleichen (gleicher Zugang, siehe sync.py)
 UDP-Rundruf auf Port 47801 ("PORTIVA_DISCOVER"). Der Dienst laeuft, solange Enigma2 laeuft.
 """
 import base64
@@ -194,6 +195,13 @@ def _handle(method, path, body, threaded=False, peer="?"):
             _in_main(on_play, body)
             return 200, {"ok": True}
         return (200 if on_play(body) else 409), {"ok": True}
+    if path == "/portiva/sync":
+        # Favoriten/Listen/Weiterschauen abgleichen (nur mit der Kennung desselben Zugangs)
+        from . import sync
+        try:
+            return 200, sync.handle(body)
+        except Exception as e:
+            return 500, {"ok": False, "error": "Fehler beim Abgleich: %s" % e}
     if path == "/portiva/pair":
         if not isinstance(body, dict) or not valid_account(body.get("account")):
             _fail(peer)
@@ -257,8 +265,9 @@ def _start_twisted():
                 return denied
             path = request.path.decode() if isinstance(request.path, bytes) else request.path
             try:
-                raw = request.content.read(64001)
-                if len(raw) > 64000:
+                limit = 4000000 if path == "/portiva/sync" else 64000
+                raw = request.content.read(limit + 1)
+                if len(raw) > limit:
                     return self._send(request, 413, {"ok": False})
                 body = native(json.loads(raw.decode("utf-8") or "{}"))
             except Exception:
@@ -320,7 +329,7 @@ def _start_plain():
                 return
             try:
                 n = int(self.headers.get("Content-Length") or 0)
-                if n > 64000:
+                if n > (4000000 if self.path.split("?")[0] == "/portiva/sync" else 64000):
                     return self._send(413, {"ok": False})
                 body = native(json.loads(self.rfile.read(n).decode("utf-8") or "{}"))
             except Exception:

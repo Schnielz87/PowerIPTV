@@ -34,7 +34,8 @@ mit **eingebautem VPN**, **Offline-Downloads** und **eigenen Favoritenlisten**.
 | **Fernbedienungen** | Android TV, Fire TV, Gamepads: deutlicher Fokus-Rahmen, CH+/CH-, Zifferntasten, INFO/GUIDE/MENU, Aufnahme-/Farbtasten, Medientasten |
 | **Filme** | Poster-Raster, Detailseite (Handlung, Genre, Besetzung, Bewertung), Abspielen, Download |
 | **Serien** | Staffeln & Episoden, automatische naechste Episode, Download einzelner Episoden |
-| **Favoriten & Listen** | Herz-Favoriten + beliebig viele eigene Listen (anlegen, umbenennen, loeschen) |
+| **Favoriten & Listen** | Herz-Favoriten + beliebig viele eigene Listen (anlegen, umbenennen, loeschen) – am TV-Stick mit Knoepfen direkt auf der Seite |
+| **Synchronisieren** | Favoriten, eigene Listen und „Weiterschauen“ per Knopf mit allen Geraeten im Heimnetz abgleichen, auf denen derselbe Benutzer (Server + Benutzername + Passwort bzw. M3U-Link) eingerichtet ist – ohne Cloud, ueber Portiva Link. Neuere Aenderung gewinnt, Loeschungen werden uebernommen. Alle Geraete (Samsung-TV/Fire TV Vega nur als Anfragender) |
 | **Downloads** | Filme/Episoden offline speichern, Pause/Fortsetzen (Resume), Offline-Wiedergabe |
 | **VPN** | WireGuard-VPN eingebaut (.conf importieren oder einfuegen), Kill-Switch, Auto-Connect, Split-Tunneling (nur PowerIPTV), externe VPN-Apps werden erkannt |
 | **Player** | ExoPlayer (Media3): HLS, MPEG-TS, MP4, MKV · Untertitel/Tonspuren · Bild-in-Bild |

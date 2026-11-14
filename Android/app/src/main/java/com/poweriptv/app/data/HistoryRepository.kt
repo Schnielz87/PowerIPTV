@@ -40,6 +40,20 @@ class HistoryRepository(context: Context, private val json: Json) {
         if (list.size != _items.value.size) save(list)
     }
 
+    /** Verlauf eines (auch nicht aktiven) Profils. */
+    fun itemsFor(profileId: String): List<ContentItem> =
+        if (profileId == this.profileId) _items.value
+        else prefs.getString(profileId, null)?.let { runCatching { json.decodeFromString(serializer, it) }.getOrNull() }.orEmpty()
+
+    /** Titel von einem anderen Geraet vorne einfuegen (neueste zuerst uebergeben). */
+    fun addSynced(profileId: String, newestFirst: List<ContentItem>) {
+        if (newestFirst.isEmpty()) return
+        val keys = newestFirst.map { it.key }.toSet()
+        val list = (newestFirst + itemsFor(profileId).filterNot { it.key in keys }).filterNot { exclude(profileId, it) }.take(MAX)
+        prefs.edit().putString(profileId, json.encodeToString(serializer, list)).apply()
+        if (profileId == this.profileId) _items.value = list
+    }
+
     fun remove(key: String) = save(_items.value.filterNot { it.key == key })
 
     fun clearType(type: ContentType) = save(_items.value.filterNot { it.type == type })

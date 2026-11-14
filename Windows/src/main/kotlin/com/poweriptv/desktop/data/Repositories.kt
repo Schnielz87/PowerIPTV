@@ -1,5 +1,12 @@
 package com.poweriptv.desktop.data
 
+import com.poweriptv.app.link.SyncData
+import com.poweriptv.app.link.SyncEpisode
+import com.poweriptv.app.link.SyncLists
+import com.poweriptv.app.link.SyncMeta
+import com.poweriptv.app.link.SyncResume
+import com.poweriptv.app.link.toContent
+import com.poweriptv.app.link.toSync
 import com.poweriptv.app.data.ContentItem
 import com.poweriptv.app.data.ContentType
 import com.poweriptv.app.data.Profile
@@ -112,6 +119,8 @@ data class WatchEntry(
 }
 
 /** Favoriten, Wiedergabe-Positionen, Verlauf und "gesehen"-Markierungen – je Zugang. */
+private const val DEFAULT_LIST_ID = com.poweriptv.app.link.DEFAULT_LIST_ID
+
 class LibraryStore(profileId: String, private val exclude: (ContentItem) -> Boolean = { false }) {
     private val favFile = JsonFile(AppDirs.file("favorites_$profileId.json"), ListSerializer(ContentItem.serializer())) { emptyList() }
     private val historyFile = JsonFile(AppDirs.file("history_$profileId.json"), ListSerializer(WatchEntry.serializer())) { emptyList() }
@@ -132,6 +141,7 @@ class LibraryStore(profileId: String, private val exclude: (ContentItem) -> Bool
     fun isFavorite(item: ContentItem) = _favorites.value.any { it.key == item.key }
 
     fun toggleFavorite(item: ContentItem) {
+        syncMeta.touch("I|$DEFAULT_LIST_ID|${item.key}", deleted = isFavorite(item))
         _favorites.update { list -> if (list.any { it.key == item.key }) list.filterNot { it.key == item.key } else listOf(item) + list }
         favFile.write(_favorites.value)
     }
@@ -195,22 +205,26 @@ class LibraryStore(profileId: String, private val exclude: (ContentItem) -> Bool
         val id = java.util.UUID.randomUUID().toString()
         _lists.update { it + FavoriteList(id, name.trim().ifBlank { "Neue Liste" }) }
         listsFile.write(_lists.value)
+        syncMeta.touch("L|$id")
         return id
     }
 
     fun renameList(id: String, name: String) {
         _lists.update { l -> l.map { if (it.id == id && name.isNotBlank()) it.copy(name = name.trim()) else it } }
         listsFile.write(_lists.value)
+        if (name.isNotBlank()) syncMeta.touch("L|$id")
     }
 
     fun deleteList(id: String) {
         _lists.update { l -> l.filterNot { it.id == id } }
         listsFile.write(_lists.value)
+        syncMeta.touch("L|$id", deleted = true)
     }
 
     fun isInList(id: String, item: ContentItem) = _lists.value.firstOrNull { it.id == id }?.items?.any { it.key == item.key } == true
 
     fun toggleInList(id: String, item: ContentItem) {
+        syncMeta.touch("I|$id|${item.key}", deleted = isInList(id, item))
         _lists.update { l ->
             l.map {
                 if (it.id != id) it
@@ -232,6 +246,52 @@ class LibraryStore(profileId: String, private val exclude: (ContentItem) -> Bool
     fun intro(seriesKey: String): Pair<Long, Long>? {
         val (a, b) = intros[seriesKey]?.split(":")?.mapNotNull { it.toLongOrNull() }?.takeIf { it.size == 2 } ?: return null
         return a to b
+    }
+
+    // --- Synchronisieren (Favoriten, Listen, Weiterschauen) mit anderen Geraeten – Format wie Android ---
+    private val syncFile = JsonFile(AppDirs.file("syncmeta_$profileId.json"), MapSerializer(String.serializer(), Long.serializer())) { emptyMap() }
+    private val syncMeta = SyncMeta(load = { syncFile.read() }, store = { syncFile.write(it) })
+
+    fun exportSync(): SyncData {
+        val local = listOf(SyncLists.Local(DEFAULT_LIST_ID, "Favoriten", _favorites.value.map { it.toSync() })) +
+            _lists.value.map { l -> SyncLists.Local(l.id, l.name, l.items.map { it.toSync() }) }
+        val resume = _history.value.filter { it.item.type != ContentType.LIVE }.map { e ->
+            val key = e.episodeId?.let { episodeKey(it) } ?: e.item.key
+            SyncResume(
+                e.item.key, e.position, e.duration, e.updated, key in _watched.value, e.item.toSync(),
+                e.episodeId?.let { SyncEpisode(it, e.season ?: 0, e.episodeNum ?: 0, e.episodeTitle.orEmpty(), e.episodeExt) },
+            )
+        }
+        return SyncData(lists = SyncLists.export(local, syncMeta), resume = resume)
+    }
+
+    fun applySync(merged: SyncData, before: SyncData) {
+        val (local, stamps) = SyncLists.apply(merged.lists)
+        _favorites.value = local.firstOrNull { it.id == DEFAULT_LIST_ID }?.items.orEmpty().map { it.toContent() }
+        favFile.write(_favorites.value)
+        _lists.value = local.filter { it.id != DEFAULT_LIST_ID }.map { l -> FavoriteList(l.id, l.name, l.items.map { it.toContent() }) }
+        listsFile.write(_lists.value)
+        syncMeta.setAll(stamps)
+
+        val localTs = before.resume.associate { it.k to it.ts }
+        val incoming = merged.resume.filter { r -> r.item != null && r.ts > (localTs[r.k] ?: 0L) }
+        if (incoming.isEmpty()) return
+        val entries = incoming.map { r ->
+            val ep = r.ep
+            val key = ep?.let { episodeKey(it.id) } ?: r.k
+            if (r.done) { positions.remove(key); _watched.update { it + key } }
+            else if (r.pos > 10_000) positions[key] = r.pos else positions.remove(key)
+            WatchEntry(
+                r.item!!.toContent(), ep?.id, ep?.title, ep?.season, ep?.num, ep?.ext,
+                position = if (r.done) r.dur else r.pos, duration = r.dur, updated = r.ts,
+            )
+        }
+        val keys = entries.map { it.item.key }.toSet()
+        _history.value = (entries + _history.value.filterNot { it.item.key in keys })
+            .filterNot { exclude(it.item) }.sortedByDescending { it.updated }.take(200)
+        historyFile.write(_history.value)
+        posFile.write(positions)
+        watchedFile.write(_watched.value.toList())
     }
 
     /** Fuer Backup/Wiederherstellung. */

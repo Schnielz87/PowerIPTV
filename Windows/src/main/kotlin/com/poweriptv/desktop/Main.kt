@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Surface
@@ -152,6 +153,14 @@ private fun Root(app: AppState) {
         }
         app.playing?.let { req -> PlayerScreen(app, req) }
         app.listPickerFor?.let { item -> com.poweriptv.desktop.ui.ListPickerDialog(app, item) { app.listPickerFor = null } }
+        app.syncNotice?.let { msg ->
+            androidx.compose.runtime.LaunchedEffect(msg) { kotlinx.coroutines.delay(4000); app.syncNotice = null }
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize().padding(24.dp), contentAlignment = androidx.compose.ui.Alignment.BottomCenter) {
+                androidx.compose.material3.Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp), tonalElevation = 6.dp, shadowElevation = 6.dp) {
+                    androidx.compose.material3.Text(msg, modifier = androidx.compose.ui.Modifier.padding(horizontal = 18.dp, vertical = 12.dp))
+                }
+            }
+        }
         app.pinRequest?.let { action ->
             com.poweriptv.desktop.ui.PinDialog(app.parental, onDismiss = { app.pinRequest = null }) { app.pinRequest = null; action() }
         }

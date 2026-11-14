@@ -35,6 +35,7 @@ except Exception:
     pass
 
 FAV, RECENT, ALL = "__fav__", "__recent__", "__all__"
+SYNC = "__sync__"
 RECEIVE = "__receive__"
 LANG = "__lang__"  # Zeile "Sprache: DE (OK = aendern)" in der Kategorienliste  # Zeile "Zugang vom Handy empfangen" in der Benutzer-Liste
 LIST_ID = "__list__:"  # eigene Liste (Praefix + Listen-ID)
@@ -386,6 +387,23 @@ class PortivaHome(Screen):
         self[on].instance.move(ePoint(int((x - pad) * f), int((y - pad) * f)))
         self[on].show()
 
+    def start_sync(self):
+        """Favoriten, Listen und Weiterschauen mit den anderen Geraeten im Heimnetz abgleichen (gleicher Zugang)."""
+        from . import sync
+        p = store.active_profile()
+        if not p:
+            return
+        self["status"].setText("Synchronisiere – suche Geräte im Heimnetz …")
+
+        def done(msg):
+            self["status"].setText("")
+            self.session.open(MessageBox, msg, MessageBox.TYPE_INFO)
+
+        def failed(msg):
+            self["status"].setText("")
+            self.session.open(MessageBox, "Synchronisieren fehlgeschlagen: %s" % msg, MessageBox.TYPE_ERROR)
+        run_async(self, lambda: sync.sync_all(p), done, failed)
+
     def move(self, drow, dcol):
         if self.pos < 3:
             row, col = 0, self.pos
@@ -423,23 +441,24 @@ class PortivaHome(Screen):
         elif key == "fav":
             favs = store.favorites(pid())
             own = store.lists(pid())
-            if own:
-                def chosen(c):
-                    if not c:
+
+            def chosen(c):
+                if not c:
+                    return
+                if c[1] == SYNC:
+                    self.start_sync()
+                elif c[1] == FAV:
+                    if not store.favorites(pid()):
+                        self["status"].setText("Noch keine Favoriten – in einer Liste mit GELB hinzufügen (MENU → Zu Liste hinzufügen)")
                         return
-                    if c[1] == FAV:
-                        self.session.open(ItemScreen, self.source, None, None, "Favoriten", store.favorites(pid()))
-                    else:
-                        l = next((x for x in store.lists(pid()) if x.get("id") == c[1]), None)
-                        if l:
-                            self.session.open(ItemScreen, self.source, None, None, l.get("name", ""), l.get("items", []), list_id=l.get("id"))
-                rows = [("♥  Favoriten (%d)" % len(favs), FAV)] + [("☰  %s (%d)" % (l.get("name", ""), len(l.get("items", []))), l.get("id")) for l in own]
-                self.session.openWithCallback(chosen, ChoiceBox, title="Favoriten & Listen", list=rows)
-                return
-            if not favs:
-                self["status"].setText("Noch keine Favoriten – in einer Liste mit GELB hinzufügen (MENU → Zu Liste hinzufügen)")
-                return
-            self.session.open(ItemScreen, self.source, None, None, "Favoriten", favs)
+                    self.session.open(ItemScreen, self.source, None, None, "Favoriten", store.favorites(pid()))
+                else:
+                    l = next((x for x in store.lists(pid()) if x.get("id") == c[1]), None)
+                    if l:
+                        self.session.open(ItemScreen, self.source, None, None, l.get("name", ""), l.get("items", []), list_id=l.get("id"))
+            rows = [("♥  Favoriten (%d)" % len(favs), FAV)] + [("☰  %s (%d)" % (l.get("name", ""), len(l.get("items", []))), l.get("id")) for l in own]
+            rows.append(("⟳  Synchronisieren (mit Handy, PC, TV …)", SYNC))
+            self.session.openWithCallback(chosen, ChoiceBox, title="Favoriten & Listen", list=rows)
         elif key == "recent":
             hist = store.history(pid())
             if not hist:

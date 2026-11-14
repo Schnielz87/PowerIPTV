@@ -330,7 +330,68 @@ class AppState(val window: WindowState) {
     val link = com.poweriptv.app.link.LinkService(
         deviceName = { deviceName() }, platform = "windows",
         onPlay = { receivePlay(it) }, onPair = { receivePair(it) },
+        onSync = { handleSync(it) },
     ).also { it.start() }
+
+    // ---------- Synchronisieren (Favoriten, Listen, Weiterschauen) – wie Android ----------
+    private val syncLock = Any()
+    /** Kurze Meldung, nachdem ein anderes Geraet hier abgeglichen hat. */
+    var syncNotice by mutableStateOf<String?>(null)
+
+    fun canSync(p: Profile) = p.type != com.poweriptv.app.data.ProfileType.M3U_FILE && (p.username.isNotBlank() || p.m3uUrl.isNotBlank())
+    private fun syncKey(p: Profile) = com.poweriptv.app.link.SyncCore.accountKey(p.serverUrl, p.username, p.password, p.m3uUrl)
+    private fun libraryFor(p: Profile): LibraryStore = library?.takeIf { profile?.id == p.id } ?: LibraryStore(p.id) { parental.isAdultItem(p.id, it) }
+
+    private fun handleSync(req: com.poweriptv.app.link.SyncRequest): com.poweriptv.app.link.SyncReply? {
+        val p = profiles.profiles.value.firstOrNull { canSync(it) && syncKey(it) == req.account } ?: return null
+        val merged = synchronized(syncLock) {
+            val lib = libraryFor(p)
+            val before = lib.exportSync()
+            com.poweriptv.app.link.SyncCore.merge(before, req.data).also { lib.applySync(it, before) }
+        }
+        if (req.from.isNotBlank()) syncNotice = "Favoriten & Weiterschauen mit „${req.from}“ synchronisiert"
+        return com.poweriptv.app.link.SyncReply(true, merged, deviceName())
+    }
+
+    /** Mit allen Geraeten im Heimnetz abgleichen (blockierend). Liefert die Meldung fuer die Oberflaeche. */
+    fun syncAll(progress: (String) -> Unit = {}): String {
+        val p = profile ?: return "Kein Zugang ausgewählt"
+        if (!canSync(p)) return "Mit einer lokalen M3U-Datei ist kein Abgleich möglich."
+        progress("Suche Geräte im Heimnetz …")
+        val devices = com.poweriptv.app.link.LinkClient.discover(link.port, extraHosts = settings.value.linkHosts)
+        if (devices.isEmpty()) return "Kein anderes Gerät mit Portiva gefunden.\nIm gleichen Netzwerk? Portiva dort geöffnet?"
+        val done = mutableListOf<String>(); val failed = mutableListOf<String>()
+        var added = 0; var removed = 0
+        devices.forEach { d ->
+            progress("Gleiche ab mit „${d.name}“ …")
+            val reply = synchronized(syncLock) {
+                val lib = libraryFor(p)
+                val before = lib.exportSync()
+                val r = com.poweriptv.app.link.LinkClient.sync(d, com.poweriptv.app.link.SyncRequest(syncKey(p), before, deviceName()))
+                val data = r.data
+                if (r.ok && data != null) {
+                    val merged = com.poweriptv.app.link.SyncCore.merge(before, data)
+                    lib.applySync(merged, before)
+                    val (a, b) = com.poweriptv.app.link.SyncCore.changes(before, merged)
+                    added += a; removed += b
+                }
+                r
+            }
+            when {
+                reply.ok -> done += d.name
+                reply.unknown -> Unit
+                else -> failed += reply.error ?: d.name
+            }
+        }
+        return buildString {
+            if (done.isEmpty()) append("Kein Gerät mit diesem Benutzer gefunden.\nAuf dem anderen Gerät muss derselbe Zugang eingerichtet und Portiva geöffnet sein.")
+            else {
+                append("Synchronisiert mit ${done.joinToString(", ")}.")
+                append(if (added == 0 && removed == 0) "\nAlles war schon aktuell." else "\n$added neu oder aktualisiert, $removed entfernt.")
+            }
+            if (failed.isNotEmpty()) append("\n\nNicht geklappt: ${failed.joinToString("; ")}")
+        }
+    }
 
     fun deviceName(): String = System.getenv("COMPUTERNAME")?.takeIf { it.isNotBlank() }?.let { "PC $it" } ?: "Windows-PC"
 

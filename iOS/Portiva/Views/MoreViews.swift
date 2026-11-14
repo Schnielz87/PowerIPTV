@@ -194,10 +194,24 @@ struct FavoritesView: View {
     @State private var nameAsk: String? = nil   // "" = neue Liste, sonst listId zum Umbenennen
     @State private var nameInput = ""
     @State private var deleteAsk: FavoriteList? = nil
+    @State private var syncMessage: String? = nil
+    @State private var syncing = false
 
     var body: some View {
         List {
             let _ = tick
+            Section {
+                Button {
+                    syncing = true; syncMessage = "Suche Geräte im Heimnetz …"
+                    Task {
+                        let msg = await app.syncAll { m in syncMessage = m }
+                        syncing = false; syncMessage = msg; tick += 1
+                    }
+                } label: { Label(syncing ? "Synchronisiere …" : "Synchronisieren", systemImage: "arrow.triangle.2.circlepath") }
+                .disabled(syncing)
+            } footer: {
+                Text("Favoriten, eigene Listen und „Weiterschauen“ mit allen Geräten im Heimnetz abgleichen, auf denen derselbe Zugang eingerichtet und Portiva geöffnet ist.")
+            }
             if let lib = app.library {
                 ForEach(ContentType.allCases, id: \.self) { t in
                     let favs = lib.favorites.filter { $0.type == t }
@@ -257,6 +271,9 @@ struct FavoritesView: View {
             }
             Button("Abbrechen", role: .cancel) { nameAsk = nil }
         }
+        .alert("Synchronisieren", isPresented: Binding(get: { syncMessage != nil && !syncing }, set: { if !$0 { syncMessage = nil } })) {
+            Button("OK") { syncMessage = nil }
+        } message: { Text(syncMessage ?? "") }
         .alert("Liste löschen?", isPresented: Binding(get: { deleteAsk != nil }, set: { if !$0 { deleteAsk = nil } })) {
             Button("Löschen", role: .destructive) { if let l = deleteAsk { app.library?.deleteList(l.id) }; deleteAsk = nil; tick += 1 }
             Button("Abbrechen", role: .cancel) { deleteAsk = nil }

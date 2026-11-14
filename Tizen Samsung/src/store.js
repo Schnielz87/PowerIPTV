@@ -30,7 +30,7 @@ export const profiles = {
   },
   remove(id) {
     storage.set('profiles', this.list().filter((x) => x.id !== id));
-    ['fav', 'hist', 'pos', 'watched', 'intro', 'lists'].forEach((k) => storage.remove(`${k}.${id}`));
+    ['fav', 'hist', 'pos', 'watched', 'intro', 'lists', 'syncmeta'].forEach((k) => storage.remove(`${k}.${id}`));
   },
   newId: uid,
 };
@@ -49,11 +49,19 @@ export class Library {
   }
 
   key(item) { return `${item.type}:${item.id}`; }
+
+  /** Zeitstempel einer Aenderung fuer "Synchronisieren" (negativ = entfernt), wie syncmeta in sync.js. */
+  touch(k, deleted) {
+    const m = storage.get(`syncmeta.${this.pid}`, {});
+    m[k] = deleted ? -Date.now() : Date.now();
+    storage.set(`syncmeta.${this.pid}`, m);
+  }
   static episodeKey(id) { return `EPISODE:${id}`; }
 
   isFavorite(item) { return this.favorites.some((f) => this.key(f) === this.key(item)); }
   toggleFavorite(item) {
     const k = this.key(item);
+    this.touch(`I|default|${k}`, this.isFavorite(item));
     if (this.isFavorite(item)) this.favorites = this.favorites.filter((f) => this.key(f) !== k);
     else this.favorites.unshift(slim(item));
     storage.set(`fav.${this.pid}`, this.favorites);
@@ -71,6 +79,7 @@ export class Library {
     if (!l) return false;
     const k = this.key(item);
     const had = l.items.some((i) => this.key(i) === k);
+    this.touch(`I|${listId}|${k}`, had);
     l.items = had ? l.items.filter((i) => this.key(i) !== k) : [slim(item)].concat(l.items);
     this.saveLists();
     return !had;
@@ -79,13 +88,14 @@ export class Library {
     const id = uid();
     this.lists.push({ id, name: String(name || '').trim() || 'Neue Liste', items: [] });
     this.saveLists();
+    this.touch(`L|${id}`);
     return id;
   }
   renameList(listId, name) {
     const l = this.lists.find((x) => x.id === listId);
-    if (l && String(name || '').trim()) { l.name = String(name).trim(); this.saveLists(); }
+    if (l && String(name || '').trim()) { l.name = String(name).trim(); this.saveLists(); this.touch(`L|${listId}`); }
   }
-  deleteList(listId) { this.lists = this.lists.filter((x) => x.id !== listId); this.saveLists(); }
+  deleteList(listId) { this.lists = this.lists.filter((x) => x.id !== listId); this.saveLists(); this.touch(`L|${listId}`, true); }
 
   // Erwachseneninhalte landen nie in "Zuletzt gesehen"
   isExcluded(item) { return parental.isAdultItem(this.pid, item); }

@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.153 · Oktober 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.154 · November 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -185,6 +185,14 @@ c.push(h1('10. Favoriten, Listen, Downloads'));
 c.push(bullet([b('Favoriten: '), t('Überall möglich: Herz auf der Detailseite und im Player (oben), oder lange drücken (TV: OK halten) auf ein Poster, einen Sender, im Programmführer, in der Suche, bei „Weiterschauen“/„Zuletzt gesehen“. Favoriten tragen ein rotes Herz.')]));
 c.push(bullet([b('Menü bei langem Drücken: '), t('Zu Favoriten hinzufügen/entfernen, Zu Liste hinzufügen (neue Liste anlegen oder vorhandene wählen – auch für Live-TV-Sender), Teilen (WhatsApp & Co. – geteilt wird nur der Titel, nie der Stream-Link mit deinen Zugangsdaten) und bei „Weiterschauen“/„Zuletzt gesehen“ zusätzlich „Aus Liste entfernen“ (der Titel selbst bleibt erhalten).')]));
 c.push(bullet([b('Eigene Listen: '), t('„Liste“ auf der Detailseite, z.B. „Filmabend“ oder „Kinder“ – oder lange auf einen Film, eine Serie oder einen Live-TV-Sender drücken (TV: OK halten) → „Zu Liste hinzufügen“. Dort eine neue Liste anlegen oder den Titel in eine vorhandene Liste legen (Häkchen = schon drin). Sender, Filme und Serien können in derselben Liste stehen, z.B. „Sport“ mit Sport-Sendern und Sport-Filmen.')]));
+c.push(bullet([b('Liste anlegen am TV-Stick: '), t('Auf der Seite „Favoriten & Listen“ stehen oben die Knöpfe „＋ Neue Liste“, „Umbenennen“, „Liste löschen“ und „Synchronisieren“ – mit der Fernbedienung direkt erreichbar. Bei „Neue Liste“ öffnet sich die Bildschirmtastatur sofort; Namen eingeben, „Fertig“ und dann „Speichern“.')]));
+c.push(h2('Synchronisieren: Favoriten, Listen und Weiterschauen auf allen Geräten'));
+c.push(p('Mit „Synchronisieren“ gleichst du Favoriten, eigene Listen und „Weiterschauen“ zwischen deinen Geräten ab – ohne Cloud, direkt über dein Heimnetz (Portiva Link). Abgeglichen wird nur mit Geräten, auf denen derselbe Benutzer (gleicher Server, Benutzername und Passwort bzw. gleicher M3U-Link) eingerichtet ist. So hat jeder Benutzer seine eigenen Favoriten – auf jedem Gerät.'));
+c.push(step('Auf beiden Geräten Portiva öffnen (gleiches WLAN oder LAN). Auf dem anderen Gerät muss derselbe Zugang eingerichtet sein – er muss dort aber nicht gerade ausgewählt sein.', 'n18'));
+c.push(step('„Favoriten & Listen“ öffnen → „Synchronisieren“. Wo der Knopf ist: Handy/Tablet/TV-Stick und Windows oben auf der Seite, iPhone/iPad ganz oben in der Liste, Samsung-TV und Fire TV (Vega) oben auf der Seite, Enigma2-Receiver: Kachel „Favoriten“ → „⟳ Synchronisieren“.', 'n18'));
+c.push(step('Portiva sucht alle Geräte im Heimnetz und gleicht nacheinander mit jedem ab. Danach steht da z.B. „Synchronisiert mit Wohnzimmer-TV, iPhone – 5 neu oder aktualisiert, 1 entfernt“.', 'n18'));
+c.push(tip('Was passiert bei Unterschieden? Jede Änderung merkt sich die Uhrzeit. Pro Titel gewinnt die neuere Änderung: Hast du am Handy einen Film aus den Favoriten genommen, verschwindet er beim nächsten Synchronisieren auch am TV-Stick (gelöschte Listen ebenso). Neue Titel von beiden Seiten werden zusammengeführt – nichts geht verloren. Beim allerersten Synchronisieren werden die vorhandenen Favoriten beider Geräte einfach zusammengelegt. Bei „Weiterschauen“ gilt die zuletzt gesehene Stelle: Film am Handy bis 45:00 gesehen → am Fernseher geht es bei 45:00 weiter, bei Serien mit der zuletzt gesehenen Folge.'));
+c.push(tip('Samsung-Fernseher können andere Geräte anfragen, aber selbst nicht angefragt werden – also am Samsung-TV auf „Synchronisieren“ drücken (dabei werden beide Seiten aktualisiert). Lokal importierte M3U-Dateien können nicht abgeglichen werden. Alte Portiva-Versionen melden „zu alt – bitte dort aktualisieren“.'));
 c.push(bullet([b('Downloads: '), t('„Offline“ lädt Filme und Folgen herunter (mehrere Verbindungen parallel, wenn der Zugang es erlaubt).')]));
 
 // 11
@@ -314,7 +322,7 @@ c.push(table(['Taste', 'Funktion'], [
   ['CH LIST, INFO, GUIDE', 'Senderliste, Infoleiste, Programm des Senders'],
 ], [3000, 6000]));
 c.push(h2('Updates'));
-c.push(p('Eigene Listen: OK auf einem Sender, Film oder einer Serie lange gedrückt halten (oder die blaue Taste) → „Zu Liste hinzufügen …“ → „Neue Liste anlegen“ oder eine vorhandene Liste wählen (✓ = schon drin, nochmal OK nimmt den Titel wieder heraus). Die Listen stehen auf der Seite „Favoriten & Listen“: Rot = aus der Liste entfernen, Grün = neue Liste, Gelb = Liste umbenennen oder löschen. Auf der Detailseite eines Films/einer Serie gibt es dafür den Knopf „☰ Zu Liste“. Gilt genauso für die Fire-TV-Vega-App.'));
+c.push(p('Eigene Listen: OK auf einem Sender, Film oder einer Serie lange gedrückt halten (oder die blaue Taste) → „Zu Liste hinzufügen …“ → „Neue Liste anlegen“ oder eine vorhandene Liste wählen (✓ = schon drin, nochmal OK nimmt den Titel wieder heraus). Die Listen stehen auf der Seite „Favoriten & Listen“: Rot = aus der Liste entfernen, Grün = neue Liste, Gelb = Liste umbenennen oder löschen. Oben auf der Seite stehen außerdem die Knöpfe „⟳ Synchronisieren“ und „＋ Neue Liste“ (siehe Kapitel 10). Auf der Detailseite eines Films/einer Serie gibt es dafür den Knopf „☰ Zu Liste“. Gilt genauso für die Fire-TV-Vega-App.'));
 c.push(p('Die Kachel „Update“ prüft alle 24 Stunden bei GitHub und leuchtet bei einer neuen Version. Installiert wird wie oben (Schritt 4) mit derselben Zertifikat-Datei – Zugänge, Favoriten und Verlauf bleiben erhalten.'));
 c.push(tip('Die Zertifikat-Dateien (author.p12, distributor.p12) gut aufheben und nie weitergeben. Mit einem neuen Zertifikat muss die App vorher deinstalliert werden.'));
 
@@ -387,6 +395,7 @@ c.push(step('GUI neu starten (Menü → Standby/Neustart → GUI neu starten).',
 c.push(step('Menü → Plugins → PowerIPTV öffnen und den Zugang eintragen (Xtream Codes oder M3U-Link). OK bzw. Gelb öffnet die Bildschirmtastatur, Grün prüft und speichert.', 'n17'));
 c.push(h2('Bedienung (mit der Fernbedienung)'));
 c.push(bullet('Startseite wie bei den anderen Geräten: drei große Bild-Kacheln Live TV, Filme, Serien und darunter Weiterschauen, Suche, TV-Guide, Favoriten, Zuletzt gesehen, Benutzer wechseln, Vom Handy empfangen, Einstellungen, Update und Playlist aktualisieren. Pfeiltasten wählen, OK öffnet. Rot = Benutzer, Grün = Einstellungen, Blau = Suche.'));
+c.push(bullet('Synchronisieren: Kachel „Favoriten“ → „⟳ Synchronisieren (mit Handy, PC, TV …)“. Gleicht Favoriten, eigene Listen und Weiterschauen mit allen Geräten im Heimnetz ab, auf denen derselbe Zugang eingerichtet ist (siehe Kapitel 10). Der Receiver kann auch selbst von den anderen Geräten angefragt werden.'));
 c.push(bullet('Mediathek (Kachel „Mediathek“): Sender wählen (ARD, ZDF, Arte, 3sat, dritte Programme …) oder „Suchen …“ bzw. BLAU, dann erscheinen die Sendungen – neueste zuerst; rechts stehen Thema, Sendezeit, Länge und Beschreibung. OK spielt ab, bei angefangenen Sendungen mit „Weiterschauen ab …“. Die Startseite hat dafür jetzt 6 kleine Kacheln pro Reihe.'));
 c.push(bullet('Kategorien: oben „♥ Favoriten“, darunter „Sprache: …“ (OK öffnet die Auswahl, z. B. DE – dann erscheinen nur Kategorien mit „DE“ davor, keine wie „BRASIL“ oder „IRAN“; auch „Alle“ zeigt dann nur deutsche Titel), deine eigenen Listen (☰), „Zuletzt gesehen“ und „Alle“. Rot = Kategorie mit PIN sperren/entsperren (Kindersicherung), Grün = Live-Kategorie als Bouquet in die normale Senderliste des Receivers übernehmen.'));
 c.push(bullet('Filme und Serien erscheinen als Poster-Kacheln wie in der App (4 × 2 pro Seite, darunter Titel und Bewertung). Rechts daneben stehen – wie auf der Detailseite der App – Infos zum gewählten Titel: Genre, Erscheinungsdatum, Laufzeit, Bewertung, Regie, Handlung, Besetzung und ggf. „Weiterschauen ab …“. Pfeiltasten bewegen den leuchtenden Rahmen, CH+/CH− blättern seitenweise, OK öffnet. Unten stehen Titel, Jahr, Bewertung und die Position (z. B. 8 / 4092). Umschalten auf die Liste: MENU → „Ansicht: als Liste“ oder in den Einstellungen.'));
@@ -429,7 +438,7 @@ const doc = new Document({
   },
   numbering: { config: [
     { reference: 'bul', levels: [{ level: 0, format: LevelFormat.BULLET, text: '•', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] },
-    ...['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'n10', 'n11', 'n12', 'n13', 'n14', 'n15', 'n16', 'n17', 'num'].map(r => ({ reference: r, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] })),
+    ...['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'n10', 'n11', 'n12', 'n13', 'n14', 'n15', 'n16', 'n17', 'n18', 'num'].map(r => ({ reference: r, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 270 } } } }] })),
   ] },
   features: { updateFields: true },
   sections: [{

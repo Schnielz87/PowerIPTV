@@ -5,7 +5,8 @@ import { KEY } from '../keys';
 import { app, go, choose, dialog, openItemMenu } from '../app';
 import { parental } from '../store';
 import { T } from '../sources';
-import { topbar, itemCard, empty, legend } from './common';
+import { topbar, itemCard, empty, legend, button } from './common';
+import { syncAll } from '../sync';
 import { askName } from './lists';
 
 const LABEL = { LIVE: 'Sender', MOVIE: 'Filme', SERIES: 'Serien' };
@@ -21,6 +22,11 @@ export default function favorites() {
     const pid = app.profile.id;
     const favs = parental.visible(pid, lib.favorites);
     let any = false;
+    // Abgleich mit Handy, PC, Receiver … (gleicher Zugang, gleiches Heimnetz)
+    body.appendChild(h('div', { style: { display: 'flex', gap: '20px', alignItems: 'center', margin: '10px 0 6px' } },
+      button('⟳  Synchronisieren', startSync),
+      button('＋  Neue Liste', newList),
+      h('span.muted', null, 'Favoriten, Listen und „Weiterschauen“ mit anderen Geräten abgleichen')));
     [T.LIVE, T.MOVIE, T.SERIES].forEach((t) => {
       const l = favs.filter((f) => f.type === t);
       if (!l.length) return;
@@ -60,6 +66,28 @@ export default function favorites() {
       body.appendChild(g);
     }
     if (!any) body.appendChild(empty('Noch keine Favoriten. Rote Taste auf einem Sender, Film oder einer Serie fügt ihn hinzu – grüne Taste legt eine eigene Liste an.'));
+  }
+
+  function newList() {
+    askName('Neue Liste', '', (name) => { app.library.createList(name); toast(`Liste „${name}“ angelegt`); rerender(); });
+  }
+
+  let syncing = false;
+  async function startSync() {
+    if (syncing) return;
+    syncing = true;
+    const status = h('p.dialog-text', null, 'Suche Geräte im Heimnetz …');
+    const close = dialog({ title: 'Synchronisieren', content: status, buttons: [] });
+    let msg;
+    try {
+      msg = await syncAll(app.profile, app.library, (t) => { status.textContent = t; });
+    } catch (e) {
+      msg = `Synchronisieren fehlgeschlagen: ${e && e.message ? e.message : e}`;
+    }
+    close();
+    syncing = false;
+    render();
+    dialog({ title: 'Synchronisieren', text: msg, buttons: [{ label: 'OK', primary: true }] });
   }
 
   function open(i, list) {
@@ -104,10 +132,7 @@ export default function favorites() {
     onItemChanged(item) { rerender(item); },
     onKey(code) {
       const f = getFocus();
-      if (code === KEY.GREEN) {
-        askName('Neue Liste', '', (name) => { app.library.createList(name); toast(`Liste „${name}“ angelegt`); rerender(); });
-        return true;
-      }
+      if (code === KEY.GREEN) { newList(); return true; }
       if (code === KEY.YELLOW) {
         if (f && f._listId) listMenu(f._listId);
         else if (app.library.lists.length) {
