@@ -52,7 +52,15 @@ class UpdateManager(private val context: Context, http: () -> OkHttpClient, json
     private var loop: Job? = null
 
     /** Beim Start und danach stuendlich nachsehen, ob die 24 h um sind. */
+    private fun updateDir() = File(context.getExternalFilesDir(null) ?: context.cacheDir, "update")
+
+    /** Alte heruntergeladene Update-Dateien loeschen (je ca. 70 MB – fuellten auf TV-Sticks den Speicher). */
+    private fun cleanupDownloads(keep: String? = null) {
+        runCatching { updateDir().listFiles()?.filter { it.name != keep }?.forEach { it.delete() } }
+    }
+
     fun startAutoCheck() {
+        cleanupDownloads()
         if (loop?.isActive == true) return
         loop = scope.launch {
             while (true) {
@@ -107,7 +115,15 @@ class UpdateManager(private val context: Context, http: () -> OkHttpClient, json
         _progress.value = 0f
         _status.value = "Lade ${r.tag} …"
         scope.launch {
-            val file = File(context.getExternalFilesDir(null) ?: context.cacheDir, "update/PowerIPTV-${r.tag}.apk")
+            val file = File(updateDir(), "PowerIPTV-${r.tag}.apk")
+            cleanupDownloads()
+            // Android braucht beim Installieren etwa das Dreifache der APK-Groesse an freiem Speicher
+            val free = runCatching { updateDir().apply { mkdirs() }.usableSpace }.getOrDefault(Long.MAX_VALUE)
+            if (free < 200L * 1024 * 1024) {
+                _progress.value = null
+                _status.value = "Zu wenig Speicher frei (${free / (1024 * 1024)} MB) – bitte am Gerät Apps oder Downloads löschen (mind. 200 MB frei)"
+                return@launch
+            }
             runCatching {
                 checker.download(url, file) { done, total -> if (total > 0) _progress.value = done.toFloat() / total }
             }.onSuccess {

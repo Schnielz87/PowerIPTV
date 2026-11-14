@@ -82,6 +82,8 @@ class UpdateChecker(private val http: () -> OkHttpClient, private val json: Json
                 }
             }
             onProgress(done, total)
+            // Abgebrochene Verbindung -> unvollstaendige Datei, die sich nicht installieren laesst
+            if (total > 0 && done < total) { tmp.delete(); throw IOException("Download unvollständig – bitte erneut versuchen") }
         }
         target.delete()
         if (!tmp.renameTo(target)) { tmp.copyTo(target, overwrite = true); tmp.delete() }
