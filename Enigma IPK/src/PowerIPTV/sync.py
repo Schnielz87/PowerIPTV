@@ -35,12 +35,43 @@ def can_sync(p):
     return bool(p) and bool((p.get("username") or "").strip() or (p.get("m3u") or "").strip())
 
 
+def _host(u):
+    h = _norm(u)
+    for sep in ("/", "?", "#"):
+        h = h.split(sep, 1)[0]
+    for port in (":80", ":443"):
+        if h.endswith(port):
+            h = h[:-len(port)]
+    return h
+
+
+def _query(u):
+    try:
+        from urllib.parse import unquote_plus
+    except ImportError:
+        from urllib import unquote_plus
+    q = (u or "").split("?", 1)[1] if "?" in (u or "") else ""
+    q = q.split("#", 1)[0]
+    out = {}
+    for kv in q.split("&"):
+        k, _, v = kv.partition("=")
+        if k:
+            out[k.lower()] = native(unquote_plus(v))
+    return out
+
+
 def account_key(p):
-    user = (p.get("username") or "").strip()
+    """Gleicher Zugang = gleiche Kennung, egal ob als Xtream-Login oder M3U-Link (mit username/password) eingetragen."""
+    username = (p.get("username") or "").strip()
+    m3u = p.get("m3u") or ""
+    q = _query(m3u)
+    user = username or (q.get("username") or "").strip()
     if user:
-        raw = "portiva-sync-v1|%s|%s|%s" % (_norm(p.get("server")), user, p.get("password") or "")
+        pw = ((p.get("password") or "") if username else (q.get("password") or "")).strip()
+        server = p.get("server") if (username and (p.get("server") or "").strip()) else m3u
+        raw = "portiva-sync-v2|%s|%s|%s" % (_host(server), user, pw)
     else:
-        raw = "portiva-sync-v1|m3u|%s" % _norm(p.get("m3u"))
+        raw = "portiva-sync-v2|m3u|%s" % _norm(m3u)
     if not isinstance(raw, bytes):
         raw = raw.encode("utf-8")
     return hashlib.sha256(raw).hexdigest()

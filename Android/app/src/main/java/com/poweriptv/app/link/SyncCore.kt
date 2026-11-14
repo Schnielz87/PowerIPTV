@@ -98,13 +98,35 @@ object SyncCore {
      * SHA-256 – verraet die Zugangsdaten nicht.
      */
     fun accountKey(serverUrl: String, username: String, password: String, m3uUrl: String): String {
-        val raw = if (username.isNotBlank()) "portiva-sync-v1|${norm(serverUrl)}|${username.trim()}|$password"
-        else "portiva-sync-v1|m3u|${norm(m3uUrl)}"
+        // Gleicher Zugang = gleiche Kennung, egal wie er eingetragen wurde: Xtream-Login oder M3U-Link mit
+        // username/password, mit/ohne http(s)://, :80, / am Ende oder Leerzeichen
+        val q = query(m3uUrl)
+        val user = username.trim().ifEmpty { q["username"]?.trim().orEmpty() }
+        val raw = if (user.isNotEmpty()) {
+            val pass = (if (username.isNotBlank()) password else q["password"].orEmpty()).trim()
+            val server = if (username.isNotBlank() && serverUrl.isNotBlank()) serverUrl else m3uUrl
+            "portiva-sync-v2|${host(server)}|$user|$pass"
+        } else "portiva-sync-v2|m3u|${norm(m3uUrl)}"
         return MessageDigest.getInstance("SHA-256").digest(raw.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
     }
 
     /** Server-Adresse vereinheitlichen: ohne http(s)://, ohne / am Ende, klein geschrieben. */
     fun norm(u: String): String = u.trim().lowercase().removePrefix("http://").removePrefix("https://").trimEnd('/')
+
+    /** Nur Rechner[:Port] (ohne Pfad, ohne Standard-Port 80/443). */
+    fun host(u: String): String {
+        val h = norm(u).substringBefore('/').substringBefore('?').substringBefore('#')
+        return h.removeSuffix(":80").removeSuffix(":443")
+    }
+
+    private fun query(u: String): Map<String, String> {
+        val q = u.substringAfter('?', "").substringBefore('#')
+        if (q.isEmpty()) return emptyMap()
+        return q.split('&').mapNotNull { kv ->
+            val k = kv.substringBefore('=')
+            if (k.isEmpty()) null else k.lowercase() to runCatching { java.net.URLDecoder.decode(kv.substringAfter('=', ""), "UTF-8") }.getOrDefault(kv.substringAfter('=', ""))
+        }.toMap()
+    }
 
     private fun newer(a: Long, aDel: Boolean, b: Long, bDel: Boolean): Boolean =
         // true = a gewinnt. Gleicher Zeitstempel: "vorhanden" gewinnt gegen "geloescht"

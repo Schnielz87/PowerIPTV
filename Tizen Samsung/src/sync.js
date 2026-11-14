@@ -61,9 +61,34 @@ const norm = (u) => String(u || '').trim().toLowerCase().replace(/^https?:\/\//,
 
 export function canSync(p) { return !!p && !!((p.username || '').trim() || (p.m3uUrl || '').trim()); }
 
+const host = (u) => norm(u).split('/')[0].split('?')[0].split('#')[0].replace(/:(80|443)$/, '');
+
+function query(u) {
+  const s = String(u || '');
+  const i = s.indexOf('?');
+  const out = {};
+  if (i < 0) return out;
+  s.slice(i + 1).split('#')[0].split('&').forEach((kv) => {
+    const j = kv.indexOf('=');
+    const k = (j < 0 ? kv : kv.slice(0, j)).toLowerCase();
+    if (!k) return;
+    const v = j < 0 ? '' : kv.slice(j + 1).replace(/\+/g, ' ');
+    try { out[k] = decodeURIComponent(v); } catch (e) { out[k] = v; }
+  });
+  return out;
+}
+
+/** Gleicher Zugang = gleiche Kennung, egal ob als Xtream-Login oder M3U-Link (mit username/password) eingetragen. */
 export function accountKey(p) {
-  const user = (p.username || '').trim();
-  const raw = user ? `portiva-sync-v1|${norm(p.serverUrl)}|${user}|${p.password || ''}` : `portiva-sync-v1|m3u|${norm(p.m3uUrl)}`;
+  const username = (p.username || '').trim();
+  const q = query(p.m3uUrl);
+  const user = username || (q.username || '').trim();
+  let raw;
+  if (user) {
+    const pass = (username ? (p.password || '') : (q.password || '')).trim();
+    const server = username && (p.serverUrl || '').trim() ? p.serverUrl : p.m3uUrl;
+    raw = `portiva-sync-v2|${host(server)}|${user}|${pass}`;
+  } else raw = `portiva-sync-v2|m3u|${norm(p.m3uUrl)}`;
   return sha256hex(raw);
 }
 

@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.158 · November 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.159 · November 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -192,7 +192,7 @@ c.push(step('Auf beiden Geräten Portiva öffnen (gleiches WLAN oder LAN). Auf d
 c.push(step('„Favoriten & Listen“ öffnen → „Synchronisieren“. Wo der Knopf ist: Handy/Tablet/TV-Stick und Windows oben auf der Seite, iPhone/iPad ganz oben in der Liste, Samsung-TV und Fire TV (Vega) oben auf der Seite, Enigma2-Receiver: Kachel „Favoriten“ → „⟳ Synchronisieren“.', 'n18'));
 c.push(step('Portiva sucht alle Geräte im Heimnetz und gleicht nacheinander mit jedem ab. Danach steht da z.B. „Synchronisiert mit Wohnzimmer-TV, iPhone – 5 neu oder aktualisiert, 1 entfernt“.', 'n18'));
 c.push(tip('Was passiert bei Unterschieden? Jede Änderung merkt sich die Uhrzeit. Pro Titel gewinnt die neuere Änderung: Hast du am Handy einen Film aus den Favoriten genommen, verschwindet er beim nächsten Synchronisieren auch am TV-Stick (gelöschte Listen ebenso). Neue Titel von beiden Seiten werden zusammengeführt – nichts geht verloren. Beim allerersten Synchronisieren werden die vorhandenen Favoriten beider Geräte einfach zusammengelegt. Bei „Weiterschauen“ gilt die zuletzt gesehene Stelle: Film am Handy bis 45:00 gesehen → am Fernseher geht es bei 45:00 weiter, bei Serien mit der zuletzt gesehenen Folge.'));
-c.push(tip('Samsung-Fernseher können andere Geräte anfragen, aber selbst nicht angefragt werden – also am Samsung-TV auf „Synchronisieren“ drücken (dabei werden beide Seiten aktualisiert). Lokal importierte M3U-Dateien können nicht abgeglichen werden. Alte Portiva-Versionen melden „zu alt – bitte dort aktualisieren“.'));
+c.push(tip('Samsung-Fernseher können andere Geräte anfragen, aber selbst nicht angefragt werden – also am Samsung-TV auf „Synchronisieren“ drücken (dabei werden beide Seiten aktualisiert). Lokal importierte M3U-Dateien können nicht abgeglichen werden. Ab 1.1.159 erkennt Portiva denselben Zugang auch, wenn er auf einem Gerät als M3U-Link (mit username/password im Link) und auf dem anderen mit Server, Benutzername und Passwort eingetragen ist – ebenso mit/ohne http(s)://, :80, „/“ am Ende oder Leerzeichen. Dafür müssen alle Geräte 1.1.159 oder neuer haben. Alte Portiva-Versionen melden „zu alt – bitte dort aktualisieren“.'));
 c.push(bullet([b('Downloads: '), t('„Offline“ lädt Filme und Folgen herunter (mehrere Verbindungen parallel, wenn der Zugang es erlaubt).')]));
 
 // 11

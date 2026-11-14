@@ -162,10 +162,41 @@ enum SyncCore {
 
     static func canSync(_ p: Profile) -> Bool { !p.username.isEmpty || !p.m3uUrl.isEmpty }
 
+    /** Nur Rechner[:Port] (ohne Pfad, ohne Standard-Port 80/443). */
+    static func host(_ u: String) -> String {
+        var h = norm(u)
+        for sep in ["/", "?", "#"] { h = h.components(separatedBy: sep)[0] }
+        for port in [":80", ":443"] where h.hasSuffix(port) { h = String(h.dropLast(port.count)) }
+        return h
+    }
+
+    static func query(_ u: String) -> [String: String] {
+        guard let i = u.firstIndex(of: "?") else { return [:] }
+        let q = String(u[u.index(after: i)...]).components(separatedBy: "#")[0]
+        var out: [String: String] = [:]
+        for kv in q.components(separatedBy: "&") {
+            let parts = kv.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            guard let k = parts.first, !k.isEmpty else { continue }
+            let v = parts.count > 1 ? String(parts[1]).replacingOccurrences(of: "+", with: " ") : ""
+            out[k.lowercased()] = v.removingPercentEncoding ?? v
+        }
+        return out
+    }
+
+    /** Gleicher Zugang = gleiche Kennung, egal ob als Xtream-Login oder M3U-Link (mit username/password) eingetragen. */
     static func accountKey(_ p: Profile) -> String {
-        let raw = p.username.trimmingCharacters(in: .whitespaces).isEmpty
-            ? "portiva-sync-v1|m3u|\(norm(p.m3uUrl))"
-            : "portiva-sync-v1|\(norm(p.serverUrl))|\(p.username.trimmingCharacters(in: .whitespaces))|\(p.password)"
+        let ws = CharacterSet.whitespacesAndNewlines
+        let username = p.username.trimmingCharacters(in: ws)
+        let q = query(p.m3uUrl)
+        let user = username.isEmpty ? (q["username"] ?? "").trimmingCharacters(in: ws) : username
+        let raw: String
+        if !user.isEmpty {
+            let pass = (username.isEmpty ? (q["password"] ?? "") : p.password).trimmingCharacters(in: ws)
+            let server = !username.isEmpty && !p.serverUrl.trimmingCharacters(in: ws).isEmpty ? p.serverUrl : p.m3uUrl
+            raw = "portiva-sync-v2|\(host(server))|\(user)|\(pass)"
+        } else {
+            raw = "portiva-sync-v2|m3u|\(norm(p.m3uUrl))"
+        }
         return SHA256.hash(data: Data(raw.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 
