@@ -142,8 +142,12 @@ body:not(.video-mode) #html-player { visibility: hidden; }
 
 /* ---------- Detailseite ---------- */
 .detail { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
-.detail .backdrop { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: center/cover no-repeat; opacity: .35; }
-.detail .shade { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: linear-gradient(to right, #060B16 35%, rgba(6,11,22,.55)); }
+.detail .backdrop { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: center/cover no-repeat; opacity: .8; }
+.detail .shade { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
+  /* Szenenbild deutlich sichtbar: links nur so dunkel, dass Titel und Text lesbar bleiben, unten weich auslaufend */
+  background: linear-gradient(to top, #060B16 0%, rgba(6,11,22,.55) 30%, rgba(6,11,22,0) 60%),
+    linear-gradient(to right, rgba(6,11,22,.82) 0%, rgba(6,11,22,.6) 45%, rgba(6,11,22,.25) 100%); }
+.detail-info { text-shadow: 0 2px 6px rgba(0,0,0,.85); }
 .detail .inner { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: flex; flex-direction: column; }
 .detail-top { display: flex; flex-direction: row; padding: 0 80px; }
 .detail-cover { width: 300px; height: 444px; flex: 0 0 300px; border-radius: 20px; background: #172438 center/cover no-repeat; margin-right: 50px; }
