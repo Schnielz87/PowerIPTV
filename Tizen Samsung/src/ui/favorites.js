@@ -5,7 +5,7 @@ import { KEY } from '../keys';
 import { app, go, choose, dialog, openItemMenu } from '../app';
 import { parental } from '../store';
 import { T } from '../sources';
-import { topbar, itemCard, empty, legend, button } from './common';
+import { topbar, itemCard, empty, legend, button, ICON } from './common';
 import { syncAll } from '../sync';
 import { askName } from './lists';
 
@@ -24,7 +24,7 @@ export default function favorites() {
     let any = false;
     // Abgleich mit Handy, PC, Receiver … (gleicher Zugang, gleiches Heimnetz)
     body.appendChild(h('div', { style: { display: 'flex', gap: '20px', alignItems: 'center', margin: '10px 0 6px' } },
-      button('⟳  Synchronisieren', startSync),
+      button(`${ICON.sync}  Synchronisieren`, startSync),
       button('＋  Neue Liste', newList),
       h('span.muted', null, 'Favoriten, Listen und „Weiterschauen“ mit anderen Geräten abgleichen')));
     [T.LIVE, T.MOVIE, T.SERIES].forEach((t) => {

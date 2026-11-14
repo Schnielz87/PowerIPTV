@@ -7,7 +7,7 @@ import { app, back, go, choose, dialog } from '../app';
 import { settings, saveSettings, Library } from '../store';
 import { T } from '../sources';
 import { EPISODE, baseName, connectionsFullText } from '../rules';
-import { button, imgDiv } from './common';
+import { button, imgDiv, ICON } from './common';
 import { sendToDevice } from './link';
 
 const HIDE_AFTER = 5000;
@@ -447,7 +447,7 @@ export default function playerScreen(params) {
       box.appendChild(row);
     });
     // EPG aktualisieren (wie im TV-Guide): bereits angezeigte Sender + Infoleiste neu laden
-    const refreshBtn = button('⟳ EPG aktualisieren', () => {
+    const refreshBtn = button(`${ICON.sync} EPG aktualisieren`, () => {
       toast('EPG wird aktualisiert …');
       const ids = Object.keys(epgCache);
       Promise.all(ids.map((id) => loaders[id] ? loaders[id]() : null)).then(() => toast('EPG aktualisiert'));
