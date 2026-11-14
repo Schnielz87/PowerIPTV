@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.154 · November 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.155 · November 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -226,7 +226,7 @@ c.push(table(['Problem', 'Lösung'], [
   ['Film läuft ohne Ton', 'Behoben ab 1.1.80: Viele Filme haben DTS- oder TrueHD-Ton, den der Standard-Player auf den meisten Handys/Tablets nicht abspielen kann. Portiva erkennt das und wechselt automatisch auf VLC (spielt DTS ab). Im Player-Zahnrad unter „Audiospur“ wählst du die Sprache (z. B. Deutsch / Englisch); Spuren mit „(mit VLC)“ wechseln beim Antippen auf VLC.'],
   ['Live TV stockt', 'Beide Player puffern Live TV jetzt größer (Standard-Player bis 60 s, nach einem Aussetzer erst mit 6 s Vorrat weiter; VLC 4 s) und verbinden sich nach Unterbrechungen automatisch neu. Unter Windows: Einstellungen → Player → Puffer „Groß“.'],
   ['Wann wird VLC benutzt?', 'Im Modus „Automatisch“ startet immer zuerst der Standard-Player. Nur wenn er einen bestimmten Stream nicht abspielen kann (z.B. seltene Ton- oder Bildformate), wechselt die App für genau diesen Titel zu VLC.'],
-  ['VLC ruckelt oder hängt', 'Einstellungen → Player → VLC-Leistung auf „Schnell“ stellen (bei TV-Sticks automatisch).'],
+  ['VLC ruckelt oder hängt', 'Einstellungen → Player → VLC-Leistung auf „Schnell“ stellen (bei TV-Sticks automatisch). Ab 1.1.155: Wechselt der Standard-Player zu VLC, wartet VLC kurz, bis die erste Verbindung geschlossen ist (viele Anbieter erlauben nur 1 Verbindung). Bleibt bei einem Film oder einer Serie das Bild stehen, startet VLC automatisch an derselben Stelle ohne Hardware-Beschleunigung neu („Bild hing – VLC startet ohne Hardware-Beschleunigung neu …“) – das hilft z.B. auf dem Fire TV Stick bei manchen Serien-Dateien.'],
   ['Nur Ton, kein Bild', 'Der Sender nutzt ein altes Format – die App wechselt automatisch zu VLC. Sonst Einstellungen → Player → VLC.'],
   ['Bild bleibt bei Aufnahme stehen', 'Der Zugang erlaubt nur eine Verbindung. Den aufgenommenen Sender schauen oder die Aufnahme stoppen.'],
   ['Update lässt sich nicht installieren', 'Immer die APK aus den Releases verwenden (gleiche Signatur).'],

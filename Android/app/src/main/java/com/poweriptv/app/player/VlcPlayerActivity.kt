@@ -264,7 +264,10 @@ class VlcPlayerActivity : ComponentActivity() {
                             VLCVideoLayout(ctx).also { layout ->
                                 mediaPlayer.attachViews(layout, null, false, false)
                                 applyScale()
-                                play(container.playIndex)
+                                // Vom Standard-Player hierher gewechselt: dessen Verbindung kurz schliessen lassen –
+                                // viele Anbieter erlauben nur 1 Verbindung und wuerden VLC sonst haengen lassen
+                                if (intent.getStringExtra(EXTRA_INFO) != null) lifecycleScope.launch { delay(1200); play(container.playIndex) }
+                                else play(container.playIndex)
                             }
                         },
                         modifier = Modifier.fillMaxSize(),
@@ -617,6 +620,17 @@ class VlcPlayerActivity : ComponentActivity() {
         if (now - stallSince < limit) return
         stallSince = 0L
         if (now - lastRecoveryAt > 120_000L) recoveries = 0
+        if (!e.live && !softwareVod) {
+            // Haenger bei Filmen/Serien kommen auf TV-Sticks oft vom Hardware-Decoder -> ohne ihn neu starten
+            softwareVod = true
+            lastRecoveryAt = now
+            val target = (if (pendingSeek > 0 && now - pendingSeekAt < 30_000) pendingSeek else lastTick).coerceAtLeast(0)
+            if (target > 0 && length > 0) container.resume.save(e.url, target, length)
+            toast = "Bild hing – VLC startet ohne Hardware-Beschleunigung neu …"
+            lastTick = -1L
+            play(container.playIndex)
+            return
+        }
         if (++recoveries > 3) { error = "Der Stream hängt – bitte später erneut versuchen"; buffering = false; return }
         lastRecoveryAt = now
         // Ziel: letzter Sprung (falls gerade gespult wurde), sonst die zuletzt laufende Stelle
@@ -807,7 +821,9 @@ class VlcPlayerActivity : ComponentActivity() {
         if (sd != null) toast = "Mobile Daten: SD-Version von ${entry.title}"
         val uri = if (local) Uri.fromFile(File(entry.url)) else Uri.parse(sd?.url ?: entry.url)
         val media = Media(libVlc, uri).apply {
-            setHWDecoderEnabled(true, false) // Hardware wenn moeglich, sonst automatisch Software
+            // Hardware wenn moeglich, sonst automatisch Software. Hing das Bild schon einmal (z.B. Fire TV mit
+            // manchen Serien-Dateien), fuer Filme/Serien direkt Software-Dekodierung
+            setHWDecoderEnabled(!(softwareVod && !entry.live), false)
             if (saver) addOption(":adaptive-maxheight=480")
             PlaybackTuning.vlcSharpenOptions(container).forEach { addOption(it) }
             // Live: groesserer Puffer gegen Ruckler; Filme/Serien: schneller Start
@@ -1177,6 +1193,8 @@ class VlcPlayerActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_INFO = "info"
+        /** Filme/Serien in VLC ohne Hardware-Decoder (nach einem Haenger, gilt bis die App geschlossen wird). */
+        @Volatile var softwareVod = false
         private var active: java.lang.ref.WeakReference<VlcPlayerActivity>? = null
 
         fun closeActive() {
