@@ -36,6 +36,7 @@ mit **eingebautem VPN**, **Offline-Downloads** und **eigenen Favoritenlisten**.
 | **Serien** | Staffeln & Episoden, automatische naechste Episode, Download einzelner Episoden |
 | **Favoriten & Listen** | Herz-Favoriten + beliebig viele eigene Listen (anlegen, umbenennen, loeschen) – am TV-Stick mit Knoepfen direkt auf der Seite |
 | **Fehlerprotokoll** | Android/TV: Einstellungen → Fehlerprotokoll – Player-/VLC-Ereignisse, Ladezeiten, Formate, Fehler und Abstuerze; als QR-Code ans Handy (Text an den Support) oder zum Abfotografieren. Ohne Zugangsdaten |
+| **Selbst-Update am Fernseher** | Samsung-TV und Fire TV Vega laden neue Versionen der Oberflaeche selbst von GitHub (digital signiert, Ed25519) und starten sie beim naechsten Oeffnen – ohne PC. Einmalig 1.1.167 vom PC aufspielen; zurueck zur installierten Version, falls eine neue zweimal nicht startet |
 | **Synchronisieren** | Favoriten, eigene Listen und „Weiterschauen“ per Knopf mit allen Geraeten im Heimnetz abgleichen, auf denen derselbe Benutzer (Server + Benutzername + Passwort bzw. M3U-Link) eingerichtet ist – ohne Cloud, ueber Portiva Link. Neuere Aenderung gewinnt, Loeschungen werden uebernommen. Alle Geraete (Samsung-TV/Fire TV Vega nur als Anfragender) |
 | **Downloads** | Filme/Episoden offline speichern, Pause/Fortsetzen (Resume), Offline-Wiedergabe |
 | **VPN** | WireGuard-VPN eingebaut (.conf importieren oder einfuegen), Kill-Switch, Auto-Connect, Split-Tunneling (nur PowerIPTV), externe VPN-Apps werden erkannt |

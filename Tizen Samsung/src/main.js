@@ -4,6 +4,7 @@ import { registerKeys } from './keys';
 import { isVega } from './vega';
 import { app, init, go, activateProfile, firstProfile } from './app';
 import { startReminders } from './reminders';
+import { markStarted } from './webupdate';
 import splash from './ui/splash';
 import profiles, { profileEdit } from './ui/profiles';
 import home from './ui/home';
@@ -24,6 +25,7 @@ Object.assign(app.screens, {
 });
 
 function start() {
+  markStarted();
   registerKeys();
   // Fire TV (Vega OS): feste 1920x1080-Oberflaeche auf die echte Bildschirmgroesse skalieren
   if (isVega() && window.innerWidth && window.innerWidth !== 1920) document.documentElement.style.zoom = String(window.innerWidth / 1920);

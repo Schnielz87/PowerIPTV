@@ -172,6 +172,15 @@ jobs:
           npm ci
           node build.js
 
+      # Selbst-Aktualisierung der TV-Oberflaeche (Samsung + Fire TV Vega): signierte Oberflaeche fuers Release.
+      # Der geheime Schluessel liegt nur als Secret TV_WEB_SIGNING_KEY vor; ohne ihn entfaellt nur diese Datei.
+      - name: TV-Oberflaeche fuer die Selbst-Aktualisierung signieren
+        env:
+          TV_WEB_SIGNING_KEY: ${{ secrets.TV_WEB_SIGNING_KEY }}
+        run: |
+          mkdir -p ../out
+          node scripts/sign-web.js ../out/portiva-tv-web.json
+
       - name: Unsigniertes Paket (zum Signieren mit dem eigenen Samsung-Zertifikat)
         run: |
           mkdir -p ../out

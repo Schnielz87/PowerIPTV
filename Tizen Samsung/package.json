@@ -10,6 +10,7 @@
     "esbuild": "0.23.1"
   },
   "dependencies": {
-    "qrcode-generator": "^1.4.4"
+    "qrcode-generator": "^1.4.4",
+    "tweetnacl": "^1.0.3"
   }
 }

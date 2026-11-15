@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.166 · November 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.167 · November 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -327,7 +327,8 @@ c.push(table(['Taste', 'Funktion'], [
 ], [3000, 6000]));
 c.push(h2('Updates'));
 c.push(p('Eigene Listen: OK auf einem Sender, Film oder einer Serie lange gedrückt halten (oder die blaue Taste) → „Zu Liste hinzufügen …“ → „Neue Liste anlegen“ oder eine vorhandene Liste wählen (✓ = schon drin, nochmal OK nimmt den Titel wieder heraus). Die Listen stehen auf der Seite „Favoriten & Listen“: Rot = aus der Liste entfernen, Grün = neue Liste, Gelb = Liste umbenennen oder löschen. Oben auf der Seite stehen außerdem die Knöpfe „⟳ Synchronisieren“ und „＋ Neue Liste“ (siehe Kapitel 10). Auf der Detailseite eines Films/einer Serie gibt es dafür den Knopf „☰ Zu Liste“. Gilt genauso für die Fire-TV-Vega-App.'));
-c.push(p('Die Kachel „Update“ prüft alle 24 Stunden bei GitHub und leuchtet bei einer neuen Version. Installiert wird wie oben (Schritt 4) mit derselben Zertifikat-Datei – Zugänge, Favoriten und Verlauf bleiben erhalten.'));
+c.push(p('Ab Version 1.1.167 aktualisiert sich Portiva auf dem Samsung-TV selbst – ohne PC: Alle 6 Stunden (oder über die Kachel „Update“ → „Nach Updates suchen“) lädt die App eine neue Version der Oberfläche von GitHub, prüft deren digitale Unterschrift und startet sie beim nächsten Öffnen. Auf der Update-Seite geht es mit „Jetzt neu starten“ sofort; auf der Startseite steht dann „Update bereit“. Ohne gültige Unterschrift wird nichts übernommen. Startet eine neue Version zweimal hintereinander nicht richtig, nimmt Portiva automatisch wieder die installierte Version.'));
+c.push(p('Einmalig nötig: Version 1.1.167 (oder neuer) noch einmal wie oben (Schritt 4) vom PC aufspielen – sie enthält die „Startrampe“ für die Selbst-Aktualisierung. Danach braucht es den PC nur noch, wenn sich die App-Grundlage ändert (z.B. neue Berechtigungen); das zeigt die Update-Seite dann ausdrücklich an. Zugänge, Favoriten und Verlauf bleiben immer erhalten. Gilt genauso für die Fire-TV-App mit Vega OS.'));
 c.push(tip('Die Zertifikat-Dateien (author.p12, distributor.p12) gut aufheben und nie weitergeben. Mit einem neuen Zertifikat muss die App vorher deinstalliert werden.'));
 
 // 16 Portiva Link

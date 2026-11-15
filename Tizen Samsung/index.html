@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=1920, height=1080, user-scalable=no">
     <title>Portiva – PowerIPTV</title>
-    <link rel="stylesheet" href="app.css">
     <!-- Samsung-Schnittstellen (AVPlay, Geraeteinfos). $WEBAPIS wird auf dem Fernseher ersetzt. -->
     <script src="$WEBAPIS/webapis/webapis.js"></script>
 </head>
@@ -14,6 +13,7 @@
     <video id="html-player" playsinline></video>
     <div id="app"></div>
     <div id="toast"></div>
-    <script src="app.js"></script>
+    <!-- Startrampe: laedt app.css/app.js oder die zuletzt geladene, signierte Oberflaeche (Selbst-Aktualisierung) -->
+    <script src="loader.js"></script>
 </body>
 </html>

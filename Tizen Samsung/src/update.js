@@ -2,14 +2,18 @@
 import { getJson } from './net';
 import { storage } from './util';
 import { isVega } from './vega';
+import { installWeb, shellInfo, WEB_ASSET } from './webupdate';
 
 export const REPO = 'Schnielz87/PowerIPTV';
 export const VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.1.0';
 
-const state = { available: storage.get('update.available', null), lastCheck: storage.get('update.last', 0) };
+const state = { available: storage.get('update.available', null), lastCheck: storage.get('update.last', 0), installed: null, webError: null };
 export const updates = {
   get available() { return state.available && newer(state.available.tag, VERSION) ? state.available : null; },
   get lastCheck() { return state.lastCheck; },
+  /** Version, die geladen ist und beim naechsten Start laeuft (null = keine). */
+  get installed() { return state.installed; },
+  get webError() { return state.webError; },
   async check() {
     const r = await getJson(`https://api.github.com/repos/${REPO}/releases/latest`, 20000);
     state.lastCheck = Date.now();
@@ -18,14 +22,24 @@ export const updates = {
     const asset = isVega() ? (r.assets || []).find((a) => /\.vpkg$/i.test(a.name))
       : (r.assets || []).find((a) => /\.wgt$/i.test(a.name)) || (r.assets || []).find((a) => /tizen/i.test(a.name));
     // Nur melden, wenn das Release auch eine Datei fuer dieses Geraet enthaelt (GitHub-Build kann einzeln ausfallen)
-    state.available = asset && newer(tag, VERSION) ? { tag, notes: r.body || '', pageUrl: r.html_url, asset: asset.browser_download_url } : null;
+    const web = (r.assets || []).find((a) => a.name === WEB_ASSET);
+    state.available = (asset || web) && newer(tag, VERSION)
+      ? { tag, notes: r.body || '', pageUrl: r.html_url, asset: asset ? asset.browser_download_url : null, web: web ? web.browser_download_url : null } : null;
     storage.set('update.available', state.available);
+    // Selbst-Aktualisierung: signierte Oberflaeche laden – beim naechsten Start aktiv (kein PC noetig)
+    state.webError = null;
+    if (state.available && state.available.web && shellInfo().shell >= 1 && state.installed !== tag.replace(/^v/i, '')) {
+      try {
+        const res = await installWeb(state.available.web);
+        if (res.needsPc) state.available.needsPc = true; else state.installed = res.v;
+      } catch (e) { state.webError = e.message; }
+    }
     return state.available;
   },
-  /** Hoechstens alle 24 Stunden automatisch. */
+  /** Hoechstens alle 6 Stunden automatisch (neue Oberflaechen laedt die App dabei gleich selbst). */
   autoCheck() {
     if (storage.get('update.auto', true) === false) return Promise.resolve(null);
-    if (Date.now() - state.lastCheck < 24 * 3600000) return Promise.resolve(this.available);
+    if (Date.now() - state.lastCheck < 6 * 3600000) return Promise.resolve(this.available);
     return this.check().catch(() => null);
   },
   get auto() { return storage.get('update.auto', true) !== false; },

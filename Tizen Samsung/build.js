@@ -11,6 +11,9 @@ const vega = vegaIdx >= 0;
 const out = vega ? path.resolve(process.argv[vegaIdx + 1] || path.join(__dirname, 'build-vega')) : path.join(__dirname, 'build');
 const build = process.env.BUILD_NUMBER || '0';
 const version = `1.1.${build}`;
+// Startrampe (loader.js): Nummer erhoehen, wenn sich index.html, config.xml, Berechtigungen oder Dateien in assets/
+// aendern – dann laedt die alte Installation die neue Oberflaeche nicht und verlangt einmal das Update per PC.
+const SHELL = 1;
 
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(path.join(out, 'assets'), { recursive: true });
@@ -36,6 +39,11 @@ esbuild.buildSync({
   minify: true,
   outfile: path.join(out, 'app.css'),
 });
+
+// Startrampe: waehlt beim Start zwischen eingebauter und selbst aktualisierter (signierter) Oberflaeche
+fs.writeFileSync(path.join(out, 'loader.js'), fs.readFileSync(path.join(__dirname, 'loader.js'), 'utf8')
+  .split('__SHELL__').join(String(SHELL)).split('__VERSION__').join(version));
+fs.writeFileSync(path.join(out, 'web-meta.json'), JSON.stringify({ version, shell: SHELL }));
 
 if (vega) {
   // Fire TV (Vega OS): keine Samsung-Schnittstellen; Video kommt vom Player der App unter der WebView

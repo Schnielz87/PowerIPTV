@@ -87,7 +87,7 @@ export default function home() {
 
   function refreshUpdate() {
     const av = updates.available;
-    updateTile.querySelector('.l').textContent = av ? 'Update verfügbar!' : 'Update';
+    updateTile.querySelector('.l').textContent = updates.installed ? 'Update bereit' : av ? 'Update verfügbar!' : 'Update';
     updateTile.classList.toggle('highlight', !!av);
   }
 
