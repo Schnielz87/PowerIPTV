@@ -122,7 +122,10 @@ fun SettingsScreen(
         return
     }
     val s = container.settings
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    // Reiter + Wischen: links/rechts blaettert zwischen den Karten (am Fernseher per Reiter-Leiste)
+    val pager = androidx.compose.foundation.pager.rememberPagerState(pageCount = { SETTINGS_TABS.size })
+    val tab = pager.currentPage
+    val tabScope = rememberCoroutineScope()
     val scope = rememberCoroutineScope()
     val aiModel by s.aiModel.collectAsState()
     val aiUrl by s.aiBaseUrl.collectAsState()
@@ -143,21 +146,24 @@ fun SettingsScreen(
             ScrollableTabRow(selectedTabIndex = tab, edgePadding = 8.dp, containerColor = MaterialTheme.colorScheme.background) {
                 SETTINGS_TABS.forEachIndexed { i, (label, icon) ->
                     Tab(
-                        selected = tab == i, onClick = { tab = i },
-                        modifier = Modifier.onFocusChanged { if (it.isFocused) tab = i },
+                        selected = tab == i, onClick = { tabScope.launch { pager.animateScrollToPage(i) } },
+                        modifier = Modifier.onFocusChanged { if (it.isFocused && pager.currentPage != i) tabScope.launch { pager.scrollToPage(i) } },
                         text = { Text(label, maxLines = 1) },
                         icon = { Icon(icon, null) },
                     )
                 }
             }
-        val scroll = rememberScrollState()
-        LaunchedEffect(tab) { scroll.scrollTo(0) }
+        val isTv = LocalIsTv.current
+        // Am Fernseher kein Wischen (die Pfeiltasten bedienen die Einstellungen), dort wechseln die Reiter oben
+        androidx.compose.foundation.pager.HorizontalPager(
+            state = pager, modifier = Modifier.fillMaxSize(), userScrollEnabled = !isTv, beyondViewportPageCount = if (isTv) 0 else 1,
+            verticalAlignment = Alignment.Top,
+        ) { page ->
         Column(
-            Modifier.fillMaxSize().verticalScroll(scroll).padding(16.dp),
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            val isTv = LocalIsTv.current
-            when (tab) {
+            when (page) {
                 0 -> {
                     SettingsSection("Player") {
                         val engine by s.playerEngine.collectAsState()
@@ -501,6 +507,7 @@ fun SettingsScreen(
                     }
                 }
             }
+        }
         }
         }
     }

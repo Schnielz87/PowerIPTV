@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.163 · November 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.164 · November 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -205,7 +205,7 @@ c.push(bullet([b('Bild-in-Bild: '), t('Auf dem Handy läuft der Sender beim Verl
 
 // 12
 c.push(h1('12. Einstellungen'));
-c.push(p('Die Einstellungen sind in Reiter aufgeteilt (Handy, Tablet, TV-Stick). Am Fernseher wechselt der Inhalt schon beim Ansteuern eines Reiters mit links/rechts; mit „runter“ geht es in die Einstellungen des Reiters.'));
+c.push(p('Die Einstellungen sind in Reiter aufgeteilt (Handy, Tablet, TV-Stick). Am Handy/Tablet kannst du auch unterhalb der Reiter einfach nach links oder rechts wischen, um zum nächsten Reiter zu blättern. Am Fernseher wechselt der Inhalt schon beim Ansteuern eines Reiters mit links/rechts; mit „runter“ geht es in die Einstellungen des Reiters.'));
 c.push(table(['Reiter', 'Was man dort einstellen kann'], [
   ['Wiedergabe', 'Player: Automatisch / Standard / VLC, gemerkte VLC-Sender zurücksetzen, VLC-Leistung (Automatisch / Schnell / Qualität), Bildwiederholrate automatisch anpassen (AFR), Vorschaubilder beim Spulen, Bildformat. Dazu das Live-TV-Stream-Format (TS/HLS).'],
   ['Bild & Netz', 'Mobile-Daten-Modus (SD-Version unterwegs), Bildschärfe (Aus/Leicht/Stark), User-Agent (nur ändern, wenn der Anbieter es verlangt).'],
