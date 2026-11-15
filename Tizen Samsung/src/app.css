@@ -60,7 +60,7 @@ body:not(.video-mode) #html-player { visibility: hidden; }
 .btn.danger-btn.focused { background: #FF4D5E; color: #fff; }
 
 /* ---------- Startseite ---------- */
-.home-body { padding: 0 60px 40px; }
+.home-body { padding: 18px 60px 40px; } /* oben Platz, damit die vergroesserte (fokussierte) Kachel nicht abgeschnitten wird */
 .big-tiles { display: flex; flex-direction: row; height: 360px; flex: 0 0 360px; }
 .big-tile {
   flex: 1 1 0; margin-right: 30px; border-radius: 26px; position: relative; overflow: hidden;
