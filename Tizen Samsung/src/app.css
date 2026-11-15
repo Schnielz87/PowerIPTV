@@ -96,7 +96,13 @@ body:not(.video-mode) #html-player { visibility: hidden; }
 /* ---------- Kategorien + Raster ---------- */
 .browse { flex-direction: row; display: flex; flex: 1 1 auto; min-height: 0; padding: 0 0 0 40px; }
 .sidebar { width: 470px; flex: 0 0 470px; display: flex; flex-direction: column; padding-right: 20px; }
-.sidebar .langs { display: flex; flex-direction: row; flex-wrap: wrap; margin-bottom: 10px; }
+.sidebar .langs { flex: 0 0 auto; margin-bottom: 12px; }
+.lang-select { height: 60px; padding: 0 22px; border-radius: 16px; background: #0E1726; display: flex; flex-direction: row; align-items: center; font-size: 24px; }
+.lang-select .lang-label { flex: 1 1 auto; color: #9FB3CC; }
+.lang-select .lang-value { font-weight: 700; margin-right: 14px; }
+.lang-select .lang-arrow { font-size: 22px; }
+.lang-select.focused { background: #5EC4F2; color: #06101F; }
+.lang-select.focused .lang-label { color: #06101F; }
 .chip { height: 50px; padding: 0 20px; border-radius: 25px; background: #0E1726; margin: 0 10px 10px 0; display: flex; align-items: center; font-size: 22px; }
 .chip.active { background: #1B4F8A; }
 .chip.focused { background: #5EC4F2; color: #06101F; }

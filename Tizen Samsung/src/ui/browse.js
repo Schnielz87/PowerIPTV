@@ -65,22 +65,26 @@ export default function browse(params) {
     if (target) setFocus(target);
   }
 
+  /** Sprache als Auswahlfeld (eine Zeile, OK oeffnet die Liste) – Chips liefen bei vielen Sprachen in die Kategorien. */
   function renderLangs() {
     clear(langBox);
     if (langs.length < 2) return;
-    const chip = (code, text) => {
-      const c = focusable(h('div.chip' + (lang === code ? '.active' : ''), null, text), () => {
+    const btn = focusable(h('div.lang-select', null,
+      h('span.lang-label', null, 'Sprache'),
+      h('span.lang-value', null, lang || 'Alle'),
+      h('span.lang-arrow', null, '▾')), () => {
+      const pick = (code) => {
         lang = code;
         saveSettings({ categoryLanguage: code });
         renderLangs();
         renderCats();
-        const b = langBox.querySelector('.chip.active');
+        const b = langBox.querySelector('.lang-select');
         if (b) setFocus(b);
-      });
-      return c;
-    };
-    langBox.appendChild(chip('', 'Alle'));
-    langs.slice(0, 11).forEach((l) => langBox.appendChild(chip(l, l)));
+      };
+      choose('Sprache der Kategorien', [{ label: 'Alle Sprachen', active: !lang, onSelect: () => pick('') }]
+        .concat(langs.map((l) => ({ label: l, active: lang === l, onSelect: () => pick(l) }))));
+    });
+    langBox.appendChild(btn);
   }
 
   function visibleCats() {
