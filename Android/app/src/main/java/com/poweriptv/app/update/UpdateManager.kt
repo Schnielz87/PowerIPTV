@@ -124,12 +124,23 @@ class UpdateManager(private val context: Context, http: () -> OkHttpClient, json
                 _status.value = "Zu wenig Speicher frei (${free / (1024 * 1024)} MB) – bitte am Gerät Apps oder Downloads löschen (mind. 200 MB frei)"
                 return@launch
             }
+            val started = System.currentTimeMillis()
+            com.poweriptv.app.util.DiagLog.log("Update", "Lade ${r.tag} (frei: ${free / (1024 * 1024)} MB)")
             runCatching {
-                checker.download(url, file) { done, total -> if (total > 0) _progress.value = done.toFloat() / total }
+                checker.download(url, file) { done, total ->
+                    if (total > 0) _progress.value = done.toFloat() / total
+                    // Fortschritt mit Geschwindigkeit, damit man sieht, ob das Netz bremst
+                    val secs = (System.currentTimeMillis() - started) / 1000.0
+                    if (secs > 1 && total > 0) {
+                        val mbps = done / 1048576.0 / secs
+                        _status.value = "Lade ${r.tag} … %d / %d MB · %.1f MB/s".format(java.util.Locale.GERMANY, done / 1048576, total / 1048576, mbps)
+                    }
+                }
             }.onSuccess {
                 _progress.value = null
                 _status.value = "Installation wird geöffnet …"
-                com.poweriptv.app.util.DiagLog.log("Update", "${r.tag} geladen (${file.length() / 1024} KB), Installation geöffnet")
+                val secs = ((System.currentTimeMillis() - started) / 1000.0).coerceAtLeast(0.1)
+                com.poweriptv.app.util.DiagLog.log("Update", "${r.tag} geladen: ${file.length() / 1048576} MB in %.0f s (%.1f MB/s), Installation geöffnet".format(java.util.Locale.GERMANY, secs, file.length() / 1048576.0 / secs))
                 install(file)
             }.onFailure {
                 com.poweriptv.app.util.DiagLog.log("Update", "Download fehlgeschlagen: ${it.javaClass.simpleName}: ${it.message}")
