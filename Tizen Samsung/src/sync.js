@@ -6,6 +6,7 @@
 import { storage } from './util';
 import { discover, LINK_PORT } from './link';
 import { isVega, request } from './vega';
+import { tmdbKey } from './tmdb';
 
 export const DEFAULT_LIST = 'default';
 const TOMBSTONE_MS = 60 * 86400000;
@@ -291,6 +292,8 @@ export async function syncAll(profile, lib, progress) {
     let reply = null;
     try { reply = JSON.parse(r.text); } catch (e) { reply = null; }
     if (reply && reply.ok && reply.data) {
+      // TMDB-Schluessel vom Handy/PC uebernehmen (am Fernseher muesste man ihn sonst abtippen)
+      if (reply.tmdb && !tmdbKey.get()) tmdbKey.set(reply.tmdb);
       const merged = merge(before, reply.data);
       applyData(lib, merged, before);
       const c = changes(before, merged);

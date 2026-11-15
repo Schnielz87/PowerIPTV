@@ -134,6 +134,7 @@ export class XtreamSource {
       duration: str(info.duration), rating: num(info.rating), cover: img(info.movie_image) || img(info.cover_big) || item.logo,
       backdrop: img(bd), ext: str(movie.container_extension) || item.ext,
       age: str(info.age) || str(info.mpaa_rating) || str(info.certification),
+      tmdb: str(info.tmdb_id) || str(info.tmdb),
     };
   }
 
@@ -158,10 +159,13 @@ export class XtreamSource {
         id, season, episodeNum: num(o.episode_num) || 0,
         title: str(o.title) || `Episode ${o.episode_num || ''}`,
         ext: str(o.container_extension),
-        plot: (str(ei.plot) || '').replace(/^(n\/a|null)$/i, '') || null,
+        plot: (str(ei.plot) || str(ei.overview) || str(ei.description) || str(o.plot) || str(o.overview) || '').replace(/^(n\/a|null)$/i, '') || null,
         duration: str(ei.duration),
-        image: img(ei.movie_image) || img(ei.cover_big) || img(ei.still_path) || img(o.cover) || seasonCovers[season] || seriesBackdrop || item.logo,
+        // Mehrere Bildquellen: laedt eine nicht (kaputter Link beim Anbieter), wird die naechste versucht
+        images: [img(ei.movie_image), img(ei.cover_big), img(ei.still_path), img(o.cover), img(o.movie_image), seasonCovers[season], seriesBackdrop, item.logo]
+          .filter((u, i, a) => u && a.indexOf(u) === i),
       };
+      ep.image = ep.images[0] || null;
       (episodes[season] = episodes[season] || []).push(ep);
     };
     const eps = root && root.episodes;
@@ -173,6 +177,7 @@ export class XtreamSource {
       plot: str(info.plot), genre: str(info.genre), cast: str(info.cast), releaseDate: str(info.releaseDate) || str(info.release_date),
       rating: num(info.rating), cover: img(info.cover) || item.logo, backdrop: seriesBackdrop, episodes, seasons,
       age: str(info.age) || str(info.mpaa_rating) || str(info.certification),
+      tmdb: str(info.tmdb_id) || str(info.tmdb),
     };
   }
 

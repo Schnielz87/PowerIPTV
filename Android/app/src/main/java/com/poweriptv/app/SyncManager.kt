@@ -104,7 +104,7 @@ class SyncManager(private val c: AppContainer) {
         if (req.from.isNotBlank()) Handler(Looper.getMainLooper()).post {
             Toast.makeText(c.app, "Favoriten & Weiterschauen mit „${req.from}“ synchronisiert", Toast.LENGTH_SHORT).show()
         }
-        return SyncReply(true, merged, c.deviceName())
+        return SyncReply(true, merged, c.deviceName(), tmdb = c.ageRatings.apiKey()?.takeIf { it.isNotBlank() && it.length <= 40 })
     }
 
     /** Mit allen gefundenen Geraeten abgleichen (blockierend, im Hintergrund aufrufen). Liefert die Meldung. */
@@ -124,6 +124,7 @@ class SyncManager(private val c: AppContainer) {
                 val r = LinkClient.sync(d, SyncRequest(key(p), before, c.deviceName()))
                 val data = r.data
                 if (r.ok && data != null) {
+                    r.tmdb?.let { if (!c.ageRatings.hasApiKey()) c.ageRatings.setApiKey(it) }
                     val merged = SyncCore.merge(before, data)
                     apply(p, merged, before)
                     val (a, b) = SyncCore.changes(before, merged)

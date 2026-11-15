@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.169 · November 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.170 · November 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -315,6 +315,7 @@ c.push(step('Eingabeaufforderung im entpackten Ordner „PowerIPTV-Tizen“ öff
 c.push(step([b('Signieren: '), t('tizen package -t wgt -s PortivaTV')], 'n9'));
 c.push(step([b('Installieren: '), t('tizen install -n Portiva.wgt -s <IP-des-Fernsehers>:26101')], 'n9'));
 c.push(step('Fertig – „Portiva“ erscheint am Fernseher unter „Apps“. Beim ersten Start den Zugang einrichten (OK auf einem Feld öffnet die Fernseher-Tastatur).', 'n9'));
+c.push(p('Startseite: unter den großen Kacheln stehen „Weiterschauen“ sowie getrennt „Live TV – zuletzt gesehen“, „Filme – zuletzt gesehen“ und „Serien – zuletzt gesehen“. Serienseite: jede Folge mit Bild und kurzer Inhaltsangabe. Liefert der Anbieter keine (oder nur englische), holt Portiva deutsche Beschreibungen und Folgenbilder von TMDB – dafür unter Einstellungen → „Folgen-Beschreibungen (TMDB)“ den kostenlosen TMDB-Schlüssel eintragen. Einfacher: Ist der Schlüssel am Handy oder PC hinterlegt, übernimmt der Fernseher ihn automatisch beim „Synchronisieren“.'));
 c.push(p('Sprache der Kategorien (Live TV, Filme, Serien): oben links steht das Auswahlfeld „Sprache  Alle ▾“. OK öffnet die Liste aller Sprachen (DE, EN, TR …) – danach zeigt die Liste nur Kategorien dieser Sprache; „Alle Sprachen“ zeigt wieder alles.'));
 c.push(h2('Fernbedienung'));
 c.push(table(['Taste', 'Funktion'], [

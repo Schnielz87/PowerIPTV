@@ -90,6 +90,8 @@ data class SyncReply(
     val error: String? = null,
     /** Geraet kennt diesen Benutzer nicht (kein Fehler – wird uebersprungen). */
     val unknown: Boolean = false,
+    /** TMDB-Schluessel des antwortenden Geraets (nur v3-Schluessel) – Fernseher uebernehmen ihn, statt ihn abzutippen. */
+    val tmdb: String? = null,
 )
 
 object SyncCore {

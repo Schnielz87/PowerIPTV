@@ -350,7 +350,7 @@ class AppState(val window: WindowState) {
             com.poweriptv.app.link.SyncCore.merge(before, req.data).also { lib.applySync(it, before) }
         }
         if (req.from.isNotBlank()) syncNotice = "Favoriten & Weiterschauen mit „${req.from}“ synchronisiert"
-        return com.poweriptv.app.link.SyncReply(true, merged, deviceName())
+        return com.poweriptv.app.link.SyncReply(true, merged, deviceName(), tmdb = ageRatings.apiKey()?.takeIf { it.isNotBlank() && it.length <= 40 })
     }
 
     /** Mit allen Geraeten im Heimnetz abgleichen (blockierend). Liefert die Meldung fuer die Oberflaeche. */
@@ -370,6 +370,7 @@ class AppState(val window: WindowState) {
                 val r = com.poweriptv.app.link.LinkClient.sync(d, com.poweriptv.app.link.SyncRequest(syncKey(p), before, deviceName()))
                 val data = r.data
                 if (r.ok && data != null) {
+                    r.tmdb?.let { if (!ageRatings.hasApiKey()) ageRatings.setApiKey(it) }
                     val merged = com.poweriptv.app.link.SyncCore.merge(before, data)
                     lib.applySync(merged, before)
                     val (a, b) = com.poweriptv.app.link.SyncCore.changes(before, merged)

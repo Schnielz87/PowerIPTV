@@ -8,6 +8,7 @@ import { T } from '../sources';
 import { fskOf } from '../rules';
 import { topbar, button, loading, empty, imgDiv } from './common';
 import { listPicker } from './lists';
+import { tmdbSeason } from '../tmdb';
 
 export default function detail({ item }) {
   const lib = app.library;
@@ -21,7 +22,7 @@ export default function detail({ item }) {
   const episodesBox = h('div.episodes.scroll-y');
   const info = h('div.detail-info', null, h('h2', null, item.name), meta, plot, buttons);
   const body = h('div.inner', null, topbar(isSeries ? 'Serie' : 'Film'), h('div.detail-top', null, cover, info), isSeries ? seasonsBox : null, isSeries ? episodesBox : null);
-  const el = h('div.page.detail', null, backdrop, h('div.shade'), body);
+  const el = h('div.page.detail' + (isSeries ? '.series' : ''), null, backdrop, h('div.shade'), body);
   let data = null;
   let season = null;
   let favBtn = null;
@@ -107,21 +108,66 @@ export default function detail({ item }) {
     });
   }
 
+  /** Erstes Bild aus der Liste setzen, das wirklich laedt (kaputte Anbieter-Links ueberspringen). */
+  function firstImage(div, urls) {
+    let i = 0;
+    const next = () => {
+      if (i >= urls.length) return;
+      const u = urls[i++];
+      const im = new Image();
+      im.onload = () => { div.style.backgroundImage = `url("${u}")`; };
+      im.onerror = next;
+      im.src = u;
+    };
+    next();
+  }
+
+  function episodeText(e) { return [e.duration, e.plot || 'Keine Beschreibung vorhanden'].filter(Boolean).join(' · '); }
+
   function renderEpisodes() {
     clear(episodesBox);
     const eps = data.episodes[season] || [];
     if (!eps.length) { episodesBox.appendChild(empty('Keine Folgen')); return; }
+    const cards = {};
     eps.forEach((e) => {
       const key = Library.episodeKey(e.id);
       const pos = lib.position(key);
-      const img = imgDiv('img', e.image);
+      const img = h('div.img');
+      firstImage(img, e.images || (e.image ? [e.image] : []));
       if (lib.isWatched(key)) img.appendChild(h('div.tag.seen', null, '✓'));
       else if (pos > 0) img.appendChild(h('div.progress', { style: { width: '40%' } }));
+      const p = h('div.p', null, episodeText(e));
       const card = focusable(h('div.episode', null, img, h('div.txt', null,
-        h('div.t', null, `${e.episodeNum}. ${e.title}`),
-        h('div.p', null, [e.duration, e.plot].filter(Boolean).join(' · ')))), () => playEpisode(e, pos), { _episode: e });
+        h('div.t', null, `${e.episodeNum}. ${e.title}`), p)), () => playEpisode(e, pos), { _episode: e });
+      cards[e.episodeNum] = { e, img, p };
       episodesBox.appendChild(card);
     });
+    // Fehlen Beschreibungen/Bilder beim Anbieter: deutsche Texte und Folgenbilder von TMDB (falls Schluessel hinterlegt)
+    const s = season;
+    if (!eps.every((e) => e.plot && e.tmdbDone)) {
+      tmdbSeason(item.name, data.tmdb, s).then((m) => {
+        if (!m || s !== season) return;
+        Object.keys(cards).forEach((n) => {
+          const c = cards[n];
+          const t = m[n];
+          c.e.tmdbDone = true;
+          if (!t) return;
+          if (t.plot && (!c.e.plot || looksEnglish(c.e.plot))) { c.e.plot = t.plot; c.p.textContent = episodeText(c.e); }
+          if (t.still && (c.e.images || []).indexOf(t.still) < 0) {
+            c.e.images = [t.still].concat(c.e.images || []);
+            firstImage(c.img, c.e.images);
+          }
+        });
+      }).catch(() => { /* ohne TMDB weiter */ });
+    }
+  }
+
+  /** Grobe Erkennung englischer Texte (dann lieber die deutsche TMDB-Beschreibung). */
+  function looksEnglish(t) {
+    const w = String(t).toLowerCase().match(/[a-zäöüß]+/g) || [];
+    const en = w.filter((x) => ['the', 'and', 'his', 'her', 'with', 'when', 'while', 'their', 'is', 'of'].indexOf(x) >= 0).length;
+    const de = w.filter((x) => ['der', 'die', 'das', 'und', 'mit', 'sich', 'ist', 'nicht', 'ein', 'eine'].indexOf(x) >= 0).length;
+    return en > de && en >= 2;
   }
 
   function playEpisode(e, pos) {

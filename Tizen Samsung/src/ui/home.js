@@ -6,7 +6,7 @@ import { app, go, choose, activateProfile, askPin, showServerMessage } from '../
 import { profiles, parental } from '../store';
 import { T } from '../sources';
 import { updates } from '../update';
-import { topbar, iconButton, imgDiv, ICON } from './common';
+import { topbar, iconButton, imgDiv, ICON, itemCard } from './common';
 
 export default function home() {
   const accountLine = h('span.account-line');
@@ -54,11 +54,20 @@ export default function home() {
       rows.appendChild(h('div.section-title', null, 'Weiterschauen'));
       rows.appendChild(h('div.hrow.scroll-x', null, cont.map((e) => wideCard(e))));
     }
-    const live = lib.history.filter((x) => x.item.type === T.LIVE && !parental.isItemBlocked(app.profile.id, x.item)).slice(0, 15);
+    // Zuletzt gesehen – getrennt nach Live TV, Filmen und Serien (wie am Handy)
+    const recent = (type) => lib.history.filter((x) => x.item.type === type && !parental.isItemBlocked(app.profile.id, x.item)).slice(0, 15);
+    const live = recent(T.LIVE);
     if (live.length) {
-      rows.appendChild(h('div.section-title', null, 'Zuletzt gesehene Sender'));
+      rows.appendChild(h('div.section-title', null, 'Live TV – zuletzt gesehen'));
       rows.appendChild(h('div.hrow.scroll-x', null, live.map((e) => wideCard(e))));
     }
+    [[T.MOVIE, 'Filme – zuletzt gesehen'], [T.SERIES, 'Serien – zuletzt gesehen']].forEach(([type, title]) => {
+      const list = recent(type);
+      if (!list.length) return;
+      rows.appendChild(h('div.section-title', null, title));
+      rows.appendChild(h('div.hrow.scroll-x', null, list.map((e) => itemCard(e.item, () => go('detail', { item: e.item }),
+        { progress: e.duration > 0 && e.item.type === T.MOVIE ? Math.min(1, e.position / e.duration) : null }))));
+    });
   }
 
   function wideCard(e) {

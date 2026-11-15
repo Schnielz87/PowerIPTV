@@ -6,6 +6,7 @@ import { settings, saveSettings, parental, categoryPrefs } from '../store';
 import { VERSION, updates } from '../update';
 import { topbar, row, toggleRow, selectRow, field } from './common';
 import { openProfileManager } from './profiles';
+import { tmdbKey } from '../tmdb';
 
 export default function settingsScreen() {
   const inner = h('div.list-inner');
@@ -46,12 +47,32 @@ export default function settingsScreen() {
   add(row('Zugänge verwalten', 'Hinzufügen, bearbeiten, löschen', app.profile ? app.profile.name : '', () => openProfileManager()));
   add(row('Kindersicherung', 'PIN, gesperrte Kategorien, Erwachsenen-Inhalte', parental.isOn() ? 'Ein' : 'Aus', () => go('parental')));
   add(row('KI-Empfehlungen', 'ChatGPT-API-Schlüssel', storage.get('ai.key', '') ? 'eingerichtet' : 'nicht eingerichtet', () => editAiKey()));
+  add(row('Folgen-Beschreibungen (TMDB)', 'Deutsche Inhaltsangaben und Bilder zu jeder Folge, wenn der Anbieter keine liefert',
+    tmdbKey.get() ? 'eingerichtet' : 'nicht eingerichtet', (r) => editTmdbKey(r)));
 
   g('Über Portiva');
   add(row('Version', platformName(), VERSION, null));
   add(row('Update', updates.available ? `Neue Version ${updates.available.tag} verfügbar` : 'Nach neuer Version suchen', '', () => go('update')));
 
   return { el };
+}
+
+function editTmdbKey(r) {
+  const f = field('TMDB-API-Schlüssel (v3, 32 Zeichen)', tmdbKey.get(), { type: 'password' });
+  dialog({
+    title: 'Folgen-Beschreibungen (TMDB)',
+    text: 'Kostenlosen Schlüssel bei themoviedb.org anlegen (Konto → Einstellungen → API) – derselbe wie am Handy. ' +
+      'Damit zeigt die Serienseite zu jeder Folge eine deutsche Inhaltsangabe und ein Bild, wenn dein Anbieter keine liefert.',
+    content: f.el,
+    buttons: [
+      { label: 'Speichern', primary: true, onClick: () => {
+        tmdbKey.set(f.input.value);
+        if (r && r._value) r._value.textContent = tmdbKey.get() ? 'eingerichtet' : 'nicht eingerichtet';
+        toast(tmdbKey.get() ? 'TMDB-Schlüssel gespeichert' : 'TMDB-Schlüssel entfernt');
+      } },
+      { label: 'Abbrechen' },
+    ],
+  });
 }
 
 function editAiKey() {
