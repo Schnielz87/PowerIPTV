@@ -266,6 +266,7 @@ class VlcPlayerActivity : ComponentActivity() {
                     AndroidView(
                         factory = { ctx ->
                             VLCVideoLayout(ctx).also { layout ->
+                                videoLayout = layout
                                 mediaPlayer.attachViews(layout, null, false, false)
                                 applyScale()
                                 // Vom Standard-Player hierher gewechselt: dessen Verbindung kurz schliessen lassen –
@@ -1227,11 +1228,31 @@ class VlcPlayerActivity : ComponentActivity() {
         return super.dispatchKeyEvent(event)
     }
 
+    /** Bildflaeche von VLC: beim Minimieren loesen, beim Zurueckkommen neu verbinden (sonst nur Ton, Bild steht). */
+    private var videoLayout: VLCVideoLayout? = null
+    private var viewsDetached = false
+
+    override fun onStart() {
+        super.onStart()
+        val layout = videoLayout
+        if (viewsDetached && layout != null) {
+            viewsDetached = false
+            runCatching {
+                mediaPlayer.attachViews(layout, null, false, false)
+                applyScale()
+            }.onFailure { com.poweriptv.app.util.DiagLog.log("VLC", "Bild neu verbinden fehlgeschlagen: ${it.message}") }
+            com.poweriptv.app.util.DiagLog.log("VLC", "Zurück in der App – Bildfläche neu verbunden")
+        }
+    }
+
     override fun onStop() {
         super.onStop()
         saveResume()
-        // Im Mini-Fenster weiterlaufen lassen, sonst beim Verlassen pausieren
-        if (!inPip) runCatching { mediaPlayer.pause() }
+        // Im Mini-Fenster weiterlaufen lassen, sonst beim Verlassen pausieren und die Bildflaeche freigeben
+        if (!inPip) {
+            runCatching { mediaPlayer.pause() }
+            if (!isFinishing) runCatching { mediaPlayer.detachViews(); viewsDetached = true }
+        }
     }
 
     override fun onDestroy() {
