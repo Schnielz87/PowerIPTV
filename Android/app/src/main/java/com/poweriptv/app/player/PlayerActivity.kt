@@ -315,7 +315,7 @@ class PlayerActivity : ComponentActivity() {
                 }
             }
 
-            override fun onRenderedFirstFrame() { firstFrameAt = System.currentTimeMillis() }
+            override fun onRenderedFirstFrame() { firstFrameAt = System.currentTimeMillis(); applyAspect() }
             override fun onIsPlayingChanged(isPlaying: Boolean) = updatePip()
             override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) = updatePip()
 
@@ -915,7 +915,17 @@ class PlayerActivity : ComponentActivity() {
         val forced = videoScale.ratio
         val v = player.videoSize
         val natural = if (v.width > 0 && v.height > 0) v.width * v.pixelWidthHeightRatio / v.height else 0f
-        frame.post { frame.setAspectRatio(forced ?: natural) }
+        frame.post {
+            frame.setAspectRatio(forced ?: natural)
+            // Gespeichertes Format (z.B. Zoom) auch beim Start sicher anwenden: manche Geraete messen das Bild beim
+            // ersten Mal nur im Originalformat aus – erst ein erneutes Setzen loeste das Zoomen aus.
+            val mode = resizeModeFor(videoScale)
+            if (mode != AspectRatioFrameLayout.RESIZE_MODE_FIT && natural > 0f) {
+                playerView?.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                playerView?.resizeMode = mode
+                frame.requestLayout()
+            }
+        }
     }
 
     // ---------- Audio & Untertitel ----------

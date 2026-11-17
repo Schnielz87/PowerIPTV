@@ -215,6 +215,8 @@ class VlcPlayerActivity : ComponentActivity() {
                     if (hasNext() && !nextCancelled) next()
                 }
                 MediaPlayer.Event.LengthChanged -> applyResume()
+                // Bildausgabe steht: gespeichertes Format (z.B. Zoom) sicher anwenden
+                MediaPlayer.Event.Vout -> if (event.voutCount > 0) runOnUiThread { applyScale() }
                 // Mit ":start-time" geoeffnet: pruefen, sobald die erste Zeit gemeldet wird
                 MediaPlayer.Event.TimeChanged -> if (resumeTarget > 0 && startTimeUsed) applyResume()
             }
