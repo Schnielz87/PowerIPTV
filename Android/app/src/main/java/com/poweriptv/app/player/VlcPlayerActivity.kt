@@ -156,6 +156,7 @@ class VlcPlayerActivity : ComponentActivity() {
         })
         // Immer nur ein Player
         PlayerActivity.closeActive()
+        if (android.os.Build.VERSION.SDK_INT >= 26) pipReceiver = Pip.register(this) { onPipCommand(it) }
         active?.get()?.takeIf { it !== this }?.finish()
         active = java.lang.ref.WeakReference(this)
 
@@ -1129,14 +1130,27 @@ class VlcPlayerActivity : ComponentActivity() {
 
     private fun updatePip() {
         val (w, h) = videoSize()
-        Pip.update(this, container.isTvDevice, w, h, autoEnter = !userPaused && error == null && current() != null)
+        Pip.update(this, container.isTvDevice, w, h, autoEnter = !userPaused && error == null && current() != null,
+            playing = !userPaused, live = current()?.live == true)
+    }
+
+    /** Knoepfe im Mini-Fenster (Bild-in-Bild). */
+    private var pipReceiver: android.content.BroadcastReceiver? = null
+
+    private fun onPipCommand(cmd: Int) {
+        when (cmd) {
+            Pip.CMD_TOGGLE -> togglePause()
+            Pip.CMD_BACK -> seekBy(-10_000)
+            Pip.CMD_FORWARD -> seekBy(10_000)
+        }
+        updatePip()
     }
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         if (!userPaused && error == null && current() != null) {
             val (w, h) = videoSize()
-            Pip.onLeave(this, container.isTvDevice, w, h)
+            Pip.onLeave(this, container.isTvDevice, w, h, current()?.live == true)
         }
     }
 
@@ -1219,6 +1233,7 @@ class VlcPlayerActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        pipReceiver?.let { runCatching { unregisterReceiver(it) } }; pipReceiver = null
         if (active?.get() === this) active = null
         runCatching {
             mediaPlayer.stop()

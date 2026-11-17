@@ -187,6 +187,7 @@ class PlayerActivity : ComponentActivity() {
         }
         active = java.lang.ref.WeakReference(this)
         VlcPlayerActivity.closeActive()
+        if (Build.VERSION.SDK_INT >= 26) pipReceiver = Pip.register(this) { onPipCommand(it) }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         // Vollbild inkl. Kamera-Aussparung: Video sitzt mittig, kein schwarzer Rand auf der Kameraseite
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
@@ -1518,7 +1519,20 @@ class PlayerActivity : ComponentActivity() {
     /** Bild-in-Bild-Einstellungen aktualisieren (Seitenverhaeltnis, automatisch beim Verlassen nur waehrend der Wiedergabe). */
     private fun updatePip() {
         val v = player.videoSize
-        Pip.update(this, isTv, v.width, v.height, autoEnter = player.playWhenReady && error == null)
+        Pip.update(this, isTv, v.width, v.height, autoEnter = player.playWhenReady && error == null,
+            playing = player.playWhenReady, live = current()?.live == true && !timeshiftActive)
+    }
+
+    /** Knoepfe im Mini-Fenster (Bild-in-Bild). */
+    private var pipReceiver: android.content.BroadcastReceiver? = null
+
+    private fun onPipCommand(cmd: Int) {
+        when (cmd) {
+            Pip.CMD_TOGGLE -> withSwitch { player.playWhenReady = !player.playWhenReady }
+            Pip.CMD_BACK -> seekBy(-10_000)
+            Pip.CMD_FORWARD -> seekBy(10_000)
+        }
+        updatePip()
     }
 
     override fun onUserLeaveHint() {
@@ -1527,7 +1541,7 @@ class PlayerActivity : ComponentActivity() {
         // Ab Android 12 macht das autoEnter selbst – sonst hier von Hand.
         if (player.playWhenReady && error == null) {
             val v = player.videoSize
-            Pip.onLeave(this, isTv, v.width, v.height)
+            Pip.onLeave(this, isTv, v.width, v.height, current()?.live == true)
         }
     }
 
@@ -1596,6 +1610,7 @@ class PlayerActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        pipReceiver?.let { runCatching { unregisterReceiver(it) } }; pipReceiver = null
         if (active?.get() === this) active = null
         resetDisplayMode()
         stopTimeshift()
