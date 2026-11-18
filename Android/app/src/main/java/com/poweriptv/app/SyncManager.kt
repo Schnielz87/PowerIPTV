@@ -68,9 +68,20 @@ class SyncManager(private val c: AppContainer) {
         val src = sourceFor(p)
         val local = before.resume.associate { it.k to it.ts }
         val added = mutableListOf<Pair<Long, com.poweriptv.app.data.ContentItem>>()
+        // Der Zeitstand haengt hier an der Film-Adresse inkl. Dateiendung (.mkv/.mp4). Fehlt die Endung beim anderen
+        // Geraet, die eigene aus Verlauf bzw. Katalog nehmen – sonst wuerde der Film doch wieder von vorne starten.
+        val known = c.history.itemsFor(p.id).associateBy { it.key }
+        val catalogExt: Map<String, String?> by lazy {
+            runCatching {
+                kotlinx.coroutines.runBlocking { kotlinx.coroutines.withTimeout(20_000) { src.items(ContentType.MOVIE, null) } }
+            }.getOrNull()?.associate { it.key to it.containerExtension }.orEmpty()
+        }
         merged.resume.forEach { r ->
             if (r.ts <= (local[r.k] ?: 0L)) return@forEach
-            val item = r.item?.toContent() ?: return@forEach
+            val synced = r.item?.toContent() ?: return@forEach
+            val item = known[synced.key]?.takeIf { synced.type != ContentType.MOVIE || it.containerExtension != null }
+                ?: if (synced.type == ContentType.MOVIE && synced.url == null && synced.containerExtension == null)
+                    synced.copy(containerExtension = catalogExt[synced.key]) else synced
             when (item.type) {
                 ContentType.MOVIE -> {
                     c.resume.applySynced(src.streamUrl(item), r.pos, r.dur, r.done, r.ts)

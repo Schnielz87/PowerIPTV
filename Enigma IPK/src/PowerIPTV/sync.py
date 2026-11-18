@@ -277,6 +277,12 @@ def apply(profile, merged, before):
                     "series_name": it.get("name"), "logo": it.get("logo"), "cat": it.get("cat")}
         elif it["kind"] == "movie":
             play = it
+            if not play.get("ext"):
+                # Zeitstand haengt an der Adresse inkl. Endung -> eigene Endung aus Verlauf/Favoriten nehmen
+                own = next((x for x in store.history(pid) + store.favorites(pid)
+                            if x.get("kind") == "movie" and str(x.get("id")) == str(it.get("id")) and x.get("ext")), None)
+                if own:
+                    play = dict(it, ext=own["ext"])
         else:
             continue
         try:
