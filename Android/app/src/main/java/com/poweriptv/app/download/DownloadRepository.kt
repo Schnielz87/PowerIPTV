@@ -138,6 +138,8 @@ class DownloadRepository(
         try {
             val n = connections().coerceIn(1, MAX_CONNECTIONS)
             val total = if (n > 1) probeLength(entry.url) else null
+            logDiag("Start „${entry.title}“ – ${if (total != null && total >= MIN_SEGMENTED_SIZE) "$n Verbindungen" else "1 Verbindung"}" +
+                (total?.let { ", ${it / 1048576} MB" } ?: ""))
             val done = if (total != null && total >= MIN_SEGMENTED_SIZE) {
                 try {
                     runSegmented(entry, total, n, onProgress)
@@ -191,6 +193,7 @@ class DownloadRepository(
             patch(entry.id) { it.copy(downloaded = done, total = total) }
             val meter = SpeedMeter(done)
             val watch = ThrottleWatch()
+            val minute = MinuteLog(done) { logDiag(it) }
             var throttled = false
             BufferedOutputStream(FileOutputStream(file, append), BUFFER).use { out ->
                 val input = body.byteStream()
@@ -206,6 +209,7 @@ class DownloadRepository(
                     out.write(buffer, 0, read)
                     done += read
                     if (resp.code == 206 && watch.throttled(done)) { throttled = true; break }
+                    minute.tick(done)
                     meter.tick(done)?.let { bps ->
                         setSpeed(entry.id, bps)
                         patch(entry.id) { it.copy(downloaded = done) }
@@ -214,7 +218,7 @@ class DownloadRepository(
                 }
             }
             // Gedrosselt: mit frischer Verbindung an derselben Stelle weiter (Range)
-            if (throttled) { logDiag("Download gedrosselt – neu verbunden"); return runSingle(entry, onProgress) }
+            if (throttled) { logDiag("Gedrosselt – Verbindung neu aufgebaut"); return runSingle(entry, onProgress) }
         }
         return true
     }
@@ -240,9 +244,11 @@ class DownloadRepository(
         val finished = coroutineScope {
             val ticker = launch {
                 val meter = SpeedMeter(downloaded())
+                val minute = MinuteLog(downloaded()) { logDiag(it) }
                 while (true) {
                     delay(700)
                     val d = downloaded()
+                    minute.tick(d)
                     meter.tick(d, force = true)?.let { setSpeed(entry.id, it) }
                     patch(entry.id) { it.copy(downloaded = d) }
                     get(entry.id)?.let(onProgress)
@@ -305,7 +311,7 @@ class DownloadRepository(
                 throw e
             } catch (e: ReconnectException) {
                 reconnects++
-                if (reconnects % 10 == 1) logDiag("Download gedrosselt – neu verbunden (${reconnects}x)")
+                logDiag("Gedrosselt – Verbindung neu aufgebaut (${reconnects}x)")
                 continue // ohne Wartezeit und ohne als Fehler zu zaehlen
             } catch (e: CancellationException) {
                 throw e
@@ -336,6 +342,19 @@ class DownloadRepository(
             if (rate > peak) { peak = rate; return false }
             // erst nach 20 s, nur bei deutlichem Einbruch (unter 30 % des Bestwerts und unter 300 KB/s)
             return now - start > 20_000 && rate < peak * 0.3 && rate < 300 * 1024
+        }
+    }
+
+    /** Jede Minute Durchschnittstempo ins Fehlerprotokoll (in MBit/s, wie man es vom Internet-Tarif kennt). */
+    private class MinuteLog(startBytes: Long, private val log: (String) -> Unit) {
+        private var lastBytes = startBytes
+        private var lastTime = System.currentTimeMillis()
+        fun tick(bytes: Long) {
+            val now = System.currentTimeMillis()
+            if (now - lastTime < 60_000) return
+            val mbit = (bytes - lastBytes) * 8.0 / 1_000_000 / ((now - lastTime) / 1000.0)
+            log("Tempo letzte Minute: %.2f MBit/s (%d MB geladen)".format(java.util.Locale.GERMANY, mbit, bytes / 1048576))
+            lastBytes = bytes; lastTime = now
         }
     }
 
