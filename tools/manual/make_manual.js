@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.176 · November 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.177 · November 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -345,6 +345,7 @@ c.push(step('Am Handy: Benutzer wechseln → beim gewünschten Zugang auf das QR
 c.push(tip('Ohne Kamera (Windows-PC, TV-Stick, Samsung-TV) oder wenn das Scannen nicht klappt: beim Zugang „Code eingeben“ wählen und die am Receiver angezeigte IP-Adresse und den 6-stelligen Code eintragen. Den gleichen Zugang zweimal zu übertragen legt ihn nicht doppelt an.'));
 c.push(step('Der Zugang erscheint sofort auf dem TV und wird aktiviert. Beim Samsung-TV dauert es einige Sekunden (der Fernseher holt den Zugang beim Handy ab – Portiva am Handy so lange geöffnet lassen).', 'n11'));
 c.push(tip('Der QR-Code eines Zugangs enthält die Zugangsdaten – nur dir selbst zeigen. Lokale M3U-Dateien lassen sich nicht übertragen (dort fehlt das QR-Symbol).'));
+c.push(tip('Passiert nach dem Scannen nichts? Ab 1.1.177 sagt das Handy, woran es liegt: Handy nicht im WLAN (mobile Daten), ein VPN am Handy ist aktiv, oder das Gerät ist nicht erreichbar – mit den Adressen beider Geräte. Beginnen sie unterschiedlich (z.B. Handy 192.168.…, Stick 10.50.…), hängen die Geräte in verschiedenen Netzen. In Hotel-, Firmen- und Gast-WLANs dürfen Geräte oft nicht miteinander sprechen: dann den TV-Stick kurz mit dem Hotspot des Handys verbinden, Zugang übertragen und den Stick wieder ins normale WLAN zurückschalten – oder den Zugang am Stick von Hand eintragen.'));
 c.push(h2('Wiedergabe an ein anderes Gerät senden'));
 c.push(step('Im Player oben auf das Übertragen-Symbol (wie bei Chromecast) oder das Fernseher-Symbol „An Gerät senden“ tippen (Samsung-TV: Knopf „📲 Senden“). Das Fenster bleibt offen, bis du es schließt – auch wenn die Suche etwas dauert.', 'n12'));
 c.push(tip('Wird ein Gerät nicht gefunden: Alle Geräte müssen im selben Heimnetz hängen – WLAN oder LAN-Kabel ist egal. Klappt die automatische Suche trotzdem nicht, im Fenster „An Gerät senden“ unten die IP-Adresse des Geräts eingeben und „Verbinden“ drücken (Samsung-TV: „＋ Gerät per IP-Adresse …“). Das Gerät wird gemerkt und beim nächsten Mal automatisch angezeigt.'));

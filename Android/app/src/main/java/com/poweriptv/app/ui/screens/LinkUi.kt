@@ -76,6 +76,19 @@ private fun rememberQrScanner(onResult: (String?) -> Unit): () -> Unit {
     }
 }
 
+/** Netzwerk-Hindernis fuer Portiva Link (Handy nicht im WLAN, VPN aktiv) als Hinweis – null = alles gut. */
+private fun linkNetworkProblem(context: android.content.Context): String? = runCatching {
+    val cm = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+    val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return@runCatching "Das Handy hat gerade keine Netzwerkverbindung."
+    when {
+        caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) ->
+            "Am Handy ist ein VPN aktiv – es leitet die Verbindung um, der TV-Stick ist so nicht erreichbar. VPN kurz ausschalten und erneut versuchen."
+        !caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) && !caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) ->
+            "Das Handy ist nicht im WLAN (mobile Daten). Bitte mit demselben WLAN wie der TV-Stick verbinden."
+        else -> null
+    }
+}.getOrNull()
+
 /** Zugang an ein Geraet schicken, dessen Empfangs-Code gescannt wurde. Liefert null bei Erfolg. */
 private suspend fun sendAccount(container: AppContainer, target: LinkCodes.PairTarget, account: LinkAccount): String? = withContext(Dispatchers.IO) {
     if (target.port > 0) {
@@ -102,17 +115,34 @@ fun AccountQrDialog(container: AppContainer, profile: Profile, onDismiss: () -> 
     var showCode by remember { mutableStateOf(false) }
     var codeIp by remember { mutableStateOf("") }
     var codeNum by remember { mutableStateOf("") }
+    val ctx = LocalContext.current
     fun transfer(target: LinkCodes.PairTarget) {
         busy = true
-        status = "Wird übertragen …"
+        status = "Wird an ${target.host} übertragen …"
         scope.launch {
             if (target.port == 0) {
                 container.link.onOfferTaken = { a -> status = "✓ „${a.name}“ wurde auf den Fernseher übertragen"; busy = false }
             }
+            // Vorab pruefen: Handy im WLAN? VPN aktiv? (haeufigste Gruende, warum der TV-Stick nicht erreichbar ist)
+            val net = linkNetworkProblem(ctx)
+            if (net != null && target.port > 0) {
+                busy = false
+                status = net
+                com.poweriptv.app.util.DiagLog.log("Link", "Zugang senden an ${target.host}: $net")
+                android.widget.Toast.makeText(ctx, net, android.widget.Toast.LENGTH_LONG).show()
+                return@launch
+            }
             val err = sendAccount(container, target, account)
             if (target.port > 0) {
                 busy = false
-                status = err ?: "✓ „${profile.name}“ wurde übertragen"
+                val own = LinkCodes.localIpv4()
+                status = if (err == null) "✓ „${profile.name}“ wurde übertragen" else
+                    "$err\n\nHandy: ${own ?: "keine WLAN-Adresse"} · TV-Gerät: ${target.host}. " +
+                        "Beginnen die Adressen unterschiedlich, sind die Geräte in verschiedenen Netzen. In Hotel-, Firmen- oder " +
+                        "Gast-WLANs dürfen Geräte oft nicht miteinander sprechen – dann den TV-Stick kurz mit dem Hotspot des Handys " +
+                        "verbinden oder den Zugang am Stick von Hand eintragen."
+                com.poweriptv.app.util.DiagLog.log("Link", "Zugang senden an ${target.host}:${target.port} (Handy $own): ${err ?: "ok"}")
+                android.widget.Toast.makeText(ctx, err ?: "Zugang übertragen", android.widget.Toast.LENGTH_LONG).show()
             } else if (err == null) {
                 status = "Der Fernseher holt den Zugang jetzt ab … Portiva hier geöffnet lassen."
             }
