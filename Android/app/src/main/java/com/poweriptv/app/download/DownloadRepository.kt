@@ -178,13 +178,42 @@ class DownloadRepository(
 
     /** Eine Verbindung, mit Fortsetzen ueber Range. Liefert true, wenn fertig. */
     private suspend fun runSingle(entry: DownloadEntry, onProgress: (DownloadEntry) -> Unit): Boolean {
+        val learned = Learned()
+        var reconnects = 0
+        var failures = 0
+        while (true) {
+            val result = try {
+                singleOnce(entry, onProgress, learned).also { failures = 0 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                // Nach dem Neu-Verbinden zaehlt der Anbieter die alte Verbindung oft noch kurz mit
+                // (HTTP 403/429 bei nur 1 erlaubten Verbindung) -> kurz warten und erneut versuchen
+                if (reconnects == 0 || ++failures > 8) throw e
+                delay(1500L * failures)
+                continue
+            }
+            when (result) {
+                SingleResult.DONE -> return true
+                SingleResult.STOPPED -> return false
+                SingleResult.THROTTLED -> {
+                    // Verbindung ist hier schon geschlossen (wichtig bei Zugaengen mit nur 1 Verbindung) -> frisch weiter
+                    reconnects++
+                    if (reconnects <= 3 || reconnects % 20 == 0) logDiag("Neu verbunden (${reconnects}x, Drosselung nach ca. ${learned.ms / 1000} s)")
+                }
+            }
+        }
+    }
+
+    private enum class SingleResult { DONE, STOPPED, THROTTLED }
+
+    private suspend fun singleOnce(entry: DownloadEntry, onProgress: (DownloadEntry) -> Unit, learned: Learned): SingleResult {
         val file = File(entry.filePath)
         val existing = if (file.exists()) file.length() else 0L
-        val req = Request.Builder().url(entry.url).apply {
-            if (existing > 0) header("Range", "bytes=$existing-")
-        }.build()
+        // Immer mit Range anfragen: 206 = Server kann an jeder Stelle weitermachen (Voraussetzung fuers Neu-Verbinden)
+        val req = Request.Builder().url(entry.url).header("Range", "bytes=$existing-").build()
         http().newCall(req).execute().use { resp ->
-            if (resp.code == 416) return true // bereits vollstaendig
+            if (resp.code == 416) return SingleResult.DONE // bereits vollstaendig
             if (!resp.isSuccessful) throw IOException("HTTP ${resp.code}")
             val body = resp.body ?: throw IOException("Leere Antwort")
             val append = resp.code == 206
@@ -192,9 +221,8 @@ class DownloadRepository(
             val total = body.contentLength().let { if (it > 0) it + done else -1L }
             patch(entry.id) { it.copy(downloaded = done, total = total) }
             val meter = SpeedMeter(done)
-            val watch = ThrottleWatch()
+            val watch = ThrottleWatch(learned)
             val minute = MinuteLog(done) { logDiag(it) }
-            var throttled = false
             BufferedOutputStream(FileOutputStream(file, append), BUFFER).use { out ->
                 val input = body.byteStream()
                 val buffer = ByteArray(BUFFER)
@@ -202,13 +230,19 @@ class DownloadRepository(
                     currentCoroutineContext().ensureActive()
                     if (!isActive(entry.id)) {
                         if (get(entry.id) == null) file.delete()
-                        return false // pausiert oder geloescht
+                        return SingleResult.STOPPED // pausiert oder geloescht
                     }
                     val read = input.read(buffer)
                     if (read < 0) break
                     out.write(buffer, 0, read)
                     done += read
-                    if (resp.code == 206 && watch.throttled(done)) { throttled = true; break }
+                    // Gedrosselt: nur mit Range-Unterstuetzung neu verbinden (sonst finge es von vorne an)
+                    if (append) {
+                        if (watch.throttled(done)) {
+                            patch(entry.id) { it.copy(downloaded = done) }
+                            return SingleResult.THROTTLED
+                        }
+                    }
                     minute.tick(done)
                     meter.tick(done)?.let { bps ->
                         setSpeed(entry.id, bps)
@@ -217,10 +251,8 @@ class DownloadRepository(
                     }
                 }
             }
-            // Gedrosselt: mit frischer Verbindung an derselben Stelle weiter (Range)
-            if (throttled) { logDiag("Gedrosselt – Verbindung neu aufgebaut"); return runSingle(entry, onProgress) }
         }
-        return true
+        return SingleResult.DONE
     }
 
     /**
@@ -229,6 +261,7 @@ class DownloadRepository(
      * Teile liegen als .partN-Dateien vor und werden beim Fortsetzen weitergeladen.
      */
     private suspend fun runSegmented(entry: DownloadEntry, total: Long, n: Int, onProgress: (DownloadEntry) -> Unit): Boolean {
+        val learned = Learned()
         val target = File(entry.filePath)
         target.delete()
         val partSize = total / n
@@ -255,7 +288,7 @@ class DownloadRepository(
                 }
             }
             val results = ranges.mapIndexed { i, range ->
-                async { downloadPart(entry, parts[i], range, firstAttempt = downloaded() == 0L) }
+                async { downloadPart(entry, parts[i], range, firstAttempt = downloaded() == 0L, learned = learned) }
             }.awaitAll()
             ticker.cancel()
             results.all { it }
@@ -272,7 +305,7 @@ class DownloadRepository(
         return true
     }
 
-    private suspend fun downloadPart(entry: DownloadEntry, part: File, range: LongRange, firstAttempt: Boolean): Boolean {
+    private suspend fun downloadPart(entry: DownloadEntry, part: File, range: LongRange, firstAttempt: Boolean, learned: Learned): Boolean {
         val size = range.last - range.first + 1
         var retries = 0
         var reconnects = 0
@@ -294,7 +327,7 @@ class DownloadRepository(
                     BufferedOutputStream(FileOutputStream(part, true), BUFFER).use { out ->
                         val buffer = ByteArray(BUFFER)
                         var written = have
-                        val watch = ThrottleWatch()
+                        val watch = ThrottleWatch(learned)
                         while (written < size) {
                             currentCoroutineContext().ensureActive()
                             if (!isActive(entry.id)) return false
@@ -311,7 +344,7 @@ class DownloadRepository(
                 throw e
             } catch (e: ReconnectException) {
                 reconnects++
-                logDiag("Gedrosselt – Verbindung neu aufgebaut (${reconnects}x)")
+                if (reconnects <= 3 || reconnects % 20 == 0) logDiag("Neu verbunden (${reconnects}x, Drosselung nach ca. ${learned.ms / 1000} s)")
                 continue // ohne Wartezeit und ohne als Fehler zu zaehlen
             } catch (e: CancellationException) {
                 throw e
@@ -326,7 +359,13 @@ class DownloadRepository(
      * Erkennt, wenn der Anbieter eine laufende Verbindung drosselt (viele IPTV-Server: anfangs schnell,
      * nach einiger Zeit nur noch KB/s). Vergleicht die letzten 10 s mit dem bisher besten 10-s-Wert dieser Verbindung.
      */
-    private class ThrottleWatch {
+    /**
+     * Erkennt, wenn der Anbieter eine laufende Verbindung drosselt (viele IPTV-Server: anfangs schnell,
+     * nach einiger Zeit nur noch KB/s; Pause/Weiter = neue Verbindung = wieder schnell).
+     * Misst in 5-s-Fenstern gegen den Bestwert dieser Verbindung. Hat sie einmal gedrosselt, merkt sie sich
+     * nach wie vielen Sekunden (learned) und verbindet beim naechsten Mal kurz vorher neu – ohne Tempoabfall.
+     */
+    private class ThrottleWatch(private val learned: Learned) {
         private val start = System.currentTimeMillis()
         private var windowStart = start
         private var windowBytes = -1L
@@ -334,14 +373,30 @@ class DownloadRepository(
 
         fun throttled(bytes: Long): Boolean {
             val now = System.currentTimeMillis()
+            val age = now - start
+            // Vorausschauend: kurz bevor der Anbieter erfahrungsgemaess drosselt
+            val l = learned.ms
+            if (l > 0 && age > l * 75 / 100) return true
             if (windowBytes < 0) { windowBytes = bytes; windowStart = now; return false }
             val dt = now - windowStart
-            if (dt < 10_000) return false
+            if (dt < 5_000) return false
             val rate = (bytes - windowBytes) * 1000.0 / dt
             windowBytes = bytes; windowStart = now
             if (rate > peak) { peak = rate; return false }
-            // erst nach 20 s, nur bei deutlichem Einbruch (unter 30 % des Bestwerts und unter 300 KB/s)
-            return now - start > 20_000 && rate < peak * 0.3 && rate < 300 * 1024
+            // nur bei deutlichem Einbruch (unter 35 % des Bestwerts und unter 400 KB/s), fruehestens nach 10 s
+            val slow = age > 10_000 && rate < peak * 0.35 && rate < 400 * 1024
+            if (slow) learned.report(age - dt) // Drosselung begann etwa zu Beginn dieses Fensters
+            return slow
+        }
+    }
+
+    /** Gelernte Zeit bis zur Drosselung (gilt fuer alle Verbindungen eines Downloads). */
+    private class Learned {
+        @Volatile var ms = 0L
+            private set
+        fun report(age: Long) {
+            val a = age.coerceAtLeast(8_000)
+            ms = if (ms == 0L) a else minOf(ms, a)
         }
     }
 
