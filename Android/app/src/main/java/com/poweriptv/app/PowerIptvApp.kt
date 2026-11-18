@@ -94,7 +94,7 @@ class AppContainer(val app: Application) {
         json, { http }, { downloadConnections() },
     ) {
         androidx.core.content.ContextCompat.startForegroundService(app, android.content.Intent(app, com.poweriptv.app.download.DownloadService::class.java))
-    }
+    }.also { d -> d.onLog = { com.poweriptv.app.util.DiagLog.log("Download", it) } }
     val epg = EpgRepository({ java.io.File(app.cacheDir, "epg") }, { http }) { android.util.Xml.newPullParser() }
     val parental = ParentalControl(com.poweriptv.app.data.SharedPrefsStore(app.getSharedPreferences("parental", android.content.Context.MODE_PRIVATE)))
     val recordings = RecordingRepository(app, json)

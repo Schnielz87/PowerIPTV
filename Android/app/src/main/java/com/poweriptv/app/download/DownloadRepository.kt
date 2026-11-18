@@ -60,6 +60,8 @@ class DownloadRepository(
 ) {
     private val serializer = ListSerializer(DownloadEntry.serializer())
     private val dir: File = dir.apply { mkdirs() }
+    /** Hinweise fuer das Fehlerprotokoll (Android: DiagLog). */
+    var onLog: (String) -> Unit = {}
 
     private val _entries = MutableStateFlow(load())
     val entries: StateFlow<List<DownloadEntry>> = _entries
@@ -188,6 +190,8 @@ class DownloadRepository(
             val total = body.contentLength().let { if (it > 0) it + done else -1L }
             patch(entry.id) { it.copy(downloaded = done, total = total) }
             val meter = SpeedMeter(done)
+            val watch = ThrottleWatch()
+            var throttled = false
             BufferedOutputStream(FileOutputStream(file, append), BUFFER).use { out ->
                 val input = body.byteStream()
                 val buffer = ByteArray(BUFFER)
@@ -201,6 +205,7 @@ class DownloadRepository(
                     if (read < 0) break
                     out.write(buffer, 0, read)
                     done += read
+                    if (resp.code == 206 && watch.throttled(done)) { throttled = true; break }
                     meter.tick(done)?.let { bps ->
                         setSpeed(entry.id, bps)
                         patch(entry.id) { it.copy(downloaded = done) }
@@ -208,6 +213,8 @@ class DownloadRepository(
                     }
                 }
             }
+            // Gedrosselt: mit frischer Verbindung an derselben Stelle weiter (Range)
+            if (throttled) { logDiag("Download gedrosselt – neu verbunden"); return runSingle(entry, onProgress) }
         }
         return true
     }
@@ -262,6 +269,7 @@ class DownloadRepository(
     private suspend fun downloadPart(entry: DownloadEntry, part: File, range: LongRange, firstAttempt: Boolean): Boolean {
         val size = range.last - range.first + 1
         var retries = 0
+        var reconnects = 0
         while (true) {
             val have = if (part.exists()) part.length() else 0L
             if (have >= size) return true
@@ -280,6 +288,7 @@ class DownloadRepository(
                     BufferedOutputStream(FileOutputStream(part, true), BUFFER).use { out ->
                         val buffer = ByteArray(BUFFER)
                         var written = have
+                        val watch = ThrottleWatch()
                         while (written < size) {
                             currentCoroutineContext().ensureActive()
                             if (!isActive(entry.id)) return false
@@ -287,11 +296,17 @@ class DownloadRepository(
                             if (read < 0) break
                             out.write(buffer, 0, read)
                             written += read
+                            // Anbieter drosselt diese Verbindung -> neu verbinden (frische Verbindungen sind wieder schnell)
+                            if (watch.throttled(written)) throw ReconnectException()
                         }
                     }
                 }
             } catch (e: SegmentRejectedException) {
                 throw e
+            } catch (e: ReconnectException) {
+                reconnects++
+                if (reconnects % 10 == 1) logDiag("Download gedrosselt – neu verbunden (${reconnects}x)")
+                continue // ohne Wartezeit und ohne als Fehler zu zaehlen
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {
@@ -300,6 +315,33 @@ class DownloadRepository(
             }
         }
     }
+
+    /**
+     * Erkennt, wenn der Anbieter eine laufende Verbindung drosselt (viele IPTV-Server: anfangs schnell,
+     * nach einiger Zeit nur noch KB/s). Vergleicht die letzten 10 s mit dem bisher besten 10-s-Wert dieser Verbindung.
+     */
+    private class ThrottleWatch {
+        private val start = System.currentTimeMillis()
+        private var windowStart = start
+        private var windowBytes = -1L
+        private var peak = 0.0
+
+        fun throttled(bytes: Long): Boolean {
+            val now = System.currentTimeMillis()
+            if (windowBytes < 0) { windowBytes = bytes; windowStart = now; return false }
+            val dt = now - windowStart
+            if (dt < 10_000) return false
+            val rate = (bytes - windowBytes) * 1000.0 / dt
+            windowBytes = bytes; windowStart = now
+            if (rate > peak) { peak = rate; return false }
+            // erst nach 20 s, nur bei deutlichem Einbruch (unter 30 % des Bestwerts und unter 300 KB/s)
+            return now - start > 20_000 && rate < peak * 0.3 && rate < 300 * 1024
+        }
+    }
+
+    private class ReconnectException : IOException("gedrosselt")
+
+    private fun logDiag(msg: String) = onLog(msg)
 
     /** Misst die Geschwindigkeit (gleitend ueber ~2 Sekunden). */
     private class SpeedMeter(startBytes: Long) {

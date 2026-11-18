@@ -40,6 +40,7 @@ class DownloadService : Service() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else 0,
         )
         if (worker?.isActive != true) {
+            acquireLocks()
             worker = scope.launch {
                 while (true) {
                     val next = repo.nextQueued() ?: break
@@ -48,6 +49,7 @@ class DownloadService : Service() {
                         nm.notify(NOTIFICATION_ID, notification(e.title, e, e.progress))
                     }
                 }
+                releaseLocks()
                 ServiceCompat.stopForeground(this@DownloadService, ServiceCompat.STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
@@ -65,7 +67,36 @@ class DownloadService : Service() {
             .setOnlyAlertOnce(true)
             .build()
 
+    // Bildschirm aus / App im Hintergrund: ohne diese Sperren schaltet Android WLAN und CPU in den Stromsparmodus –
+    // der Download faellt dann nach kurzer Zeit von MBit/s auf wenige KBit/s.
+    private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
+
+    private fun acquireLocks() {
+        runCatching {
+            val wm = applicationContext.getSystemService(WIFI_SERVICE) as android.net.wifi.WifiManager
+            @Suppress("DEPRECATION")
+            val mode = if (Build.VERSION.SDK_INT >= 29) android.net.wifi.WifiManager.WIFI_MODE_FULL_LOW_LATENCY
+            else android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF
+            wifiLock = wm.createWifiLock(mode, "portiva:download").apply { setReferenceCounted(false); acquire() }
+        }
+        runCatching {
+            val pm = getSystemService(POWER_SERVICE) as android.os.PowerManager
+            // Sicherheitsgrenze 6 h – wird nach dem letzten Download ohnehin freigegeben
+            wakeLock = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "portiva:download").apply {
+                setReferenceCounted(false); acquire(6 * 3600_000L)
+            }
+        }
+    }
+
+    private fun releaseLocks() {
+        runCatching { if (wifiLock?.isHeld == true) wifiLock?.release() }
+        runCatching { if (wakeLock?.isHeld == true) wakeLock?.release() }
+        wifiLock = null; wakeLock = null
+    }
+
     override fun onDestroy() {
+        releaseLocks()
         scope.cancel()
         super.onDestroy()
     }
