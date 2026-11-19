@@ -214,8 +214,31 @@ fun SkipIntroButton(onClick: () -> Unit) {
 
 /** Gemeinsame Logik fuer Serien-Komfort in beiden Playern. */
 object EpisodeFlow {
-    /** Countdown-Start vor Ende (ms). */
-    const val NEXT_BEFORE_END = 40_000L
+    /** Countdown-Start vor Ende (ms), wenn der Abspann (noch) nicht bekannt ist. */
+    const val NEXT_BEFORE_END = 30_000L
+    /** Laenge des Countdowns "Naechste Folge" ab Abspann-Beginn. */
+    const val NEXT_COUNTDOWN = 30_000L
+    /** Abspann lernen: Nutzer springt zwischen 15 s und 6 Min. vor Schluss zur naechsten Folge. */
+    const val OUTRO_MIN = 15_000L
+    const val OUTRO_MAX = 360_000L
+
+    /**
+     * Countdown "Naechste Folge": Sekunden bis zum Wechsel (null = keine Karte) und ob jetzt gewechselt wird.
+     * Mit gelerntem Abspann startet der Countdown beim Abspann-Beginn und wechselt nach 30 s (der Rest vom Abspann
+     * wird uebersprungen); ohne: die letzten 30 s, gewechselt wird am Ende der Folge.
+     */
+    fun countdown(pos: Long, dur: Long, outro: Long?): Pair<Int?, Boolean> {
+        val rem = dur - pos
+        if (outro != null && outro > NEXT_COUNTDOWN) {
+            val untilSwitch = rem - (outro - NEXT_COUNTDOWN)
+            return when {
+                rem > outro -> null to false
+                untilSwitch > 0 -> ((untilSwitch + 999) / 1000).toInt() to false
+                else -> null to true
+            }
+        }
+        return (if (rem in 1..NEXT_BEFORE_END) ((rem + 999) / 1000).toInt() else null) to false
+    }
     /** "Intro ueberspringen" ist so lange sichtbar. */
     const val INTRO_SHOW_MS = 7_000L
     /** Intro lernen: Vorspulen in den ersten 10 Minuten um 20 s bis 5 Min. */

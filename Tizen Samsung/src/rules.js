@@ -68,7 +68,9 @@ export function applySort(list, sort) {
 
 /** Serien-Komfort (wie Android EpisodeFlow). */
 export const EPISODE = {
-  NEXT_BEFORE_END: 40000,
+  NEXT_BEFORE_END: 30000, // ohne gelernten Abspann: Countdown in den letzten 30 s
+  NEXT_COUNTDOWN: 30000,  // mit gelerntem Abspann: 30 s ab Abspann-Beginn, dann naechste Folge
+  OUTRO_MIN: 15000, OUTRO_MAX: 360000,
   INTRO_SHOW_MS: 7000,
   INTRO_SKIP: 85000,
   INTRO_WINDOW_START: 5000,

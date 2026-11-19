@@ -243,6 +243,13 @@ class LibraryStore(profileId: String, private val exclude: (ContentItem) -> Bool
         intros[seriesKey] = "$start:$end"; introFile.write(intros)
     }
 
+    // --- Gelernter Abspann je Serie: so viele ms vor Folgen-Ende beginnt er ---
+    private val outroFile = JsonFile(AppDirs.file("outros_$profileId.json"), MapSerializer(String.serializer(), Long.serializer())) { emptyMap() }
+    private val outros = outroFile.read().toMutableMap()
+
+    fun setOutro(seriesKey: String, msBeforeEnd: Long) { outros[seriesKey] = msBeforeEnd; outroFile.write(outros) }
+    fun outro(seriesKey: String): Long? = outros[seriesKey]
+
     fun intro(seriesKey: String): Pair<Long, Long>? {
         val (a, b) = intros[seriesKey]?.split(":")?.mapNotNull { it.toLongOrNull() }?.takeIf { it.size == 2 } ?: return null
         return a to b

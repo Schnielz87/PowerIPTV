@@ -226,6 +226,14 @@ final class Library: ObservableObject {
         store("hist", history); store("pos", positions); store("watched", Array(watched))
     }
 
+    /** Gelernter Abspann je Serie: so viele ms vor Folgen-Ende beginnt er. */
+    func setOutro(_ seriesKey: String, _ msBeforeEnd: Double) {
+        var o = (d.dictionary(forKey: "outro.\(pid)") as? [String: Double]) ?? [:]
+        o[seriesKey] = msBeforeEnd
+        d.set(o, forKey: "outro.\(pid)")
+    }
+    func outro(_ seriesKey: String) -> Double? { (d.dictionary(forKey: "outro.\(pid)") as? [String: Double])?[seriesKey] }
+
     var continueWatching: [HistoryEntry] {
         history.filter { $0.item.type != .LIVE && $0.duration > 0 && $0.position > 10_000 && $0.position / $0.duration < 0.95 }
     }

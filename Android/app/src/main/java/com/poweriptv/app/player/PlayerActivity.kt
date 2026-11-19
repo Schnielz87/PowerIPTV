@@ -1145,10 +1145,12 @@ class PlayerActivity : ComponentActivity() {
     /** Countdown und Intro-Knopf anhand der aktuellen Position aktualisieren (alle 0,5 s). */
     private fun updateEpisodeFlow(pos: Long, dur: Long, isPlaying: Boolean) {
         val e = current()
-        nextCountdown = if (e != null && !e.live && hasNext() && dur > 0 && !nextCancelled) {
-            val rem = dur - pos
-            if (rem in 1..EpisodeFlow.NEXT_BEFORE_END) ((rem + 999) / 1000).toInt() else null
-        } else null
+        val (countdown, switchNow) = if (e != null && !e.live && hasNext() && dur > 0 && !nextCancelled) {
+            EpisodeFlow.countdown(pos, dur, if (EpisodeFlow.isEpisode(e)) e.item?.key?.let { container.resume.outro(it) } else null)
+        } else null to false
+        nextCountdown = countdown
+        // Gelernter Abspann: nach dem Countdown gleich die naechste Folge (Rest vom Abspann ueberspringen)
+        if (switchNow && !autoNextFired) { autoNextFired = true; next() }
         learnIntro(pos)
         // Automatisch erkannter Vorspann (Ton-Vergleich) hat Vorrang: Knopf ab Erkennung 7 s sichtbar
         autoIntro()?.let { auto ->
@@ -1255,7 +1257,7 @@ class PlayerActivity : ComponentActivity() {
         finishIntroLearning()
         startIntroLearning(entry)
         // Serien-Komfort zuruecksetzen und Folge als "zuletzt gesehen" merken
-        nextCancelled = false; nextCountdown = null; introSkipped = false; showSkipIntro = false
+        nextCancelled = false; nextCountdown = null; autoNextFired = false; introSkipped = false; showSkipIntro = false
         lastFlowPos = 0L; streakStart = -1L
         if (EpisodeFlow.isEpisode(entry)) container.resume.setLastEpisode(entry.item!!.key, entry.url, EpisodeFlow.episodeLabel(entry.title))
         entry.item?.let { container.history.add(it) }
@@ -1426,7 +1428,30 @@ class PlayerActivity : ComponentActivity() {
     }
 
     private fun isLocal(url: String) = url.startsWith("/")
-    private fun next() = play(container.playIndex + 1)
+    private fun next() {
+        learnOutro()
+        play(container.playIndex + 1)
+    }
+
+    /** Ein Wechsel ist schon ausgeloest (verhindert doppeltes Weiterschalten). */
+    private var autoNextFired = false
+
+    /**
+     * Abspann lernen: Springt man waehrend des Abspanns (15 s bis 6 Min. vor Schluss) zur naechsten Folge, ohne dass
+     * schon ein Countdown lief, beginnt dort der Abspann dieser Serie. Ab dann kommt die Karte "Naechste Folge" mit
+     * 30-s-Countdown genau zum Abspann-Beginn.
+     */
+    private fun learnOutro() {
+        val e = current() ?: return
+        if (!EpisodeFlow.isEpisode(e) || nextCountdown != null || autoNextFired) return
+        val dur = runCatching { player.duration }.getOrDefault(0L)
+        val pos = runCatching { player.currentPosition }.getOrDefault(0L)
+        val rem = dur - pos
+        if (dur > 600_000 && rem in EpisodeFlow.OUTRO_MIN..EpisodeFlow.OUTRO_MAX) {
+            e.item?.key?.let { container.resume.setOutro(it, rem) }
+            com.poweriptv.app.util.DiagLog.log("Player", "Abspann gelernt: beginnt ${rem / 1000} s vor Schluss")
+        }
+    }
     private fun previous() = play(container.playIndex - 1)
 
     // ---------- Fernbedienung ----------

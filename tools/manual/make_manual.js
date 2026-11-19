@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.180 · November 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.181 · November 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -149,7 +149,8 @@ c.push(bullet([b('Sleep-Timer: '), t('15 Minuten bis 2 Stunden; eine Minute vorh
 // 7
 c.push(h1('7. Filme & Serien'));
 c.push(bullet([b('Weiterschauen: '), t('Beim Abspielen eines angefangenen Titels fragt die App „Weiterschauen ab …“ oder „Von vorne beginnen“.')]));
-c.push(bullet([b('Nächste Folge: '), t('40 Sekunden vor Ende erscheint „Nächste Folge in … s“. OK/„Jetzt abspielen“ startet sofort, Zurück/„Abbrechen“ bleibt bei der Folge.')]));
+c.push(bullet([b('Nächste Folge: '), t('Am Ende einer Folge erscheint „Nächste Folge in … s“ mit 30 Sekunden Countdown. OK/„Jetzt abspielen“ startet sofort, Zurück/„Abbrechen“ bleibt bei der Folge.')]));
+c.push(bullet([b('Abspann überspringen (lernt mit): '), t('Wie beim Vorspann merkt sich Portiva den Abspann jeder Serie: Springst du einmal während des Abspanns zur nächsten Folge (⏭ bzw. „Nächste Folge“), weiß die App, wann er beginnt. Ab dann erscheint die Karte „Nächste Folge in 30 s“ genau zum Beginn des Abspanns, und nach dem Countdown startet die nächste Folge – der Rest vom Abspann wird übersprungen. Ohne gelernten Abspann kommt die Karte in den letzten 30 Sekunden. Gilt auf Handy/Tablet, TV-Stick, Windows, iPhone, Samsung-TV und Fire TV Vega.')]));
 c.push(bullet([b('Intro überspringen: '), t('Der Knopf erscheint für 7 Sekunden; OK auf der Fernbedienung löst ihn aus. Die App lernt den Vorspann jeder Serie selbst (siehe unten).')]));
 c.push(bullet([b('Gesehen-Markierung: '), t('Fertig geschaute Filme und Folgen bekommen einen grünen Haken (✓), angefangene einen Fortschrittsbalken – in der Übersicht, in der Suche und bei den Folgen. Von Hand umschalten: beim Film über „Gesehen/Ungesehen“ auf der Detailseite, bei Folgen durch langes Drücken (TV: OK gedrückt halten).')]));
 c.push(bullet([b('Detailseite: '), t('Großes Hintergrundbild, FSK-Kennzeichen, Beschreibung, Besetzung, Download und Liste. Bei Serien ist die zuletzt gesehene Folge markiert, angefangene Folgen zeigen einen Fortschrittsbalken.')]));

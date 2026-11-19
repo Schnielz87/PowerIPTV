@@ -310,10 +310,20 @@ export default function playerScreen(params) {
       clear(corner);
       if (getFocus() === skipBtn) setFocus(playBtn, { noScroll: true });
     }
-    // Naechste Folge (40 s vor Schluss)
-    if (dur > 0 && dur - t < EPISODE.NEXT_BEFORE_END && settings.autoNext && !nextCancelled && nextShownFor !== cur.episode.id && nextEpisode()) {
+    // Naechste Folge: mit gelerntem Abspann ab Abspann-Beginn 30 s Countdown, dann gleich weiter (Rest vom Abspann
+    // ueberspringen); sonst Countdown in den letzten 30 s
+    const outro = lib.outro(lib.key(cur.item));
+    const learned = outro && outro > EPISODE.NEXT_COUNTDOWN;
+    const rem = dur - t;
+    const untilSwitch = () => (learned ? (p.state.duration - p.state.time) - (outro - EPISODE.NEXT_COUNTDOWN) : (p.state.duration - p.state.time));
+    if (learned && dur > 0 && nextShownFor === cur.episode.id && !nextCancelled && untilSwitch() <= 0 && settings.autoNext && nextEpisode()) {
+      playNextEpisode(false);
+      return;
+    }
+    const windowOpen = learned ? rem <= outro : rem < EPISODE.NEXT_BEFORE_END;
+    if (dur > 0 && windowOpen && settings.autoNext && !nextCancelled && nextShownFor !== cur.episode.id && nextEpisode()) {
       nextShownFor = cur.episode.id;
-      let left = Math.max(1, Math.round((dur - t) / 1000));
+      let left = Math.max(1, Math.round(untilSwitch() / 1000));
       clear(corner);
       const nb = button(`Nächste Folge in ${left} s ⏭`, () => playNextEpisode(true), '.primary.next-ep');
       const cancel = button('Abbrechen', () => { nextCancelled = true; clearInterval(countdownTimer); clear(corner); setFocus(playBtn, { noScroll: true }); });
@@ -322,7 +332,7 @@ export default function playerScreen(params) {
       pushCornerFocus(nb);
       clearInterval(countdownTimer);
       countdownTimer = setInterval(() => {
-        left = Math.max(0, Math.round((p.state.duration - p.state.time) / 1000));
+        left = Math.max(0, Math.round(untilSwitch() / 1000));
         nb.textContent = `Nächste Folge in ${left} s ⏭`;
       }, 1000);
     }
@@ -346,7 +356,16 @@ export default function playerScreen(params) {
     return i >= 0 ? all[i + 1] || null : null;
   }
 
+  /** Abspann lernen: manuell zur naechsten Folge 15 s bis 6 Min. vor Schluss, ohne dass schon ein Countdown lief. */
+  function learnOutro() {
+    if (!isEpisode() || nextShownFor === cur.episode.id) return;
+    const dur = p.state.duration;
+    const rem = dur - p.state.time;
+    if (dur > 600000 && rem >= EPISODE.OUTRO_MIN && rem <= EPISODE.OUTRO_MAX) lib.setOutro(lib.key(cur.item), rem);
+  }
+
   function playNextEpisode(manual) {
+    if (manual) learnOutro();
     const n = nextEpisode();
     clearInterval(countdownTimer);
     if (!n) { if (!manual) back(); else toast('Das war die letzte Folge'); return; }

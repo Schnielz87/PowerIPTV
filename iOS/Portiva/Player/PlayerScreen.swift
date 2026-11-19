@@ -497,10 +497,18 @@ struct PlayerScreen: View {
         if overlay && !showSettings && ctl.playing && dragging == nil && Date().timeIntervalSince(lastTouch) > 5 { withAnimation { overlay = false } }
         if let s = sleepUntil, s < Date() { sleepUntil = nil; savePosition(); close(); return }
         if Int(Date().timeIntervalSince1970) % 15 == 0 { savePosition() }
-        // Naechste Folge: 40 s vor Schluss
+        // Naechste Folge: mit gelerntem Abspann 30 s Countdown ab Abspann-Beginn, dann gleich weiter; sonst die letzten 30 s
         if entry.episode != nil, app.settings.autoNext, ctl.length > 0, nextIndex() != nil {
-            let left = Int((ctl.length - ctl.time) / 1000)
-            if left <= 40 && left > 0 && nextCountdown != -1 { nextCountdown = left }
+            let rem = ctl.length - ctl.time
+            if let key = entry.item?.key, let outro = app.library?.outro(key), outro > 30_000 {
+                let untilSwitch = rem - (outro - 30_000)
+                if rem <= outro && nextCountdown != -1 {
+                    if untilSwitch <= 0 { playNext() } else { nextCountdown = Int((untilSwitch + 999) / 1000) }
+                }
+            } else {
+                let left = Int(rem / 1000)
+                if left <= 30 && left > 0 && nextCountdown != -1 { nextCountdown = left }
+            }
         }
     }
 
@@ -525,6 +533,11 @@ struct PlayerScreen: View {
     }
 
     private func zap(_ d: Int) {
+        // Abspann lernen: waehrend des Abspanns (15 s bis 6 Min. vor Schluss) zur naechsten Folge, ohne Countdown
+        if d == 1, entry.episode != nil, nextCountdown == nil, ctl.length > 600_000, let key = entry.item?.key {
+            let rem = ctl.length - ctl.time
+            if rem >= 15_000 && rem <= 360_000 { app.library?.setOutro(key, rem) }
+        }
         let q = app.playQueue
         guard let i = q.firstIndex(where: { $0.url == entry.url }), q.count > 1 else { return }
         entry = q[(i + d + q.count) % q.count]

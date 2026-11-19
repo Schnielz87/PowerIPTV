@@ -30,7 +30,7 @@ export const profiles = {
   },
   remove(id) {
     storage.set('profiles', this.list().filter((x) => x.id !== id));
-    ['fav', 'hist', 'pos', 'watched', 'intro', 'lists', 'syncmeta'].forEach((k) => storage.remove(`${k}.${id}`));
+    ['fav', 'hist', 'pos', 'watched', 'intro', 'outro', 'lists', 'syncmeta'].forEach((k) => storage.remove(`${k}.${id}`));
   },
   newId: uid,
 };
@@ -141,6 +141,14 @@ export class Library {
 
   setIntro(seriesKey, start, end) { this.intros[seriesKey] = [start, end]; storage.set(`intro.${this.pid}`, this.intros); }
   intro(seriesKey) { return this.intros[seriesKey] || null; }
+
+  /** Gelernter Abspann: so viele ms vor Folgen-Ende beginnt er (aus "Naechste Folge" waehrend des Abspanns). */
+  setOutro(seriesKey, msBeforeEnd) {
+    const o = storage.get(`outro.${this.pid}`, {});
+    o[seriesKey] = msBeforeEnd;
+    storage.set(`outro.${this.pid}`, o);
+  }
+  outro(seriesKey) { return storage.get(`outro.${this.pid}`, {})[seriesKey] || null; }
 }
 
 /** Nur die noetigen Felder speichern (localStorage ist auf dem Fernseher knapp). */

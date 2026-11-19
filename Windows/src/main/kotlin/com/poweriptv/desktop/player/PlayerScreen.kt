@@ -137,7 +137,9 @@ import java.awt.Point
 import java.awt.Toolkit
 import java.awt.image.BufferedImage
 
-private const val NEXT_BEFORE_END = 40_000L
+private const val NEXT_BEFORE_END = 30_000L
+/** Mit gelerntem Abspann: 30 s Countdown ab Abspann-Beginn, dann naechste Folge. */
+private const val NEXT_COUNTDOWN = 30_000L
 private const val HIDE_AFTER = 3_000L
 
 private val BlankCursor: PointerIcon by lazy {
@@ -208,6 +210,13 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
         val ep = current.episode ?: return null
         val idx = episodes.indexOfFirst { it.id == ep.id }
         return if (idx >= 0) episodes.getOrNull(idx + 1) else null
+    }
+
+    /** Abspann lernen: manuell 15 s bis 6 Min. vor Schluss zur naechsten Folge, ohne dass ein Countdown lief. */
+    fun learnOutro(countdownShown: Boolean) {
+        if (countdownShown || current.episode == null) return
+        val rem = ctl.length - ctl.time
+        if (ctl.length > 600_000 && rem in 15_000..360_000) app.library?.setOutro(current.item.key, rem)
     }
 
     fun playNext() {
@@ -360,7 +369,14 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
     val overlayVisible = menuOpen || showChannels || !ctl.playing || ctl.error != null || now - lastMove < HIDE_AFTER
     val next = nextEpisode()
     val remaining = ctl.length - ctl.time
-    val showNextCard = next != null && !nextDismissed && ctl.length > 0 && remaining in 1..NEXT_BEFORE_END && app.settings.value.autoNextEpisode
+    val outro = current.episode?.let { app.library?.outro(current.item.key) }?.takeIf { it > NEXT_COUNTDOWN }
+    // Sekunden bis zum Wechsel: mit gelerntem Abspann 30 s ab Abspann-Beginn, sonst die letzten 30 s
+    val untilSwitch = if (outro != null) remaining - (outro - NEXT_COUNTDOWN) else remaining
+    val inWindow = if (outro != null) remaining <= outro else remaining in 1..NEXT_BEFORE_END
+    val showNextCard = next != null && !nextDismissed && ctl.length > 0 && inWindow && untilSwitch > 0 && app.settings.value.autoNextEpisode
+    if (outro != null && next != null && !nextDismissed && ctl.length > 0 && untilSwitch <= 0 && app.settings.value.autoNextEpisode) {
+        LaunchedEffect(current.episode?.id) { playNext() }
+    }
 
     Box(
         Modifier.fillMaxSize().background(Color.Black)
@@ -385,7 +401,7 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                     Key.Z -> { app.playerAspect = if (app.playerAspect == "fill") "fit" else "fill"; true }
                     Key.F, Key.F11 -> { app.toggleFullscreen(); true }
                     Key.L -> { if (isLive) showChannels = !showChannels; true }
-                    Key.N -> { playNext(); true }
+                    Key.N -> { learnOutro(showNextCard); playNext(); true }
                     Key.B -> { if (isLive) zapBack(); true }
                     Key.R -> { if (isLive) showRecord = true; true }
                     Key.Enter -> { if (showSkipIntroNow(app, req, ctl, introSkipped)) { skipIntro(); true } else false }
@@ -567,7 +583,7 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
                         QuickBar(ctl, aspect, isLive, onAspect = { app.playerAspect = it }, onOpenChange = { menuOpen = it; poke() }, onInfo = { toast = it })
                         Spacer(Modifier.weight(1f))
                         if (next != null) {
-                            OutlinedButton(onClick = { playNext() }, modifier = Modifier.handCursor()) {
+                            OutlinedButton(onClick = { learnOutro(showNextCard); playNext() }, modifier = Modifier.handCursor()) {
                                 Icon(Icons.Filled.SkipNext, null); Spacer(Modifier.width(6.dp)); Text("Nächste Folge")
                             }
                         }
@@ -598,7 +614,7 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
         // Naechste Folge (letzte 40 Sekunden)
         if (showNextCard && next != null) {
             NextEpisodeCard(
-                next, secondsLeft = (remaining / 1000).toInt(),
+                next, secondsLeft = ((untilSwitch + 999) / 1000).toInt(),
                 onPlay = { playNext() }, onDismiss = { nextDismissed = true },
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 28.dp, bottom = 120.dp),
             )
@@ -944,7 +960,7 @@ private fun NextEpisodeCard(ep: Episode, secondsLeft: Int, onPlay: () -> Unit, o
             Text("Nächste Folge in $secondsLeft s", color = BrandCyan, fontWeight = FontWeight.Bold)
             Text("S${ep.season} E${ep.episodeNum} · ${ep.title}", maxLines = 2, overflow = TextOverflow.Ellipsis)
             LinearProgressIndicator(
-                progress = { 1f - secondsLeft / (NEXT_BEFORE_END / 1000f) },
+                progress = { 1f - secondsLeft / (NEXT_COUNTDOWN / 1000f) },
                 modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), color = BrandCyan,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

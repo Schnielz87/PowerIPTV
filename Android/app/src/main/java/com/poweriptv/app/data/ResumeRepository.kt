@@ -85,6 +85,13 @@ class ResumeRepository(context: Context) {
         return a to b
     }
 
+    /** Gelernter Abspann einer Serie: so viele ms vor Folgen-Ende beginnt er (aus "Naechste Folge" waehrend des Abspanns). */
+    fun setOutro(seriesKey: String, msBeforeEnd: Long) {
+        prefs.edit().putLong("outro|$seriesKey", msBeforeEnd).apply()
+    }
+
+    fun outro(seriesKey: String): Long? = prefs.getLong("outro|$seriesKey", 0L).takeIf { it > 0 }
+
     /** Film/Folge als gesehen (oder wieder ungesehen) markieren. */
     fun markWatched(url: String, watched: Boolean) {
         prefs.edit().apply { if (watched) putBoolean("w|$url", true) else remove("w|$url"); putLong("t|$url", System.currentTimeMillis()) }.apply()
