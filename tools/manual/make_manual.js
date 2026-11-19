@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.181 · November 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.182 · November 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -235,6 +235,7 @@ c.push(table(['Problem', 'Lösung'], [
   ['Bild bleibt bei Aufnahme stehen', 'Der Zugang erlaubt nur eine Verbindung. Den aufgenommenen Sender schauen oder die Aufnahme stoppen.'],
   ['Update lässt sich nicht installieren', 'Immer die APK aus den Releases verwenden (gleiche Signatur).'],
   ['Cast findet den Fernseher nicht', 'Samsung- und Fire-TV-Geräte können kein Google Cast – „Bildschirm spiegeln“ nutzen.'],
+  ['Fire TV / Android TV: App-Kachel ohne Logo (durchgestrichenes Bild)', 'Portiva einmal öffnen – die App schaltet dann auf die eigene TV-Kachel mit festem Logo um. Falls die App in der Favoriten-Reihe der Startseite lag, dort einmal neu anpinnen (Apps → Portiva → Menü-Taste → Verschieben/Zur Startseite).'],
   ['Senderliste veraltet', 'Aktualisieren-Symbol in der Kategorie-Ansicht antippen.'],
 ], [3000, 6026]));
 

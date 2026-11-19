@@ -300,9 +300,9 @@ fun SettingsScreen(
                         var backupStatus by remember { mutableStateOf<String?>(null) }
                         var pendingRestore by remember { mutableStateOf<String?>(null) }
                         fun restart() {
-                            val i = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)
-                                ?.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                            if (i != null) ctx.startActivity(i)
+                            val i = android.content.Intent(ctx, com.poweriptv.app.MainActivity::class.java)
+                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                            ctx.startActivity(i)
                             Runtime.getRuntime().exit(0)
                         }
                         fun doRestore(text: String) {

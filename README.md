@@ -113,6 +113,7 @@ Modell und API-Adresse sind einstellbar (auch OpenAI-kompatible Anbieter).
 Das Logo (Portiva-P in der IPTV-Variante: Play-Button + Signalwellen) liegt als Vektor in `Android/app/src/main/res/drawable/portiva_logo.xml`.
 Zum Ersetzen die Datei loeschen und das Original als `portiva_logo.png` in denselben Ordner legen.
 Das App-Icon befindet sich in `ic_launcher_background.xml` / `ic_launcher_foreground.xml`.
+Fernseher (Fire TV / Android TV) nutzen eine eigene Startkachel (`TvLauncher`) mit festem PNG-Symbol `mipmap-*/ic_launcher_tv.png` und Banner `drawable-xhdpi/tv_banner.png`; das adaptive Handy-Symbol (`PhoneLauncher`) wird auf Fernsehern beim ersten Start abgeschaltet.
 
 ## Selbst bauen
 

@@ -39,6 +39,28 @@ import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
 class PowerIptvApp : Application(), ImageLoaderFactory {
+    /**
+     * Fernseher: nur die TV-Startkachel (festes PNG-Logo + Banner) zeigen, nicht zusaetzlich das Handy-Symbol.
+     * Manche Fire-TV-Startseiten zeigen das adaptive Handy-Symbol als durchgestrichenes Bild.
+     */
+    private fun fixLauncherEntry() {
+        runCatching {
+            val tv = com.poweriptv.app.util.DeviceInfo.isTv(this)
+            val pm = packageManager
+            fun set(cls: String, on: Boolean) {
+                val cn = android.content.ComponentName(this, "$packageName.$cls")
+                val want = if (on) android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+                    else android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                if (pm.getComponentEnabledSetting(cn) != want) {
+                    pm.setComponentEnabledSetting(cn, want, android.content.pm.PackageManager.DONT_KILL_APP)
+                    com.poweriptv.app.util.DiagLog.log("App", "Startsymbol $cls ${if (on) "an" else "aus"}")
+                }
+            }
+            set("PhoneLauncher", !tv)
+            set("TvLauncher", true)
+        }
+    }
+
     lateinit var container: AppContainer
         private set
 
@@ -46,6 +68,7 @@ class PowerIptvApp : Application(), ImageLoaderFactory {
         super.onCreate()
         com.poweriptv.app.util.DiagLog.init(this)
         container = AppContainer(this)
+        fixLauncherEntry()
         container.cast.init() // Google Cast (nur mit Google-Play-Diensten, nicht auf TV-Geraeten)
         // Portiva Link: sichtbare Activities zaehlen (Wiedergabe von anderen Geraeten nur bei geoeffneter App)
         registerActivityLifecycleCallbacks(object : android.app.Application.ActivityLifecycleCallbacks {
