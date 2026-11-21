@@ -67,6 +67,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -156,7 +160,27 @@ fun HomeScreen(
         )
     }
     val firstFocus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { firstFocus.requestFocus() } }
+    // Zuletzt gewaehlte Kachel merken: beim Zurueckkommen dort weiter (nicht wieder oben bei Live TV)
+    val focusMap = remember { mutableMapOf<String, FocusRequester>() }
+    var lastFocus by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    fun fr(key: String) = focusMap.getOrPut(key) { FocusRequester() }
+    fun Modifier.homeFocus(key: String) = this.focusRequester(fr(key))
+        .onFocusChanged { if (it.isFocused) lastFocus = key }
+    // Fernbedienung: am linken Rand nach links -> rechts wieder herein (und umgekehrt), innerhalb der Zeile
+    fun Modifier.wrapRow(keys: List<String>, key: String) = this.onPreviewKeyEvent { ev ->
+        if (ev.type != androidx.compose.ui.input.key.KeyEventType.KeyDown || keys.size < 2) return@onPreviewKeyEvent false
+        val target = when {
+            ev.key == androidx.compose.ui.input.key.Key.DirectionLeft && key == keys.first() -> keys.last()
+            ev.key == androidx.compose.ui.input.key.Key.DirectionRight && key == keys.last() -> keys.first()
+            else -> null
+        } ?: return@onPreviewKeyEvent false
+        runCatching { fr(target).requestFocus() }.isSuccess
+    }
+    LaunchedEffect(Unit) {
+        val k = lastFocus
+        val ok = k != null && runCatching { kotlinx.coroutines.delay(50); fr(k).requestFocus() }.isSuccess
+        if (!ok) runCatching { firstFocus.requestFocus() }
+    }
 
     Scaffold(
         topBar = {
@@ -211,12 +235,14 @@ fun HomeScreen(
                     Triple("FILME", Icons.Filled.Movie, ContentType.MOVIE) to BigTileStyle(listOf(Color(0xFF7A3DFF), Color(0xFF1B1450)), R.drawable.movies_collage),
                     Triple("SERIEN", Icons.Filled.VideoLibrary, ContentType.SERIES) to BigTileStyle(listOf(Color(0xFF0E8A8A), Color(0xFF0A2547)), R.drawable.series_collage),
                 )
+                val bigKeys = big.indices.map { "big$it" }
                 if (wide) {
                     Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         big.forEachIndexed { i, (t, colors) ->
                             BigTile(
                                 t.first, t.second, colors, bigHeight,
-                                Modifier.weight(1f).then(if (i == 0) Modifier.focusRequester(firstFocus) else Modifier),
+                                Modifier.weight(1f).then(if (i == 0) Modifier.focusRequester(firstFocus) else Modifier)
+                                    .homeFocus(bigKeys[i]).wrapRow(bigKeys, bigKeys[i]),
                             ) { onOpen(t.third) }
                         }
                     }
@@ -224,7 +250,8 @@ fun HomeScreen(
                     big.forEachIndexed { i, (t, colors) ->
                         BigTile(
                             t.first, t.second, colors, bigHeight,
-                            Modifier.fillMaxWidth().then(if (i == 0) Modifier.focusRequester(firstFocus) else Modifier),
+                            Modifier.fillMaxWidth().then(if (i == 0) Modifier.focusRequester(firstFocus) else Modifier)
+                                .homeFocus(bigKeys[i]),
                         ) { onOpen(t.third) }
                     }
                 }
@@ -251,7 +278,10 @@ fun HomeScreen(
                 val perRow = if (wide) 3 else 2
                 tiles.chunked(perRow).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        row.forEach { (label, icon, action) -> SmallTile(label, icon, Modifier.weight(1f), action) }
+                        val rowKeys = row.map { "tile_" + it.first.substringBefore(' ') }
+                        row.forEachIndexed { i, (label, icon, action) ->
+                            SmallTile(label, icon, Modifier.weight(1f).homeFocus(rowKeys[i]).wrapRow(rowKeys, rowKeys[i]), action)
+                        }
                         repeat(perRow - row.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
@@ -279,7 +309,7 @@ fun HomeScreen(
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
                             items(cont, key = { "c_" + it.first.key }) { (item, progress, sub) ->
                                 Column(
-                                    Modifier.width(130.dp).clip(RoundedCornerShape(10.dp)).tvFocus(RoundedCornerShape(10.dp))
+                                    Modifier.width(130.dp).homeFocus("c_" + item.key).clip(RoundedCornerShape(10.dp)).tvFocus(RoundedCornerShape(10.dp))
                                         .combinedClickable(onLongClick = { actionsFor = item to "cont" }) {
                                             if (item.type == ContentType.MOVIE) {
                                                 // Fragt automatisch "Weiterschauen ab … / Von vorne"
@@ -327,7 +357,7 @@ fun HomeScreen(
                         if (list.isNotEmpty()) {
                             // Ueberschrift antippen -> eigene Uebersichtsseite
                             Row(
-                                Modifier.clip(RoundedCornerShape(8.dp)).tvFocus(RoundedCornerShape(8.dp))
+                                Modifier.homeFocus("rh_" + type.name).clip(RoundedCornerShape(8.dp)).tvFocus(RoundedCornerShape(8.dp))
                                     .clickable { onOpenRecent(type) }.padding(vertical = 2.dp, horizontal = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
@@ -341,6 +371,7 @@ fun HomeScreen(
                                     Column(
                                         Modifier
                                             .width(if (poster) 110.dp else 150.dp)
+                                            .homeFocus("r_" + type.name + "_" + item.key)
                                             .clip(RoundedCornerShape(10.dp))
                                             .tvFocus(RoundedCornerShape(10.dp))
                                             .combinedClickable(onLongClick = { actionsFor = item to "recent" }) {

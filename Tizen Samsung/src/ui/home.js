@@ -1,7 +1,7 @@
 // Startseite wie Android: grosse Kacheln (Live TV, Filme, Serien), Weiterschauen, zuletzt gesehene Sender,
 // kleine Kacheln fuer alle weiteren Bereiche, Benutzer-Maennchen zum schnellen Wechseln.
 import { h, clear, dateDE, toast, storage } from '../util';
-import { focusable } from '../focus';
+import { focusable, getFocus, setFocus } from '../focus';
 import { app, go, choose, activateProfile, askPin, showServerMessage } from '../app';
 import { profiles, parental } from '../store';
 import { T } from '../sources';
@@ -18,7 +18,7 @@ export default function home() {
   ], { noBack: true });
   bar.insertBefore(accountLine, bar.querySelector('.spacer'));
 
-  const big = h('div.big-tiles', null,
+  const big = h('div.big-tiles.wrap-row', null,
     bigTile('LIVE TV', 'Sender & TV-Guide', 'assets/live_tv_collage.webp', T.LIVE),
     bigTile('FILME', 'Filme & Neuheiten', 'assets/movies_collage.webp', T.MOVIE),
     bigTile('SERIEN', 'Serien & Staffeln', 'assets/series_collage.webp', T.SERIES),
@@ -26,7 +26,7 @@ export default function home() {
   const rows = h('div');
   const updateTile = smallTile(ICON.update, 'Update', () => go('update'));
   const msgTile = smallTile(ICON.update, '✉ Mitteilung vom Anbieter', () => { if (app.account && app.account.message) showServerMessage(app.account.message); });
-  const tiles = h('div.small-tiles', null,
+  const tiles = h('div.small-tiles.wrap-row', null,
     smallTile(ICON.search, 'Suche', () => go('search')),
     smallTile(ICON.sync, 'Playlist aktualisieren', refreshPlaylist),
     smallTile(ICON.epg, 'TV-Guide (EPG)', () => go('epg')),
@@ -65,8 +65,12 @@ export default function home() {
       const list = recent(type);
       if (!list.length) return;
       rows.appendChild(h('div.section-title', null, title));
-      rows.appendChild(h('div.hrow.scroll-x', null, list.map((e) => itemCard(e.item, () => go('detail', { item: e.item }),
-        { progress: e.duration > 0 && e.item.type === T.MOVIE ? Math.min(1, e.position / e.duration) : null }))));
+      rows.appendChild(h('div.hrow.scroll-x', null, list.map((e) => {
+        const card = itemCard(e.item, () => go('detail', { item: e.item }),
+          { progress: e.duration > 0 && e.item.type === T.MOVIE ? Math.min(1, e.position / e.duration) : null });
+        card.setAttribute('data-fk', 'r|' + type + '|' + (e.item.key || e.item.id || e.item.name));
+        return card;
+      })));
     });
   }
 
@@ -75,7 +79,7 @@ export default function home() {
     if (e.item.type === T.LIVE) img.style.backgroundSize = 'contain';
     if (e.duration > 0 && e.item.type !== T.LIVE) img.appendChild(h('div.bar', { style: { width: Math.round(Math.min(1, e.position / e.duration) * 100) + '%' } }));
     const title = e.episode ? `${e.item.name} · S${e.episode.season} E${e.episode.episodeNum}` : e.item.name;
-    return focusable(h('div.wide-card', null, img, h('div.n.ellipsis', null, title)), () => {
+    return focusable(h('div.wide-card', { 'data-fk': 'w|' + e.item.type + '|' + (e.item.key || e.item.id || e.item.name) }, img, h('div.n.ellipsis', null, title)), () => {
       if (e.item.type === T.LIVE) go('player', { item: e.item });
       else if (e.episode) go('player', { item: e.item, episode: e.episode, startAt: e.position });
       else go('player', { item: e.item, startAt: e.position });
@@ -119,7 +123,15 @@ export default function home() {
     refresh() { refreshAccount(); },
     onShow() {
       userBtn.querySelector('span:last-child').textContent = app.profile ? app.profile.name : '';
+      // Zuletzt gewaehlte Karte merken: die Reihen werden neu gebaut -> danach dieselbe Karte wieder anwaehlen
+      const prev = getFocus();
+      const fk = prev && rows.contains(prev) ? prev.getAttribute('data-fk') : null;
       renderRows();
+      if (fk) {
+        const again = Array.prototype.find.call(rows.querySelectorAll('[data-fk]'), (x) => x.getAttribute('data-fk') === fk);
+        if (again) setFocus(again);
+        else { const first = rows.querySelector('.focusable'); setFocus(first || big.querySelector('.focusable')); }
+      }
       refreshAccount();
       refreshUpdate();
       autoRefreshPlaylist();

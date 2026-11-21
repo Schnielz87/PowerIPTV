@@ -122,6 +122,19 @@ export function move(dir) {
     if (score < bestScore) { bestScore = score; best = el; }
   }
   if (best) { setFocus(best); return true; }
+  // Kachel-Raster mit .wrap-row: am Zeilenende links/rechts -> am anderen Ende derselben Zeile wieder herein
+  const wrap = (dir === 'left' || dir === 'right') && cur.closest('.wrap-row');
+  if (wrap) {
+    let far = null, farX = dir === 'left' ? -Infinity : Infinity;
+    Array.prototype.forEach.call(wrap.querySelectorAll('.focusable'), (el) => {
+      if (el === cur || el.disabled || !visible(el)) return;
+      const r = el.getBoundingClientRect();
+      if (Math.min(c.bottom, r.bottom) - Math.max(c.top, r.top) <= c.height / 2) return; // andere Zeile
+      const x = r.left + r.width / 2;
+      if (dir === 'left' ? x > farX : x < farX) { farX = x; far = el; }
+    });
+    if (far) { setFocus(far); return true; }
+  }
   const s = scope();
   if (s && s.opts.onEdge) return s.opts.onEdge(dir, cur) !== false;
   return false;
