@@ -834,8 +834,8 @@ class PlayerActivity : ComponentActivity() {
         val now = System.currentTimeMillis()
         if (playingSince == 0L) { playingSince = now; return }
         if (now - playingSince > 6_000) {
-            toast = "Kein Bild im Standard-Player – wechsle zu VLC …"
-            switchToVlc(force = true, reason = "kein Bild nach 6 s")
+            if (switchToVlc(force = true, reason = "kein Bild nach 6 s")) toast = "Kein Bild im Standard-Player – wechsle zu VLC …"
+            else { playingSince = Long.MAX_VALUE / 2; toast = "Kein Bild – dieses Format kann der Standard-Player hier evtl. nicht (Einstellungen → Wiedergabe → Automatisch)" }
         }
     }
 
@@ -843,9 +843,16 @@ class PlayerActivity : ComponentActivity() {
     private var exoReadyLogged = false
     private var tracksLogged = false
 
-    private fun switchToVlc(force: Boolean = false, reason: String = ""): Boolean {
+    private fun switchToVlc(force: Boolean = false, reason: String = "", userChoice: Boolean = false): Boolean {
         if (switchedToVlc) return true
-        if (!force && container.settings.playerEngineEnum() != PlayerEngine.AUTO) return false
+        val engine = container.settings.playerEngineEnum()
+        // "Immer Standard-Player": nie selbststaendig zu VLC wechseln – nur wenn der Nutzer es selbst ausloest
+        // (z.B. eine Tonspur waehlt, die nur VLC kann)
+        if (engine == PlayerEngine.EXO && !userChoice) {
+            com.poweriptv.app.util.DiagLog.log("Player", "Kein Wechsel zu VLC (Einstellung: immer Standard-Player): $reason")
+            return false
+        }
+        if (!force && engine != PlayerEngine.AUTO) return false
         com.poweriptv.app.util.DiagLog.log("Player", "Wechsel zu VLC: $reason")
         switchedToVlc = true
         val entry = current() ?: return false
@@ -993,7 +1000,7 @@ class PlayerActivity : ComponentActivity() {
 
     private fun selectTrack(type: Int, option: TrackOption) {
         if (option.key.startsWith(VLC_KEY)) {
-            if (!switchToVlc(force = true, reason = "Tonspur gewählt, die nur VLC kann")) toast = "Diese Tonspur kann nur der VLC-Player abspielen"
+            if (!switchToVlc(force = true, reason = "Tonspur gewählt, die nur VLC kann", userChoice = true)) toast = "Diese Tonspur kann nur der VLC-Player abspielen"
             return
         }
         val params = player.trackSelectionParameters.buildUpon()
