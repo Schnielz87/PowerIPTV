@@ -11,17 +11,27 @@ export const ICON = {
 
 /** Kopfzeile mit Zurueck-Knopf, Titel, rechts eigene Knoepfe und Uhr. */
 export function topbar(title, actions = [], opts = {}) {
-  const clk = h('div.clock', null, clock(Date.now()));
+  // Startseite: Uhrzeit mit Wochentag und Datum direkt neben dem Logo; sonst nur die Uhrzeit rechts
+  const withDate = !!opts.noBack;
+  const fmt = () => clock(Date.now());
+  const clk = h('div.clock' + (withDate ? '.with-date' : ''), null, fmt());
+  const dateLine = withDate ? h('div.clock-date', null, dayDate(Date.now())) : null;
+  const clockBox = withDate ? h('div.clock-box', null, clk, dateLine) : clk;
   const bar = h('div.topbar', null,
     opts.noBack ? h('img.logo', { src: 'assets/logo.png' }) : focusable(h('div.icon-btn', null, h('span.ico', null, ICON.back)), () => back()),
+    withDate ? clockBox : null,
     // Portiva-"P": von jeder Seite direkt zur Startseite (wie Android/Windows)
     !opts.noBack && app.profile ? focusable(h('div.logo-btn', null, h('img', { src: 'assets/logo.png' })), () => go('home', {}, { replace: true })) : null,
     h('h1.ellipsis', null, title),
     h('div.spacer'),
     actions,
-    clk,
+    withDate ? null : clk,
   );
-  const t = setInterval(() => { if (!document.body.contains(clk)) clearInterval(t); else clk.textContent = clock(Date.now()); }, 15000);
+  const t = setInterval(() => {
+    if (!document.body.contains(clk)) { clearInterval(t); return; }
+    clk.textContent = fmt();
+    if (dateLine) dateLine.textContent = dayDate(Date.now());
+  }, 15000);
   return bar;
 }
 
@@ -152,4 +162,11 @@ export function focused() { return getFocus(); }
 /** Farbtasten-Legende unten links. */
 export function legend(items) {
   return h('div.legend', null, ...items.map(([c, t]) => [h('b.' + c), t]));
+}
+
+/** "Samstag, 21.11.2026" */
+function dayDate(ms) {
+  const d = new Date(ms);
+  const days = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+  return `${days[d.getDay()]}, ${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
 }

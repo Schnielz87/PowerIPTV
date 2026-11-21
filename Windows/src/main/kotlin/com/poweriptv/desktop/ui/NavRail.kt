@@ -30,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,6 +61,18 @@ fun NavRail(app: AppState) {
             PortivaLogo(Modifier.size(40.dp))
             Spacer(Modifier.width(10.dp))
             BrandWordmark()
+        }
+        // Uhrzeit mit Wochentag und Datum unter dem Logo
+        var now by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(System.currentTimeMillis()) }
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            while (true) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(60_000L - now % 60_000L + 50) }
+        }
+        val de = java.util.Locale.GERMANY
+        Column(Modifier.padding(start = 12.dp, bottom = 18.dp)) {
+            Text(java.text.SimpleDateFormat("HH:mm", de).format(java.util.Date(now)), color = Color.White, fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge)
+            Text(java.text.SimpleDateFormat("EEEE, dd.MM.yyyy", de).format(java.util.Date(now)), color = Color(0xFF9FB1C9),
+                style = MaterialTheme.typography.bodySmall, maxLines = 1)
         }
         val items = listOf(
             Triple("Start", Icons.Filled.Home, Screen.Home),

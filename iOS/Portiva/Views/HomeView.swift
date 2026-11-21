@@ -15,6 +15,15 @@ struct HomeView: View {
                 // Kopfzeile
                 HStack(spacing: 12) {
                     Image("Logo").resizable().scaledToFit().frame(width: 40, height: 40).clipShape(RoundedRectangle(cornerRadius: 8))
+                    // Uhrzeit mit Wochentag und Datum neben dem Logo
+                    TimelineView(.everyMinute) { ctx in
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(ctx.date, format: .dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
+                                .font(.headline.bold()).monospacedDigit()
+                            Text(ctx.date.formatted(.dateTime.weekday(.abbreviated).day(.twoDigits).month(.twoDigits).locale(Locale(identifier: "de_DE"))))
+                                .font(.caption2).foregroundColor(.secondary).lineLimit(1)
+                        }
+                    }
                     if let a = app.account {
                         Text([a.expiresAt.map { "Gültig bis \($0.formatted(date: .numeric, time: .omitted))" },
                               a.maxConnections.map { "\($0) \($0 == 1 ? "Verbindung" : "Verbindungen")" }].compactMap { $0 }.joined(separator: " · "))
