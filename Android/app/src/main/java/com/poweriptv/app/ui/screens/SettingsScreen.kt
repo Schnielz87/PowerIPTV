@@ -124,7 +124,9 @@ fun SettingsScreen(
     val s = container.settings
     // Reiter + Wischen: links/rechts blaettert zwischen den Karten (am Fernseher per Reiter-Leiste)
     val pager = androidx.compose.foundation.pager.rememberPagerState(pageCount = { SETTINGS_TABS.size })
-    val tab = pager.currentPage
+    val isTvDevice = LocalIsTv.current
+    var tvTab by remember { mutableStateOf(0) }
+    val tab = if (isTvDevice) tvTab else pager.currentPage
     val tabScope = rememberCoroutineScope()
     val scope = rememberCoroutineScope()
     val aiModel by s.aiModel.collectAsState()
@@ -146,19 +148,15 @@ fun SettingsScreen(
             ScrollableTabRow(selectedTabIndex = tab, edgePadding = 8.dp, containerColor = MaterialTheme.colorScheme.background) {
                 SETTINGS_TABS.forEachIndexed { i, (label, icon) ->
                     Tab(
-                        selected = tab == i, onClick = { tabScope.launch { pager.animateScrollToPage(i) } },
-                        modifier = Modifier.onFocusChanged { if (it.isFocused && pager.currentPage != i) tabScope.launch { pager.scrollToPage(i) } },
+                        selected = tab == i, onClick = { if (isTvDevice) tvTab = i else tabScope.launch { pager.animateScrollToPage(i) } },
+                        modifier = Modifier.onFocusChanged { if (it.isFocused && isTvDevice) tvTab = i },
                         text = { Text(label, maxLines = 1) },
                         icon = { Icon(icon, null) },
                     )
                 }
             }
         val isTv = LocalIsTv.current
-        // Am Fernseher kein Wischen (die Pfeiltasten bedienen die Einstellungen), dort wechseln die Reiter oben
-        androidx.compose.foundation.pager.HorizontalPager(
-            state = pager, modifier = Modifier.fillMaxSize(), userScrollEnabled = !isTv, beyondViewportPageCount = if (isTv) 0 else 1,
-            verticalAlignment = Alignment.Top,
-        ) { page ->
+        val pageContent: @androidx.compose.runtime.Composable (Int) -> Unit = { page ->
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -508,6 +506,16 @@ fun SettingsScreen(
                 }
             }
         }
+        }
+        if (isTv) {
+            // Fernseher: nur den gewaehlten Reiter zeigen (kein Pager – der sprang beim Navigieren mit den Pfeiltasten
+            // zwischen den Seiten hin und her)
+            androidx.compose.runtime.key(tvTab) { pageContent(tvTab) }
+        } else {
+            androidx.compose.foundation.pager.HorizontalPager(
+                state = pager, modifier = Modifier.fillMaxSize(), beyondViewportPageCount = 1,
+                verticalAlignment = Alignment.Top,
+            ) { page -> pageContent(page) }
         }
         }
     }
