@@ -1479,6 +1479,8 @@ class PlayerActivity : ComponentActivity() {
         // Nach dem Umschalten (zapInfo) zaehlt die Leiste als "nicht bedient": Pfeile schalten weiter
         val controllerVisible = playerView?.isControllerFullyVisible == true && !zapInfo
         if (showChannels) return super.dispatchKeyEvent(event) // Senderliste bedient sich selbst
+        // Offene Einstellungen/Dialoge bedienen sich selbst – OK darf dort nicht Pause ausloesen, Links/Rechts nicht spulen
+        if (showFormatDialog || showRecordDialog || showSendDialog) return super.dispatchKeyEvent(event)
         if (zapInfo && playerView?.isControllerFullyVisible == true &&
             (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER || event.keyCode == KeyEvent.KEYCODE_BUTTON_A)
         ) {

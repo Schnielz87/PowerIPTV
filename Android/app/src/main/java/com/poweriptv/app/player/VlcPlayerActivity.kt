@@ -1233,6 +1233,8 @@ class VlcPlayerActivity : ComponentActivity() {
         if (event.action != KeyEvent.ACTION_DOWN) return super.dispatchKeyEvent(event)
         lastInteraction = System.currentTimeMillis()
         if (showChannels) return super.dispatchKeyEvent(event) // Senderliste bedient sich selbst
+        // Offene Einstellungen/Dialoge bedienen sich selbst – OK darf dort nicht Pause ausloesen, Links/Rechts nicht spulen
+        if (showFormatDialog || showRecordDialog || showSendDialog) return super.dispatchKeyEvent(event)
         // Serien: OK startet die naechste Folge bzw. ueberspringt das Intro
         if (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER) {
             if (nextCountdown != null) { next(); return true }
