@@ -178,7 +178,11 @@ class VlcPlayerActivity : ComponentActivity() {
         mediaPlayer.setEventListener { event ->
             vlcLog(event)
             when (event.type) {
-                MediaPlayer.Event.Buffering -> buffering = event.buffering < 100f
+                MediaPlayer.Event.Buffering -> {
+                    buffering = event.buffering < 100f
+                    // Puffer fuellt sich -> Daten kommen noch an (zaehlt fuer die Haenger-Erkennung als "lebt")
+                    if (event.buffering != lastBufPct) { lastBufPct = event.buffering; lastBufAt = System.currentTimeMillis() }
+                }
                 MediaPlayer.Event.Playing -> {
                     playing = true; buffering = false; error = null
                     rescue.recovered()
@@ -609,6 +613,8 @@ class VlcPlayerActivity : ComponentActivity() {
     // wird der Stream automatisch an derselben Stelle neu geladen.
     private var lastTick = -1L
     private var stallSince = 0L
+    @Volatile private var lastBufPct = -1f
+    @Volatile private var lastBufAt = 0L
     private var recoveries = 0
     private var lastRecoveryAt = 0L
 
@@ -654,6 +660,8 @@ class VlcPlayerActivity : ComponentActivity() {
         val t = runCatching { mediaPlayer.time }.getOrDefault(-1L)
         val now = System.currentTimeMillis()
         if (t != lastTick && t > 0) { lastTick = t; stallSince = 0L; return }
+        // VLC puffert noch sichtbar (Prozent steigen) -> kein Haenger, nur langsamer Anbieter
+        if (now - lastBufAt < 4_000L) { stallSince = 0L; return }
         if (stallSince == 0L) { stallSince = now; return }
         // Start (noch keine Zeit gelaufen): manche Anbieter brauchen lange bis zum ersten Bild – z.B. MP4-Filme, deren
         // Inhaltsverzeichnis am Dateiende steht (erst dorthin springen, dann zurueck). Neu laden wuerde den Start nur
@@ -662,7 +670,9 @@ class VlcPlayerActivity : ComponentActivity() {
         val limit = when {
             starting -> if (e.live) 25_000L else 45_000L
             e.live -> 12_000L
-            else -> 10_000L
+            // Filme/Serien: Neuladen kostet bei manchen Anbietern 15-20 s fuer eine neue Verbindung und hilft bei
+            // langsamen Servern nicht -> laenger abwarten, bevor neu verbunden wird
+            else -> 30_000L
         }
         if (now - stallSince < limit) return
         stallSince = 0L
