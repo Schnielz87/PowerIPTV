@@ -655,11 +655,19 @@ class VlcPlayerActivity : ComponentActivity() {
         val now = System.currentTimeMillis()
         if (t != lastTick && t > 0) { lastTick = t; stallSince = 0L; return }
         if (stallSince == 0L) { stallSince = now; return }
-        val limit = if (e.live) 12_000L else 10_000L
+        // Start (noch keine Zeit gelaufen): manche Anbieter brauchen lange bis zum ersten Bild – z.B. MP4-Filme, deren
+        // Inhaltsverzeichnis am Dateiende steht (erst dorthin springen, dann zurueck). Neu laden wuerde den Start nur
+        // wieder von vorn beginnen -> beim Start viel laenger warten; der Software-Decoder hilft da ohnehin nicht.
+        val starting = lastTick <= 0
+        val limit = when {
+            starting -> if (e.live) 25_000L else 45_000L
+            e.live -> 12_000L
+            else -> 10_000L
+        }
         if (now - stallSince < limit) return
         stallSince = 0L
         if (now - lastRecoveryAt > 120_000L) recoveries = 0
-        if (!e.live && !softwareVod) {
+        if (!e.live && !softwareVod && !starting) {
             // Haenger bei Filmen/Serien kommen auf TV-Sticks oft vom Hardware-Decoder -> ohne ihn neu starten
             softwareVod = true
             lastRecoveryAt = now
@@ -673,7 +681,7 @@ class VlcPlayerActivity : ComponentActivity() {
         }
         if (++recoveries > 3) { error = "Der Stream hängt – bitte später erneut versuchen"; buffering = false; return }
         lastRecoveryAt = now
-        com.poweriptv.app.util.DiagLog.log("VLC", "Hänger – Neuladen Nr. $recoveries (Zeit stand bei ${lastTick / 1000} s)")
+        com.poweriptv.app.util.DiagLog.log("VLC", "Hänger – Neuladen Nr. $recoveries (Zeit stand bei ${lastTick / 1000} s${if (starting) ", Start dauerte über ${limit / 1000} s" else ""})")
         // Ziel: letzter Sprung (falls gerade gespult wurde), sonst die zuletzt laufende Stelle
         val target = if (!e.live) (if (pendingSeek > 0 && now - pendingSeekAt < 30_000) pendingSeek else lastTick).coerceAtLeast(0) else 0L
         toast = "Verbindung hing – wird neu geladen …"
@@ -794,6 +802,7 @@ class VlcPlayerActivity : ComponentActivity() {
         if (prev != container.playIndex && queue.getOrNull(prev)?.live == true) lastChannel = prev
         val entry = queue[container.playIndex]
         if (!rescuing) rescue.reset()
+        lastTick = -1L; stallSince = 0L // neuer Start -> Start-Wartezeit gilt wieder
         title = entry.title
         error = null
         buffering = true
