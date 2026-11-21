@@ -144,6 +144,12 @@ class SettingsRepository(context: Context) {
         set += url.hashCode().toString()
         prefs.edit().putStringSet(K_VLC_STREAMS, set).apply()
     }
+    /** Ton-Versatz (ms) je Film/Sender: negativ = Ton frueher (Ton kam nach den Lippen), positiv = spaeter. */
+    fun audioDelay(url: String): Int = prefs.getInt("adelay_" + url.hashCode(), 0)
+    fun setAudioDelay(url: String, ms: Int) {
+        if (ms == 0) prefs.edit().remove("adelay_" + url.hashCode()).apply()
+        else prefs.edit().putInt("adelay_" + url.hashCode(), ms).apply()
+    }
     fun clearVlcStreams() = prefs.edit().remove(K_VLC_STREAMS).remove(K_VLC_CATEGORIES).apply()
 
     /** Kategorien, in denen schon ein Titel VLC brauchte -> weitere Titel direkt mit VLC starten. */

@@ -185,6 +185,7 @@ class VlcPlayerActivity : ComponentActivity() {
                 }
                 MediaPlayer.Event.Playing -> {
                     playing = true; buffering = false; error = null
+                    applyAudioDelay()
                     rescue.recovered()
                     runOnUiThread { updatePip() }
                     if (mediaPlayer.length > 0) applyResume()
@@ -320,6 +321,13 @@ class VlcPlayerActivity : ComponentActivity() {
                         sleepMinutes = sleepMinutesLeft(),
                         onSleep = { setSleep(it); panelTick++ },
                         onDismiss = { showFormatDialog = false; lastInteraction = System.currentTimeMillis() },
+                        audioDelayMs = current()?.let { container.settings.audioDelay(it.url) } ?: 0,
+                        onAudioDelay = { ms ->
+                            current()?.let { container.settings.setAudioDelay(it.url, ms) }
+                            applyAudioDelay()
+                            toast = when { ms == 0 -> "Ton-Versatz aus"; ms < 0 -> "Ton ${-ms} ms früher"; else -> "Ton $ms ms später" }
+                            panelTick++
+                        },
                     )
                     else if (showFormatDialog) PlayerSettingsDialog(
                         audio = vlcTracks(audio = true),
@@ -650,6 +658,13 @@ class VlcPlayerActivity : ComponentActivity() {
             MediaPlayer.Event.EndReached -> com.poweriptv.app.util.DiagLog.log("VLC", "Ende erreicht (${runCatching { mediaPlayer.time / 1000 }.getOrDefault(0)} s)")
             else -> Unit
         }
+    }
+
+    /** Gemerkten Ton-Versatz dieses Titels setzen (VLC erwartet Mikrosekunden). */
+    private fun applyAudioDelay() {
+        val e = current() ?: return
+        val ms = container.settings.audioDelay(e.url)
+        runCatching { mediaPlayer.setAudioDelay(ms * 1000L) }
     }
 
     private fun checkStall() {

@@ -656,6 +656,8 @@ fun PlayerSettingsPanel(
     sleepMinutes: Int?,
     onSleep: (Int) -> Unit,
     onDismiss: () -> Unit,
+    audioDelayMs: Int? = null,
+    onAudioDelay: ((Int) -> Unit)? = null,
 ) {
     val focus = remember { FocusRequester() }
     androidx.activity.compose.BackHandler(onBack = onDismiss)
@@ -704,6 +706,27 @@ fun PlayerSettingsPanel(
                 if (video.isEmpty()) Empty("Keine Angaben") else video.forEach { o -> Radio(o) { onVideo(o) } }
                 Section(Icons.Filled.MusicNote, "Audiospuren")
                 if (audio.isEmpty()) Empty("Keine Angaben") else audio.forEach { o -> Radio(o) { onAudio(o) } }
+                if (audioDelayMs != null && onAudioDelay != null) {
+                    // Lippensynchron: Ton kommt nach den Lippen -> "Ton früher"; Ton kommt vor den Lippen -> "Ton später"
+                    val shown = when {
+                        audioDelayMs == 0 -> "aus (0 ms)"
+                        audioDelayMs < 0 -> "Ton ${-audioDelayMs} ms früher"
+                        else -> "Ton $audioDelayMs ms später"
+                    }
+                    Section(Icons.Filled.Tune, "Ton-Versatz (Lippensynchron)")
+                    Text("Jetzt: $shown – wird für diesen Titel gemerkt", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp,
+                        modifier = Modifier.padding(start = 26.dp, top = 2.dp, bottom = 4.dp))
+                    @Composable
+                    fun Step(label: String, value: Int) {
+                        Row(
+                            Modifier.fillMaxWidth().tvFocus(RoundedCornerShape(8.dp)).clickable { onAudioDelay(value) }
+                                .padding(start = 26.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
+                        ) { Text(label, color = Color.White, fontSize = 15.sp) }
+                    }
+                    Step("Ton früher (−100 ms)  · Lippen vor dem Ton", (audioDelayMs - 100).coerceAtLeast(-5000))
+                    Step("Ton später (+100 ms)  · Ton vor den Lippen", (audioDelayMs + 100).coerceAtMost(5000))
+                    if (audioDelayMs != 0) Step("Zurücksetzen (0 ms)", 0)
+                }
                 Section(Icons.Filled.ClosedCaption, "Untertitelspuren")
                 if (subtitles.none { it.key != OFF_KEY }) Empty("Keine Untertitel im Stream")
                 else subtitles.forEach { o -> Radio(o) { onSubtitle(o) } }
