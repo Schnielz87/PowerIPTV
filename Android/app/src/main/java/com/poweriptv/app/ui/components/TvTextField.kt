@@ -1,6 +1,12 @@
 package com.poweriptv.app.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -60,6 +66,8 @@ fun TvOutlinedTextField(
     minLines: Int = 1,
     /** Am Fernseher sofort in die Eingabe springen und die Tastatur oeffnen (z.B. Namensfeld in einem Dialog). */
     autoEdit: Boolean = false,
+    /** Ueberschrift auf der Handy-Eingabeseite (QR-Knopf neben dem Feld am Fernseher). */
+    phoneLabel: String = "Eingabe",
 ) {
     val isTv = LocalIsTv.current
     if (!isTv) {
@@ -95,8 +103,59 @@ fun TvOutlinedTextField(
         }
     }
 
+    // Handy-Eingabe: QR-Code -> Handy oeffnet eine kleine Eingabeseite des Fernsehers, Text tippen/einfuegen, senden
+    var phoneQr by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var phoneError by remember { mutableStateOf<String?>(null) }
+    val latestChange = androidx.compose.runtime.rememberUpdatedState(onValueChange)
+    val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
+    val showPhone = enabled && !readOnly
+    fun openPhone() {
+        val link = (appContext as? com.poweriptv.app.PowerIptvApp)?.container?.link
+        val res = link?.openPhoneInput(phoneLabel) { text ->
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                latestChange.value(text)
+                phoneQr = null
+                android.widget.Toast.makeText(appContext, "Vom Handy übernommen", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+        if (res == null) phoneError = "Der Fernseher ist gerade nicht im WLAN/Heimnetz erreichbar." else phoneQr = res
+    }
+    phoneQr?.let { (token, url) ->
+        androidx.compose.runtime.DisposableEffect(token) {
+            onDispose { (appContext as? com.poweriptv.app.PowerIptvApp)?.container?.link?.closePhoneInput(token) }
+        }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { phoneQr = null },
+            title = { androidx.compose.material3.Text("Mit dem Handy eingeben") },
+            text = {
+                androidx.compose.foundation.layout.Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                    androidx.compose.material3.Text(
+                        "Code mit der Handy-Kamera scannen (Handy im selben WLAN). Auf der Seite den Text tippen oder " +
+                            "einfügen und „An den Fernseher senden“ antippen – er landet automatisch in diesem Feld.",
+                    )
+                    androidx.compose.foundation.layout.Spacer(Modifier.height(12.dp))
+                    androidx.compose.foundation.layout.Box(
+                        Modifier.size(220.dp).background(androidx.compose.ui.graphics.Color.White).padding(10.dp),
+                    ) { QrImage(url, Modifier.fillMaxSize()) }
+                    androidx.compose.material3.Text(url, style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(top = 8.dp))
+                }
+            },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { phoneQr = null }, modifier = Modifier.tvFocus()) { androidx.compose.material3.Text("Schließen") } },
+        )
+    }
+    phoneError?.let { msg ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { phoneError = null },
+            title = { androidx.compose.material3.Text("Eingabe übers Handy nicht möglich") },
+            text = { androidx.compose.material3.Text(msg) },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { phoneError = null }, modifier = Modifier.tvFocus()) { androidx.compose.material3.Text("OK") } },
+        )
+    }
+
+    androidx.compose.foundation.layout.Row(modifier, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
     Box(
-        modifier
+        Modifier.weight(1f)
             .focusRequester(boxFocus)
             .tvFocus(RoundedCornerShape(6.dp))
             // Rahmen bleibt anwaehlbar: frueher wurde er beim Start der Eingabe "unanwaehlbar", verlor dadurch den Fokus,
@@ -135,5 +194,11 @@ fun TvOutlinedTextField(
                     if (was && !it.isFocused) editing = false
                 },
         )
+    }
+    if (showPhone) {
+        androidx.compose.material3.IconButton(onClick = { openPhone() }, modifier = Modifier.tvFocus(androidx.compose.foundation.shape.CircleShape)) {
+            androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.QrCode2, "Mit dem Handy eingeben")
+        }
+    }
     }
 }

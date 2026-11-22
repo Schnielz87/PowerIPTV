@@ -419,7 +419,7 @@ fun SettingsScreen(
                             value = keyInput, onValueChange = { keyInput = it },
                             label = { Text(if (container.ai.hasApiKey()) "Neuer API-Schluessel (sk-...)" else "API-Schluessel (sk-...)") },
                             singleLine = true, modifier = Modifier.fillMaxWidth(),
-                            visualTransformation = PasswordVisualTransformation(),
+                            visualTransformation = PasswordVisualTransformation(), phoneLabel = "KI-API-Schlüssel (sk-...)",
                         )
                         TvOutlinedTextField(
                             value = modelInput, onValueChange = { modelInput = it },
@@ -460,7 +460,7 @@ fun SettingsScreen(
                             value = tmdbInput, onValueChange = { tmdbInput = it },
                             label = { Text(if (container.ageRatings.hasApiKey()) "Neuer TMDB-API-Schluessel" else "TMDB-API-Schluessel") },
                             singleLine = true, modifier = Modifier.fillMaxWidth(),
-                            visualTransformation = PasswordVisualTransformation(),
+                            visualTransformation = PasswordVisualTransformation(), phoneLabel = "TMDB-API-Schlüssel",
                         )
                         Row {
                             TextButton(onClick = {

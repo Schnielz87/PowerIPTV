@@ -284,6 +284,68 @@ class LinkService(
     /** Wird aufgerufen, wenn ein angebotener Zugang abgeholt wurde. */
     @Volatile var onOfferTaken: ((LinkAccount) -> Unit)? = null
 
+    /** Handy-Eingabe (QR am Fernseher): Einmal-Token -> (Feldname, Empfaenger, gueltig bis). */
+    private class PhoneInput(val label: String, val onText: (String) -> Unit, val until: Long)
+    private val inputs = ConcurrentHashMap<String, PhoneInput>()
+
+    /**
+     * Eingabe uebers Handy oeffnen: liefert die Adresse fuer den QR-Code (oder null ohne WLAN/Dienst).
+     * Das Handy oeffnet sie im Browser, tippt/fuegt den Text ein und schickt ihn ab -> onText (Hintergrund-Thread).
+     */
+    fun openPhoneInput(label: String, onText: (String) -> Unit): Pair<String, String>? {
+        val ip = LinkCodes.localIpv4() ?: return null
+        if (port == 0) return null
+        val b = ByteArray(16).also { SecureRandom().nextBytes(it) }
+        val token = b.joinToString("") { "%02x".format(it) }
+        inputs.entries.removeIf { it.value.until < System.currentTimeMillis() }
+        inputs[token] = PhoneInput(label.take(80), onText, System.currentTimeMillis() + 10 * 60_000L)
+        return token to "http://$ip:$port/portiva/input/$token"
+    }
+
+    fun closePhoneInput(token: String) { inputs.remove(token) }
+
+    private fun htmlEscape(t: String) = t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+
+    private fun inputPage(label: String, msg: String? = null, done: Boolean = false): String = """<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Portiva – Eingabe</title>
+<style>body{font-family:system-ui,sans-serif;background:#0A1020;color:#fff;margin:0;padding:24px}
+h1{font-size:20px}label{display:block;margin:16px 0 8px;color:#9FB1C9}
+textarea{width:100%;box-sizing:border-box;font-size:18px;padding:12px;border-radius:10px;border:1px solid #2A3A55;background:#121A2E;color:#fff;min-height:90px}
+button{margin-top:16px;width:100%;font-size:18px;padding:14px;border:0;border-radius:10px;background:#1E6BFF;color:#fff}
+.ok{color:#4ADE80;font-size:18px}</style></head><body>
+<h1>Portiva – Eingabe für den Fernseher</h1>
+${if (done) "<p class=\"ok\">✓ Übertragen – du kannst diese Seite schließen.</p>" else """<form method="post">
+<label for="t">${htmlEscape(label)}</label>
+<textarea id="t" name="text" autofocus autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Hier tippen oder einfügen"></textarea>
+<button type="submit">An den Fernseher senden</button></form>"""}
+${msg?.let { "<p>${htmlEscape(it)}</p>" } ?: ""}
+</body></html>"""
+
+    /** GET zeigt das Formular, POST uebergibt den Text. Token ist Einmal-Schluessel (128 Bit) gegen fremde Anfragen. */
+    private fun routeInput(method: String, path: String, body: String, peer: String): Pair<Int, String> {
+        if (LinkSecurity.blocked(peer)) return 429 to inputPage("", "Zu viele Versuche – bitte 10 Minuten warten.")
+        val token = path.removePrefix("/portiva/input/")
+        inputs.entries.removeIf { it.value.until < System.currentTimeMillis() }
+        val key = inputs.keys.firstOrNull { LinkSecurity.sameCode(it, token) }
+        val entry = key?.let { inputs[it] }
+        if (key == null || entry == null) { LinkSecurity.fail(peer); return 404 to inputPage("", "Dieser QR-Code ist abgelaufen. Bitte am Fernseher neu öffnen.") }
+        return when (method) {
+            "GET" -> 200 to inputPage(entry.label)
+            "POST" -> {
+                val raw = body.split('&').firstOrNull { it.startsWith("text=") }?.substringAfter('=') ?: ""
+                val text = runCatching { java.net.URLDecoder.decode(raw, "UTF-8") }.getOrDefault("")
+                    .replace("\r", "").trim().take(4000)
+                if (text.isEmpty()) return 200 to inputPage(entry.label, "Bitte erst etwas eingeben.")
+                inputs.remove(key)
+                LinkSecurity.success(peer)
+                runCatching { entry.onText(text) }
+                200 to inputPage(entry.label, done = true)
+            }
+            else -> 405 to inputPage("", "Nicht erlaubt")
+        }
+    }
+
     fun start() {
         if (server != null) return
         pool.execute {
@@ -344,8 +406,13 @@ class LinkService(
             fun header(name: String) = lines.drop(1).firstOrNull { it.lowercase().startsWith("$name:") }?.substringAfter(':')?.trim()
             val length = header("content-length")?.toIntOrNull() ?: 0
             val peer = sock.inetAddress.hostAddress ?: "?"
+            val isInput = path.startsWith("/portiva/input/")
             val (code, text) = when {
-                LinkSecurity.isWebsiteOrigin(header("origin")) || !LinkSecurity.isLocalHostHeader(header("host")) ->
+                !LinkSecurity.isLocalHostHeader(header("host")) -> 403 to """{"ok":false,"error":"Nicht erlaubt"}"""
+                // Handy-Eingabe: eigene Seite des Fernsehers (Formular schickt Origin mit) – geschuetzt durch Einmal-Token
+                isInput -> if (length > 64_000) 413 to "" else routeInput(method, path,
+                    if (length > 0) String(readExactly(input, length), Charsets.UTF_8) else "", peer)
+                LinkSecurity.isWebsiteOrigin(header("origin")) ->
                     403 to """{"ok":false,"error":"Nicht erlaubt"}"""
                 length > (if (path == "/portiva/sync") 4_000_000 else 64_000) -> 413 to """{"ok":false}"""
                 else -> {
@@ -357,7 +424,8 @@ class LinkService(
             val out = sock.getOutputStream()
             out.write((
                 "HTTP/1.1 $code ${if (code < 300) "OK" else "Error"}\r\n" +
-                    "Content-Type: application/json; charset=utf-8\r\n" +
+                    (if (isInput) "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\n"
+                    else "Content-Type: application/json; charset=utf-8\r\n") +
                     "Access-Control-Allow-Origin: *\r\n" +
                     "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" +
                     "Access-Control-Allow-Headers: Content-Type\r\n" +
