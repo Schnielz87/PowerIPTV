@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.201 · November 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.202 · November 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -242,7 +242,7 @@ c.push(table(['Problem', 'Lösung'], [
   ['Update lässt sich nicht installieren', 'Immer die APK aus den Releases verwenden (gleiche Signatur).'],
   ['Cast findet den Fernseher nicht', 'Samsung- und Fire-TV-Geräte können kein Google Cast – „Bildschirm spiegeln“ nutzen.'],
   ['Fire TV / Android TV: App-Kachel ohne Logo (durchgestrichenes Bild)', 'Bekannter Fehler der Fire-TV-Startseite bei allen Apps, die nicht aus dem Amazon-Appstore stammen: Nach einem Update ist das Logo da, später fehlt es zeitweise wieder. Portiva liefert festes Logo und Banner für Fernseher; mehr kann eine App nicht tun. Hilft oft: Stick neu starten (Auswahl + Play/Pause 5 Sekunden halten), Fire-OS-Updates installieren; Notlösung: Bedienungshilfen → „Text-Banner“ zeigt den App-Namen.'],
-  ['„An Gerät senden“ findet den TV-Stick nicht (Handy-Hotspot)', 'Hängt der TV-Stick am Hotspot des Handys, während das Handy selbst im WLAN (z. B. Reha, Hotel) ist, sucht Portiva ab 1.1.201 in beiden Netzen. Portiva muss auf dem Stick geöffnet sein. Findet es den Stick trotzdem nicht, im Fenster unten die IP-Adresse des Sticks eingeben (Fire TV: Einstellungen → Mein Fire TV → Info → Netzwerk).'],
+  ['„An Gerät senden“ findet den TV-Stick nicht (Handy-Hotspot)', 'Hängt der TV-Stick am Hotspot des Handys, während das Handy selbst im WLAN (z. B. Reha, Hotel) ist, sucht Portiva ab 1.1.201 in beiden Netzen. Portiva muss auf dem Stick geöffnet sein. Findet es den Stick trotzdem nicht, im Fenster „Gerät per IP-Adresse hinzufügen …“ wählen und die IP-Adresse des Sticks eingeben (Fire TV: Einstellungen → Mein Fire TV → Info → Netzwerk). Am Fernseher ist das gefundene Gerät gleich angewählt – einmal OK sendet.'],
   ['Film startet erst nach 15–30 Sekunden (VLC)', 'Manche Anbieter brauchen bei älteren Dateiformaten lange bis zum ersten Bild. Portiva wartet beim Start bis zu 45 Sekunden (Live 25 s) und lädt während der Wiedergabe erst nach 30 Sekunden Stillstand neu – also kurz Geduld haben. Ab dem zweiten Mal startet so ein Film direkt in VLC.'],
   ['Senderliste veraltet', 'Aktualisieren-Symbol in der Kategorie-Ansicht antippen.'],
 ], [3000, 6026]));

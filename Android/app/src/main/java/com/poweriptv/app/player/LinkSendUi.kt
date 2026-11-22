@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -65,6 +66,9 @@ fun SendToDeviceDialog(
     var busy by remember { mutableStateOf(false) }
     var round by remember { mutableIntStateOf(0) }
     var manualIp by remember { mutableStateOf("") }
+    // Fernseher: IP-Feld erst auf Wunsch zeigen – sonst landet man beim Hochdruecken im Feld und die Tastatur geht auf
+    var showIp by remember { mutableStateOf(!container.isTvDevice) }
+    val firstDevice = remember { androidx.compose.ui.focus.FocusRequester() }
     LaunchedEffect(round) {
         devices = null
         devices = withContext(Dispatchers.IO) { LinkClient.discover(container.link.port, extraHosts = container.settings.linkHosts()) }
@@ -87,9 +91,11 @@ fun SendToDeviceDialog(
                             "(WLAN, LAN-Kabel oder Hotspot dieses Handys). Sonst unten die IP-Adresse des Geräts eingeben.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                    else -> list.forEach { d ->
+                    else -> list.forEachIndexed { idx, d ->
                         Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tvFocus(RoundedCornerShape(12.dp), 1.03f)
+                            Modifier.fillMaxWidth()
+                                .then(if (idx == 0) Modifier.focusRequester(firstDevice) else Modifier)
+                                .clip(RoundedCornerShape(12.dp)).tvFocus(RoundedCornerShape(12.dp), 1.03f)
                                 .clickable(enabled = !busy) {
                                     busy = true
                                     status = "Sende an ${d.name} …"
@@ -110,8 +116,13 @@ fun SendToDeviceDialog(
                         }
                     }
                 }
+                // Gefundenes Geraet gleich anwaehlen (Fernbedienung: einmal OK = senden)
+                if (!list.isNullOrEmpty()) LaunchedEffect(list) { kotlinx.coroutines.delay(100); runCatching { firstDevice.requestFocus() } }
+                if (list != null && !showIp) TextButton(
+                    onClick = { showIp = true }, enabled = !busy, modifier = Modifier.tvFocus(RoundedCornerShape(50)),
+                ) { Text("Gerät per IP-Adresse hinzufügen …") }
                 // Geraet per IP-Adresse (falls die automatische Suche es nicht findet, z.B. anderer Netzbereich)
-                if (list != null) Row(verticalAlignment = Alignment.CenterVertically) {
+                if (list != null && showIp) Row(verticalAlignment = Alignment.CenterVertically) {
                     com.poweriptv.app.ui.components.TvOutlinedTextField(
                         value = manualIp,
                         onValueChange = { manualIp = it.filter { c -> c.isDigit() || c == '.' || c == ':' } },
@@ -119,6 +130,8 @@ fun SendToDeviceDialog(
                         singleLine = true,
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri),
                         modifier = Modifier.weight(1f),
+                        autoEdit = container.isTvDevice, // am Fernseher nach "hinzufuegen" gleich die Tastatur
+                        phoneLabel = "IP-Adresse des Geräts",
                     )
                     TextButton(enabled = manualIp.isNotBlank() && !busy, onClick = {
                         busy = true
