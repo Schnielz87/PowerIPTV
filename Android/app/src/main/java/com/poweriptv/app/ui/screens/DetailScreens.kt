@@ -374,6 +374,30 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
         }
     }
 
+    // Anbieter liefert bei allen Folgen dasselbe Bild (meist das Serien-Cover) oder keins -> passende Szenenbilder
+    // und deutsche Beschreibungen je Folge von TMDB holen (nur mit TMDB-Schluessel)
+    LaunchedEffect(info?.episodes, season) {
+        val i = info ?: return@LaunchedEffect
+        val s = season ?: return@LaunchedEffect
+        val eps = i.episodes[s].orEmpty()
+        if (eps.isEmpty()) return@LaunchedEffect
+        val imgs = eps.mapNotNull { it.image?.takeIf { u -> u.isNotBlank() } }
+        val sameImage = imgs.size < eps.size || imgs.distinct().size <= 1 || imgs.all { it == i.cover || it == item.logo }
+        val missingPlot = eps.any { it.plot.isNullOrBlank() }
+        if (!sameImage && !missingPlot) return@LaunchedEffect // Anbieter liefert schon passende Bilder
+        val tm = container.ageRatings.seasonEpisodes(item.name, i.releaseDate ?: item.year?.toString(), i.tmdbId, s)
+        if (tm.isEmpty()) return@LaunchedEffect
+        val enriched = eps.map { ep ->
+            val t = tm[ep.episodeNum] ?: return@map ep
+            ep.copy(
+                image = if (sameImage) t.still ?: ep.image else ep.image,
+                imageCandidates = if (sameImage && t.still != null) listOf(t.still) + ep.imageCandidates else ep.imageCandidates,
+                plot = t.overview ?: ep.plot,
+            )
+        }
+        if (enriched != eps) info = info?.let { cur -> cur.copy(episodes = cur.episodes + (s to enriched)) }
+    }
+
     DetailScaffold(item.name, info?.backdrop, onBack, actions = { FavoriteButton(container, item) }) { padding ->
         when {
             loading -> LoadingBox(Modifier.padding(padding))
@@ -453,7 +477,7 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
                             Column(Modifier.weight(1f)) {
                                 val epUrl = source.episodeUrl(ep)
                                 if (container.resume.lastEpisode(item.key)?.first == epUrl) {
-                                    Text("▶ Zuletzt gesehen", color = com.poweriptv.app.ui.theme.BrandCyan, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    Text("▶ Zuletzt gesehen", color = com.poweriptv.app.ui.theme.BrandCyan, style = MaterialTheme.typography.labelSmall.copy(letterSpacing = androidx.compose.ui.unit.TextUnit.Unspecified), fontWeight = FontWeight.Bold)
                                 }
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text("${ep.episodeNum}. ${ep.title}", maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f, fill = false))

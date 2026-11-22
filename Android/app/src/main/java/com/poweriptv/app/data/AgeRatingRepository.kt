@@ -22,6 +22,9 @@ data class AgeRating(val fsk: Int?, val label: String, val official: Boolean)
 /** Deutsche Beschreibung/Genres von TMDB (viele Anbieter liefern nur den englischen Text). */
 data class GermanText(val plot: String?, val genre: String?)
 
+/** Folgen-Infos von TMDB: Vorschaubild (Szenenbild) und deutsche Beschreibung je Folgennummer. */
+data class TmdbEpisode(val still: String?, val name: String?, val overview: String?)
+
 /**
  * Ermittelt die FSK:
  * 1. Mit TMDB-Schluessel: offizielle deutsche Freigabe (TMDB-ID vom Anbieter oder Titelsuche).
@@ -72,6 +75,33 @@ class AgeRatingRepository(
                     .joinToString(", ").takeIf { it.isNotEmpty() }
                 GermanText(plot, genre)
             }.getOrNull()?.also { deCache[k] = it }
+        }
+
+    private val seasonCache = ConcurrentHashMap<String, Map<Int, TmdbEpisode>>()
+
+    /**
+     * Szenenbilder + deutsche Beschreibungen einer Staffel (Folgennummer -> Infos). Leer ohne Schluessel/Treffer.
+     * Fuer Anbieter, die bei jeder Folge nur das Serien-Cover liefern.
+     */
+    suspend fun seasonEpisodes(title: String, releaseDate: String?, tmdbId: String?, season: Int): Map<Int, TmdbEpisode> =
+        withContext(Dispatchers.IO) {
+            val key = apiKey()?.takeIf { it.isNotBlank() } ?: return@withContext emptyMap()
+            val k = "$title|$tmdbId|$season"
+            seasonCache[k]?.let { return@withContext it }
+            runCatching {
+                val id = tmdbId?.trim()?.takeIf { it.isNotEmpty() && it != "0" && it.all(Char::isDigit) }
+                    ?: search(key, true, cleanTitle(title), yearOf(releaseDate) ?: yearOf(title))
+                    ?: return@runCatching emptyMap()
+                val o = get(key, "tv/$id/season/$season", listOf("language" to "de-DE")) ?: return@runCatching emptyMap()
+                (o["episodes"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }.mapNotNull { e ->
+                    val n = e.s("episode_number")?.toIntOrNull() ?: return@mapNotNull null
+                    n to TmdbEpisode(
+                        still = e.s("still_path")?.takeIf { it.startsWith("/") }?.let { "https://image.tmdb.org/t/p/w300$it" },
+                        name = e.s("name")?.trim()?.takeIf { it.isNotEmpty() },
+                        overview = e.s("overview")?.trim()?.takeIf { it.isNotEmpty() },
+                    )
+                }.toMap()
+            }.getOrDefault(emptyMap()).also { if (it.isNotEmpty()) seasonCache[k] = it }
         }
 
     /** Test fuer die Einstellungen: liefert z.B. "FSK 12" fuer einen bekannten Film. */
