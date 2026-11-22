@@ -80,6 +80,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.poweriptv.app.AppContainer
 import com.poweriptv.app.PlayEntry
@@ -192,8 +193,11 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = if (narrow) Arrangement.SpaceBetween else Arrangement.spacedBy(8.dp),
                 ) {
-                    PortivaLogo(Modifier.size(40.dp))
-                    HeaderClock(compact = narrow, modifier = Modifier.padding(start = if (narrow) 0.dp else 12.dp))
+                    // Logo + Uhr als eine Gruppe (am Handy sonst ohne Abstand direkt am Logo)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        PortivaLogo(Modifier.size(40.dp))
+                        HeaderClock(compact = narrow, modifier = Modifier.padding(start = if (narrow) 10.dp else 14.dp))
+                    }
                     if (!narrow) Spacer(Modifier.weight(1f))
                     ProfileSwitcher(container) { onProfileSwitched() }
                     CastButton(container)
@@ -574,7 +578,10 @@ private fun HeaderClock(compact: Boolean, modifier: Modifier = Modifier) {
     val time = java.text.SimpleDateFormat("HH:mm", de).format(Date(now))
     val date = java.text.SimpleDateFormat(if (compact) "EE, dd.MM." else "EEEE, dd.MM.yyyy", de).format(Date(now))
     Column(modifier, horizontalAlignment = Alignment.Start) {
-        Text(time, fontWeight = FontWeight.Bold, style = if (compact) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleLarge, maxLines = 1)
-        Text(date, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        Text(time, fontWeight = FontWeight.Bold, maxLines = 1,
+            style = (if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge).copy(letterSpacing = 0.sp, lineHeight = if (compact) 20.sp else 28.sp))
+        // ohne die breite Zeichen-Sperrung von labelSmall ("S o . ,  2 2 . 1 1 .")
+        Text(date, maxLines = 1, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall.copy(letterSpacing = 0.sp, fontSize = if (compact) 12.sp else 13.sp, lineHeight = 15.sp))
     }
 }
