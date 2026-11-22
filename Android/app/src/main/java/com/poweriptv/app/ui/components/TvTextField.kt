@@ -99,7 +99,9 @@ fun TvOutlinedTextField(
         modifier
             .focusRequester(boxFocus)
             .tvFocus(RoundedCornerShape(6.dp))
-            .focusProperties { canFocus = !editing }
+            // Rahmen bleibt anwaehlbar: frueher wurde er beim Start der Eingabe "unanwaehlbar", verlor dadurch den Fokus,
+            // bevor das Feld ihn bekam, und die Auswahl sprang ganz nach oben (z.B. auf "Zurueck").
+            // Hoch/Runter waehrend der Eingabe faengt das Feld selbst ab (s. onPreviewKeyEvent).
             .clickable(enabled = enabled && !editing) { editing = true },
         propagateMinConstraints = true,
     ) {
