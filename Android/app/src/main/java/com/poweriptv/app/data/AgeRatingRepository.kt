@@ -138,8 +138,10 @@ class AgeRatingRepository(
             if (year != null) add((if (series) "first_air_date_year" else "year") to year)
         }
         val o = get(key, if (series) "search/tv" else "search/movie", params) ?: return null
-        val first = (o["results"] as? JsonArray)?.firstOrNull() as? JsonObject ?: return null
-        return first.s("id")
+        val first = (o["results"] as? JsonArray)?.firstOrNull() as? JsonObject
+        // Jahr vom Anbieter passt oft nicht (z.B. Datum der neuesten Staffel) -> ohne Jahr nochmal suchen
+        if (first == null && year != null) return search(key, series, query, null)
+        return first?.s("id")
     }
 
     private fun get(key: String, path: String, params: List<Pair<String, String>> = emptyList()): JsonObject? {

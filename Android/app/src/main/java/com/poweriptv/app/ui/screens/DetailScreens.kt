@@ -381,18 +381,18 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
         val s = season ?: return@LaunchedEffect
         val eps = i.episodes[s].orEmpty()
         if (eps.isEmpty()) return@LaunchedEffect
-        val imgs = eps.mapNotNull { it.image?.takeIf { u -> u.isNotBlank() } }
-        val sameImage = imgs.size < eps.size || imgs.distinct().size <= 1 || imgs.all { it == i.cover || it == item.logo }
-        val missingPlot = eps.any { it.plot.isNullOrBlank() }
-        if (!sameImage && !missingPlot) return@LaunchedEffect // Anbieter liefert schon passende Bilder
+        if (!container.ageRatings.hasApiKey()) return@LaunchedEffect
+        // Mit TMDB-Schluessel immer die Szenenbilder von TMDB bevorzugen: viele Anbieter liefern zwar je Folge eine
+        // eigene Bild-Adresse, dahinter steckt aber trotzdem immer dasselbe Cover. Bild des Anbieters bleibt Ersatz.
         val tm = container.ageRatings.seasonEpisodes(item.name, i.releaseDate ?: item.year?.toString(), i.tmdbId, s)
         if (tm.isEmpty()) return@LaunchedEffect
         val enriched = eps.map { ep ->
             val t = tm[ep.episodeNum] ?: return@map ep
+            val still = t.still
             ep.copy(
-                image = if (sameImage) t.still ?: ep.image else ep.image,
-                imageCandidates = if (sameImage && t.still != null) listOf(t.still) + ep.imageCandidates else ep.imageCandidates,
-                plot = t.overview ?: ep.plot,
+                image = still ?: ep.image,
+                imageCandidates = if (still != null) listOf(still) + ep.imageCandidates.filter { it != still } else ep.imageCandidates,
+                plot = if (ep.plot.isNullOrBlank() || com.poweriptv.app.data.AgeRatingRepository.looksEnglish(ep.plot)) t.overview ?: ep.plot else ep.plot,
             )
         }
         if (enriched != eps) info = info?.let { cur -> cur.copy(episodes = cur.episodes + (s to enriched)) }
