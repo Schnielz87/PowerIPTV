@@ -207,7 +207,7 @@ fun HomeScreen(
                         if (refreshing) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                         else Icon(Icons.Filled.Sync, "Playlist aktualisieren")
                     }
-                    if (com.poweriptv.app.BuildConfigInfo.VPN_AVAILABLE) VpnBadge(container, onVpn)
+                    if (com.poweriptv.app.BuildConfigInfo.VPN_AVAILABLE) VpnBadge(container, onVpn, compact = narrow)
                 }
             }
         },

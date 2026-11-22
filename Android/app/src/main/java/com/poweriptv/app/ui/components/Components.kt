@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.GppBad
 import androidx.compose.material.icons.filled.GppGood
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Favorite
@@ -60,6 +61,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.poweriptv.app.AppContainer
 import com.poweriptv.app.PlayEntry
@@ -101,7 +104,7 @@ fun PowerTopBar(
 
 /** Zeigt an, ob die App durch ein VPN geschuetzt ist. */
 @Composable
-fun VpnBadge(container: AppContainer, onClick: () -> Unit) {
+fun VpnBadge(container: AppContainer, onClick: () -> Unit, compact: Boolean = false) {
     val state by container.vpn.state.collectAsState()
     var external by remember { mutableStateOf(container.vpn.isProtected()) }
     LaunchedEffect(state) {
@@ -115,6 +118,20 @@ fun VpnBadge(container: AppContainer, onClick: () -> Unit) {
         state == VpnState.CONNECTING -> MaterialTheme.colorScheme.onSurfaceVariant
         protected -> Success
         else -> Danger
+    }
+    if (compact) {
+        // Handy hochkant: kleines Schutzschild mit "VPN" darin (rot = kein VPN, gruen = aktiv)
+        Box(
+            Modifier.size(44.dp).clip(RoundedCornerShape(50)).clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.Shield, if (protected) "VPN aktiv" else "Kein VPN", tint = color, modifier = Modifier.size(38.dp))
+            Text(
+                "VPN", color = Color.White, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                fontSize = 9.sp, letterSpacing = 0.sp, modifier = Modifier.padding(bottom = 3.dp),
+            )
+        }
+        return
     }
     Row(
         modifier = Modifier
