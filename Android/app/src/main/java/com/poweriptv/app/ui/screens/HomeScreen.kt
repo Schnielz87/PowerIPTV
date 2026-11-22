@@ -191,14 +191,15 @@ fun HomeScreen(
                 Row(
                     Modifier.fillMaxSize(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = if (narrow) Arrangement.SpaceBetween else Arrangement.spacedBy(8.dp),
+                    // Handy: Logo+Uhr links, Symbole rechts dicht beieinander (Platz fuer das Datum mit Jahr)
+                    horizontalArrangement = if (narrow) Arrangement.spacedBy(0.dp) else Arrangement.spacedBy(8.dp),
                 ) {
                     // Logo + Uhr als eine Gruppe (am Handy sonst ohne Abstand direkt am Logo)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         PortivaLogo(Modifier.size(40.dp))
                         HeaderClock(compact = narrow, modifier = Modifier.padding(start = if (narrow) 10.dp else 14.dp))
                     }
-                    if (!narrow) Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.weight(1f))
                     ProfileSwitcher(container) { onProfileSwitched() }
                     CastButton(container)
                     IconButton(onClick = onSearch, modifier = Modifier.tvFocus()) { Icon(Icons.Filled.Search, "Suche") }
@@ -576,7 +577,7 @@ private fun HeaderClock(compact: Boolean, modifier: Modifier = Modifier) {
     }
     val de = java.util.Locale.GERMANY
     val time = java.text.SimpleDateFormat("HH:mm", de).format(Date(now))
-    val date = java.text.SimpleDateFormat(if (compact) "EE, dd.MM." else "EEEE, dd.MM.yyyy", de).format(Date(now))
+    val date = java.text.SimpleDateFormat(if (compact) "EE, dd.MM.yy" else "EEEE, dd.MM.yyyy", de).format(Date(now))
     Column(modifier, horizontalAlignment = Alignment.Start) {
         Text(time, fontWeight = FontWeight.Bold, maxLines = 1,
             style = (if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge).copy(letterSpacing = 0.sp, lineHeight = if (compact) 20.sp else 28.sp))
