@@ -93,7 +93,7 @@ class ReminderRepository(private val context: Context, private val json: Json) {
                 .putExtra(MainActivity.EXTRA_PLAY_TITLE, r.channelName),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val time = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(r.start))
+        val time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY).format(java.util.Date(r.start))
         val n = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle("Gleich: ${r.title}")

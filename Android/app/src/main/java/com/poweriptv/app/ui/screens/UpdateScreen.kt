@@ -68,7 +68,7 @@ fun UpdateScreen(container: AppContainer, onBack: () -> Unit) {
             ) {
                 Text("Installiert: Version ${u.currentVersion}", fontWeight = FontWeight.Bold)
                 u.lastCheck.takeIf { it > 0 }?.let {
-                    Text("Zuletzt geprüft: " + DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it)),
+                    Text("Zuletzt geprüft: " + java.text.SimpleDateFormat("dd.MM.yy HH:mm", java.util.Locale.GERMANY).format(Date(it)),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 val r = available

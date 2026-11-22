@@ -419,7 +419,7 @@ fun HomeScreen(
                         "Playlist zuletzt aktualisiert: " + when {
                             last == null -> "laeuft gerade..."
                             last == 0L -> "noch nie"
-                            else -> DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(last))
+                            else -> java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.GERMANY).format(Date(last))
                         } + " · automatisch alle 24 Stunden",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

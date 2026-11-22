@@ -92,7 +92,7 @@ fun RecordingsScreen(container: AppContainer, onBack: () -> Unit) {
                 ErrorBox("Keine Aufnahmen.\nPlane Aufnahmen im TV-Guide oder starte sie im Player mit dem Aufnahme-Knopf.")
                 return@Column
             }
-            val fmt = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+            val fmt = java.text.SimpleDateFormat("dd.MM.yy HH:mm", java.util.Locale.GERMANY)
             val sorted = entries.sortedWith(compareBy<Recording> { it.status != RecStatus.RECORDING }.thenByDescending { it.start })
             LazyColumn(contentPadding = PaddingValues(12.dp)) {
                 items(sorted, key = { it.id }) { r ->
@@ -123,7 +123,7 @@ fun RecordingsScreen(container: AppContainer, onBack: () -> Unit) {
                                 Text(r.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                             Text(
-                                "${r.channelName} · ${fmt.format(Date(r.start))} – ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(r.end))}",
+                                "${r.channelName} · ${fmt.format(Date(r.start))} – ${java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY).format(Date(r.end))}",
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                             )

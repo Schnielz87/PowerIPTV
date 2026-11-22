@@ -247,7 +247,7 @@ fun EpgGridScreen(container: AppContainer, onBack: () -> Unit) {
                         Box(Modifier.horizontalScroll(hScroll)) {
                             Row {
                                 var t = windowStart
-                                val fmt = DateFormat.getTimeInstance(DateFormat.SHORT)
+                                val fmt = java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY)
                                 while (t < windowEnd) {
                                     Text(
                                         fmt.format(Date(t)),
@@ -373,7 +373,7 @@ private fun EpgRow(
                             )
                         }
                         if (!p.isGap) {
-                            val fmt = DateFormat.getTimeInstance(DateFormat.SHORT)
+                            val fmt = java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY)
                             Text(
                                 "${fmt.format(Date(p.start))} – ${fmt.format(Date(p.end))}",
                                 maxLines = 1,
@@ -399,7 +399,7 @@ private fun ProgrammeDialog(
     val context = LocalContext.current
     val source = container.source ?: return
     val now = System.currentTimeMillis()
-    val fmt = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+    val fmt = java.text.SimpleDateFormat("dd.MM.yy HH:mm", java.util.Locale.GERMANY)
     val catchup = if (p.end <= now || p.isLive(now)) source.catchupUrl(channel, p.start, p.end) else null
     var info by remember { mutableStateOf<String?>(null) }
     var reminded by remember { mutableStateOf(container.reminders.has(channel.name, p.start)) }
@@ -412,7 +412,7 @@ private fun ProgrammeDialog(
         title = { Text(if (p.isGap) channel.name else p.title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("${channel.name} · ${fmt.format(Date(p.start))} – ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(p.end))}",
+                Text("${channel.name} · ${fmt.format(Date(p.start))} – ${java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY).format(Date(p.end))}",
                     color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 p.description?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
                 info?.let { Text(it, color = MaterialTheme.colorScheme.primary) }

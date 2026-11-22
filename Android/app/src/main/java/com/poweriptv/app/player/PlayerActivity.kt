@@ -703,7 +703,7 @@ class PlayerActivity : ComponentActivity() {
                     }
                 }
             }
-            val fmt = DateFormat.getTimeInstance(DateFormat.SHORT)
+            val fmt = java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY)
             if (!liveInfoMode()) epg.take(2).forEachIndexed { i, e ->
                 Text(
                     (if (i == 0) "Jetzt: " else "Danach: ") + "${fmt.format(Date(e.start))} ${e.title}",
@@ -723,6 +723,10 @@ class PlayerActivity : ComponentActivity() {
         val v = if (liveInfoMode()) View.GONE else View.VISIBLE
         playerView?.findViewById<View>(androidx.media3.ui.R.id.exo_bottom_bar)?.visibility = v
         playerView?.findViewById<View>(androidx.media3.ui.R.id.exo_progress)?.visibility = v
+        // Nach dem Umschalten nur Sender-Infos zeigen (keine Pause/Vor/Zurueck-Knoepfe) – Hoch/Runter schaltet weiter,
+        // erst OK holt die Bedienknoepfe
+        playerView?.findViewById<View>(androidx.media3.ui.R.id.exo_center_controls)?.visibility =
+            if (zapInfo && current()?.live == true) View.INVISIBLE else View.VISIBLE
     }
 
     private var epgLoading by mutableStateOf(false)
@@ -759,6 +763,7 @@ class PlayerActivity : ComponentActivity() {
     private var sharpenOn = false
     /** Leiste wurde nur durch das Umschalten eingeblendet (noch nicht bedient). */
     private var zapInfo = false
+        set(value) { field = value; applyLiveChrome() }
 
     /**
      * Naechster Schritt der Rettungsleiter (neu verbinden, anderes Format, Ausweich-Sender).
@@ -1510,6 +1515,8 @@ class PlayerActivity : ComponentActivity() {
         }
         // Hoch aus der unteren Steuerung (nichts mehr darueber) -> Zahnrad/obere Leiste
         if (event.keyCode == KeyEvent.KEYCODE_DPAD_UP && controllerVisible && playerView?.hasFocus() == true) {
+            // Live-TV: ueber den Bedienknoepfen gibt es nichts mehr -> direkt in die obere Leiste (Einstellungen, Uebertragen …)
+            if (live) { showOverlay = true; gearHasFocus = true; runCatching { gearFocus.requestFocus() }; return true }
             val next = currentFocus?.focusSearch(View.FOCUS_UP)
             val insidePlayer = next != null && generateSequence(next.parent) { it.parent }.any { it === playerView }
             if (!insidePlayer) { showOverlay = true; runCatching { gearFocus.requestFocus() }; return true }

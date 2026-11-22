@@ -285,7 +285,7 @@ fun ChannelListPanel(
     // Kurz-EPG je Sender (nur in der breiten Ansicht nachgeladen, falls kein XMLTV-Programm da ist)
     val shortEpg = remember { androidx.compose.runtime.mutableStateMapOf<String, List<com.poweriptv.app.data.EpgEntry>>() }
     LaunchedEffect(epgLoading) { if (!epgLoading) shortEpg.clear() }
-    val fmt = remember { java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT) }
+    val fmt = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY) }
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().background(Color(0x55000000)).clickable(onClick = onDismiss)) {
         val baseWidth = minOf(380.dp, maxWidth * 0.42f)
         val maxExtra = with(density) { (maxWidth * 0.95f - baseWidth).coerceAtLeast(0.dp).toPx() }
@@ -477,7 +477,7 @@ fun LiveInfoBar(
     // Fortschritt der laufenden Sendung jede halbe Minute auffrischen
     var now by androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { while (true) { delay(30_000); now = System.currentTimeMillis() } }
-    val fmt = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT)
+    val fmt = java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY)
     val cur = epg.firstOrNull { it.start <= now && it.end > now } ?: epg.firstOrNull()?.takeIf { it.start <= now }
     val next = epg.firstOrNull { it.start >= (cur?.end ?: now) && it !== cur }
     fun line(e: com.poweriptv.app.data.EpgEntry?) =
