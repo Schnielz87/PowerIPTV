@@ -123,6 +123,20 @@ object LinkCodes {
     fun newCode(): String = (100000 + random.nextInt(900000)).toString()
 
     /** IPv4-Adresse im Heimnetz (WLAN/LAN). */
+    /**
+     * Alle eigenen Heimnetz-Adressen (IPv4). Wichtig, wenn das Geraet in zwei Netzen haengt – z.B. Handy im
+     * Reha-/Hotel-WLAN UND mit eigenem Hotspot fuer den TV-Stick: gesucht werden muss dann in beiden Netzen.
+     */
+    fun localIpv4s(): List<String> = runCatching {
+        NetworkInterface.getNetworkInterfaces().toList()
+            .filter { it.isUp && !it.isLoopback && !it.isVirtual }
+            .flatMap { it.inetAddresses.toList() }
+            .filterIsInstance<Inet4Address>()
+            .filter { it.isSiteLocalAddress }
+            .mapNotNull { it.hostAddress }
+            .distinct()
+    }.getOrDefault(emptyList())
+
     fun localIpv4(): String? = runCatching {
         NetworkInterface.getNetworkInterfaces().toList()
             .filter { it.isUp && !it.isLoopback && !it.isVirtual }
@@ -517,7 +531,7 @@ object LinkClient {
     /** Andere Portiva-Geraete im Heimnetz (UDP-Rundruf + Suche im eigenen /24-Netz). */
     fun discover(ownPort: Int = 0, timeoutMs: Int = 1800, extraHosts: List<String> = emptyList()): List<LinkDevice> {
         val found = ConcurrentHashMap<String, LinkDevice>()
-        val self = LinkCodes.localIpv4()
+        val selfs = LinkCodes.localIpv4s().ifEmpty { listOfNotNull(LinkCodes.localIpv4()) }
         val pool = Executors.newFixedThreadPool(48)
         // 0) Per IP-Adresse eingetragene Geraete (auch in anderem Netzbereich, z.B. Receiver am LAN-Kabel)
         extraHosts.forEach { e -> pool.execute { probe(e)?.let { d -> found.putIfAbsent(d.host, d) } } }
@@ -528,7 +542,7 @@ object LinkClient {
                     s.broadcast = true
                     s.soTimeout = 300
                     val msg = DISCOVER_MSG.toByteArray(Charsets.UTF_8)
-                    val targets = listOfNotNull(InetAddress.getByName("255.255.255.255"), self?.let { broadcastOf(it) })
+                    val targets = listOf(InetAddress.getByName("255.255.255.255")) + selfs.mapNotNull { broadcastOf(it) }
                     repeat(2) { targets.forEach { t -> runCatching { s.send(DatagramPacket(msg, msg.size, t, LINK_UDP_PORT)) } } }
                     val end = System.currentTimeMillis() + timeoutMs
                     val buf = ByteArray(1024)
@@ -537,23 +551,22 @@ object LinkClient {
                         try { s.receive(pkt) } catch (e: SocketTimeoutException) { continue }
                         val h = runCatching { json.decodeFromString<LinkHello>(String(pkt.data, 0, pkt.length, Charsets.UTF_8)) }.getOrNull() ?: continue
                         val host = pkt.address.hostAddress ?: continue
-                        if (host == self && h.port == ownPort) continue
+                        if (host in selfs && h.port == ownPort) continue
                         found[host] = LinkDevice(h.name, h.platform, host, h.port)
                     }
                 }
             }
         }
-        // 2) Direkte Suche im eigenen Netz (falls der Router Rundrufe blockiert)
-        if (self != null) {
-            val prefix = self.substringBeforeLast('.')
+        // 2) Direkte Suche in jedem eigenen Netz (falls der Router Rundrufe blockiert) – auch im eigenen Hotspot
+        for (prefix in selfs.map { it.substringBeforeLast('.') }.distinct()) {
             for (i in 1..254) {
                 val host = "$prefix.$i"
-                if (host == self) continue
+                if (host in selfs) continue
                 pool.execute { hello(host, LINK_PORT, 500)?.let { h -> found.putIfAbsent(host, LinkDevice(h.name, h.platform, host, h.port)) } }
             }
         }
         pool.shutdown()
-        pool.awaitTermination(timeoutMs + 4000L, TimeUnit.MILLISECONDS)
+        pool.awaitTermination(timeoutMs + 4000L * selfs.size.coerceAtLeast(1), TimeUnit.MILLISECONDS)
         pool.shutdownNow()
         return found.values.filter { it.port > 0 }.sortedBy { it.name.lowercase() }
     }

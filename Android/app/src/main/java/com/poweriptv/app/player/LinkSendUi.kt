@@ -1,6 +1,7 @@
 package com.poweriptv.app.player
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -72,7 +73,8 @@ fun SendToDeviceDialog(
         onDismissRequest = onDismiss,
         title = { Text("An Gerät senden") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            // Scrollbar: im Querformat (Player) passt sonst nicht alles hin und das IP-Feld wird abgeschnitten
+            Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 val list = devices
                 when {
                     list == null -> Row(verticalAlignment = Alignment.CenterVertically) {
@@ -80,7 +82,11 @@ fun SendToDeviceDialog(
                         Spacer(Modifier.width(10.dp))
                         Text("Suche Portiva-Geräte im Heimnetz …")
                     }
-                    list.isEmpty() -> Text("Kein Gerät gefunden. Portiva muss auf dem anderen Gerät laufen (TV-Stick, Tablet, Windows-PC, Enigma2-Receiver) und im selben Heimnetz hängen – egal ob per WLAN oder LAN-Kabel am Router. Wird es trotzdem nicht gefunden: unten die IP-Adresse eingeben (steht beim Receiver unten auf der Portiva-Startseite).")
+                    list.isEmpty() -> Text(
+                        "Kein Gerät gefunden. Portiva muss auf dem anderen Gerät geöffnet sein und im selben Netz hängen " +
+                            "(WLAN, LAN-Kabel oder Hotspot dieses Handys). Sonst unten die IP-Adresse des Geräts eingeben.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                     else -> list.forEach { d ->
                         Row(
                             Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).tvFocus(RoundedCornerShape(12.dp), 1.03f)
