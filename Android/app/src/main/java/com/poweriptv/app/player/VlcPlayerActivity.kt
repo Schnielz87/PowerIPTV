@@ -158,6 +158,7 @@ class VlcPlayerActivity : ComponentActivity() {
         // Immer nur ein Player
         PlayerActivity.closeActive()
         if (android.os.Build.VERSION.SDK_INT >= 26) pipReceiver = Pip.register(this) { onPipCommand(it) }
+        registerAudioRouteWatch()
         active?.get()?.takeIf { it !== this }?.finish()
         active = java.lang.ref.WeakReference(this)
 
@@ -672,6 +673,51 @@ class VlcPlayerActivity : ComponentActivity() {
         val e = current() ?: return
         val ms = container.settings.audioDelay(e.url)
         runCatching { mediaPlayer.setAudioDelay(ms * 1000L) }
+    }
+
+    // ---------- Kopfhoerer/Bluetooth an- oder abgemeldet ----------
+    private var audioRouteCallback: android.media.AudioDeviceCallback? = null
+    private var audioRouteJob: kotlinx.coroutines.Job? = null
+
+    /**
+     * Wechselt der Tonausgang (Bluetooth-Kopfhoerer verbunden/getrennt, HDMI, Kopfhoerer), behaelt VLC sonst das alte
+     * Tonformat bei (z.B. Dolby Digital fuer den Fernseher) – Ton klingt komisch, Bild ruckelt. Deshalb kurz danach an
+     * derselben Stelle neu starten: VLC richtet die Tonausgabe dann passend fuer das neue Geraet ein.
+     */
+    private fun registerAudioRouteWatch() {
+        if (android.os.Build.VERSION.SDK_INT < 23) return
+        val am = getSystemService(android.media.AudioManager::class.java) ?: return
+        var initial = true
+        val relevant = setOf(
+            android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET,
+            android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES, android.media.AudioDeviceInfo.TYPE_HDMI,
+            android.media.AudioDeviceInfo.TYPE_USB_DEVICE,
+        ) + (if (android.os.Build.VERSION.SDK_INT >= 26) setOf(android.media.AudioDeviceInfo.TYPE_USB_HEADSET) else emptySet())
+        fun changed(devices: Array<out android.media.AudioDeviceInfo>, added: Boolean) {
+            if (initial) return
+            val hit = devices.filter { it.isSink && it.type in relevant }
+            if (hit.isEmpty()) return
+            val name = hit.joinToString { it.productName?.toString().orEmpty().ifBlank { "Gerät" } }
+            com.poweriptv.app.util.DiagLog.log("VLC", "Tonausgang ${if (added) "verbunden" else "getrennt"}: $name")
+            if (current() == null || inPip) return
+            audioRouteJob?.cancel()
+            audioRouteJob = lifecycleScope.launch {
+                delay(1500) // Bluetooth braucht einen Moment, bis es wirklich bereit ist
+                if (!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED) || error != null) return@launch
+                saveResume()
+                toast = if (added) "Kopfhörer verbunden – Ton wird neu eingerichtet …" else "Tonausgang gewechselt – Ton wird neu eingerichtet …"
+                com.poweriptv.app.util.DiagLog.log("VLC", "Neustart an derselben Stelle für den neuen Tonausgang")
+                play(container.playIndex)
+            }
+        }
+        val cb = object : android.media.AudioDeviceCallback() {
+            override fun onAudioDevicesAdded(addedDevices: Array<out android.media.AudioDeviceInfo>) = changed(addedDevices, true)
+            override fun onAudioDevicesRemoved(removedDevices: Array<out android.media.AudioDeviceInfo>) = changed(removedDevices, false)
+        }
+        runCatching { am.registerAudioDeviceCallback(cb, android.os.Handler(android.os.Looper.getMainLooper())) }
+        audioRouteCallback = cb
+        // Beim Anmelden meldet Android alle vorhandenen Geraete einmal als "hinzugefuegt" -> ignorieren
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ initial = false }, 1000)
     }
 
     // ---------- Ruckeln erkennen (verworfene Bilder) ----------
@@ -1389,6 +1435,8 @@ class VlcPlayerActivity : ComponentActivity() {
 
     override fun onDestroy() {
         pipReceiver?.let { runCatching { unregisterReceiver(it) } }; pipReceiver = null
+        audioRouteCallback?.let { cb -> runCatching { getSystemService(android.media.AudioManager::class.java).unregisterAudioDeviceCallback(cb) } }
+        audioRouteCallback = null
         if (active?.get() === this) active = null
         runCatching {
             mediaPlayer.stop()
