@@ -3,7 +3,6 @@ package com.poweriptv.app.ui
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.poweriptv.app.AppContainer
@@ -192,5 +191,19 @@ fun AppNavigation(container: AppContainer, onConnectVpn: () -> Unit) {
             VpnScreen(container, onBack = { nav.popBackStack() }, onConnect = onConnectVpn)
         }
     }
+    }
+}
+
+/**
+ * Wie composable(), aber jede Seite merkt sich die zuletzt angewaehlte Kachel/Zeile (Fernbedienung):
+ * Beim Zurueckkommen steht die Auswahl wieder dort, wo man war.
+ */
+private fun androidx.navigation.NavGraphBuilder.composable(
+    route: String,
+    arguments: List<androidx.navigation.NamedNavArgument> = emptyList(),
+    content: @Composable (androidx.navigation.NavBackStackEntry) -> Unit,
+) {
+    androidx.navigation.compose.composable(route, arguments) { entry ->
+        com.poweriptv.app.ui.components.ProvideFocusMemory { content(entry) }
     }
 }

@@ -1,5 +1,6 @@
 package com.poweriptv.app.ui.screens
 
+import com.poweriptv.app.ui.components.focusMemory
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyRow
@@ -148,6 +149,7 @@ fun FavoritesScreen(container: AppContainer, onBack: () -> Unit, onOpenDetail: (
                             .fillMaxWidth()
                             .padding(vertical = 4.dp)
                             .clip(RoundedCornerShape(10.dp))
+                            .focusMemory("f_" + item.key)
                             .tvFocus(RoundedCornerShape(10.dp), 1.02f)
                             .background(MaterialTheme.colorScheme.surface)
                             .clickable {

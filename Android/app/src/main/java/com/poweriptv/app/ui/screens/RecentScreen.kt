@@ -1,5 +1,6 @@
 package com.poweriptv.app.ui.screens
 
+import com.poweriptv.app.ui.components.focusMemory
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -118,6 +119,7 @@ fun RecentScreen(
                     Column(
                         Modifier
                             .clip(RoundedCornerShape(10.dp))
+                            .focusMemory("r_" + item.key)
                             .tvFocus(RoundedCornerShape(10.dp))
                             .combinedClickable(
                                 onClick = {

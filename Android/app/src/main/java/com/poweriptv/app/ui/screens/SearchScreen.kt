@@ -154,6 +154,7 @@ fun SearchScreen(container: AppContainer, onBack: () -> Unit, onOpenDetail: (Con
                                             progress = if (item.type == ContentType.MOVIE) container.source?.let { container.resume.progress(it.streamUrl(item)) } else null,
                                             favorite = favorites.any { it.key == item.key },
                                             onLongClick = { actionsFor = item },
+                                            focusKey = "s_" + item.key,
                                         )
                                     }
                                 }

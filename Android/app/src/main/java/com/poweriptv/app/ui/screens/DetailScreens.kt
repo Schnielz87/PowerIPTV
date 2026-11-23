@@ -2,6 +2,7 @@
 
 package com.poweriptv.app.ui.screens
 
+import com.poweriptv.app.ui.components.focusMemory
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -445,6 +446,7 @@ fun SeriesDetailScreen(container: AppContainer, onBack: () -> Unit) {
                                 .fillMaxWidth()
                                 .padding(horizontal = 12.dp, vertical = 4.dp)
                                 .clip(RoundedCornerShape(10.dp))
+                                .then(Modifier.focusMemory("ep_${ep.season}_${ep.episodeNum}_${ep.id}"))
                                 .tvFocus(RoundedCornerShape(10.dp), 1.02f)
                                 .background(MaterialTheme.colorScheme.surface)
                                 .combinedClickable(onLongClick = {

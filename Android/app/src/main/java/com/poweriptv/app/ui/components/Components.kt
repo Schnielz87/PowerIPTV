@@ -188,9 +188,12 @@ fun PosterCard(
     /** Favorit (Herz) und langes Druecken (z.B. Favorit umschalten). */
     favorite: Boolean = false,
     onLongClick: (() -> Unit)? = null,
+    /** Eindeutiger Schluessel: Auswahl wird beim Zurueckkommen auf die Seite wiederhergestellt. */
+    focusKey: String? = null,
 ) {
     Column(
         modifier
+            .focusMemory(focusKey)
             .clip(RoundedCornerShape(10.dp))
             .tvFocus(RoundedCornerShape(10.dp))
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)

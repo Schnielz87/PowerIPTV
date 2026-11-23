@@ -1,5 +1,6 @@
 package com.poweriptv.app.ui.screens
 
+import com.poweriptv.app.ui.components.focusMemory
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -423,6 +424,7 @@ fun BrowseScreen(
                                     progress = if (item.type == ContentType.MOVIE) container.resume.progress(source.streamUrl(item)) else null,
                                     favorite = favorites.any { it.key == item.key },
                                     onLongClick = { actionsFor = item },
+                                    focusKey = "p_" + item.key,
                                 )
                             }
                           }
@@ -481,6 +483,7 @@ fun ChannelRow(
             .fillMaxWidth()
             .padding(vertical = 3.dp)
             .clip(RoundedCornerShape(10.dp))
+            .focusMemory("ch_" + item.key)
             .focusRequester(rowFocus)
             .onFocusChanged { rowFocused = it.isFocused }
             .onPreviewKeyEvent { e ->

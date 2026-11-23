@@ -225,6 +225,7 @@ private fun SidebarRow(
             .fillMaxWidth()
             .padding(horizontal = 6.dp, vertical = 1.dp)
             .clip(RoundedCornerShape(8.dp))
+            .focusMemory("cat_$label")
             .tvFocus(RoundedCornerShape(8.dp), 1f)
             .then(
                 if (onLongClick != null) Modifier.onPreviewKeyEvent { e ->
