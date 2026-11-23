@@ -3,6 +3,7 @@ package com.poweriptv.app.ui
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable as navComposable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.poweriptv.app.AppContainer
@@ -203,7 +204,7 @@ private fun androidx.navigation.NavGraphBuilder.composable(
     arguments: List<androidx.navigation.NamedNavArgument> = emptyList(),
     content: @Composable (androidx.navigation.NavBackStackEntry) -> Unit,
 ) {
-    androidx.navigation.compose.composable(route, arguments) { entry ->
+    navComposable(route, arguments) { entry ->
         com.poweriptv.app.ui.components.ProvideFocusMemory { content(entry) }
     }
 }
