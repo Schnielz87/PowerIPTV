@@ -154,6 +154,21 @@ private val readableShadow = androidx.compose.ui.graphics.Shadow(
 )
 
 /** Seitenrahmen der Detailseiten: auf Tablet/TV mit Vollbild-Hintergrund und transparenter Kopfzeile. */
+/** Nur so weit scrollen, dass das angewaehlte Element sichtbar ist (statt es auf feste Hoehe zu ziehen). */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+private object MinimalBringIntoView : androidx.compose.foundation.gestures.BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+        val end = offset + size
+        return when {
+            offset >= 0f && end <= containerSize -> 0f        // schon ganz sichtbar
+            offset < 0f && end > containerSize -> 0f          // groesser als der Bildschirm
+            offset < 0f -> offset                             // oben abgeschnitten -> hochscrollen
+            else -> minOf(offset, end - containerSize)        // unten abgeschnitten -> nur so weit wie noetig
+        }
+    }
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun DetailScaffold(
     title: String,
@@ -171,11 +186,18 @@ private fun DetailScaffold(
             // Wichtig: bei transparentem Hintergrund sonst schwarze Standardschrift (auf Tablets unlesbar)
             contentColor = if (large) androidx.compose.ui.graphics.Color.White else MaterialTheme.colorScheme.onBackground,
         ) { padding ->
-            if (large) {
-                androidx.compose.runtime.CompositionLocalProvider(
-                    androidx.compose.material3.LocalTextStyle provides androidx.compose.material3.LocalTextStyle.current.copy(shadow = readableShadow),
-                ) { content(padding) }
-            } else content(padding)
+            // Fernseher: Compose scrollt eine angewaehlte Schaltflaeche standardmaessig auf ~30 % Hoehe ("Pivot").
+            // Auf der Detailseite schob das den Kopf (Cover, Titel) je nach Textlaenge unterschiedlich weit nach oben
+            // unter die Leiste. Jetzt nur so weit scrollen, wie noetig – der Kopf bleibt immer vollstaendig sichtbar.
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides MinimalBringIntoView,
+            ) {
+                if (large) {
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        androidx.compose.material3.LocalTextStyle provides androidx.compose.material3.LocalTextStyle.current.copy(shadow = readableShadow),
+                    ) { content(padding) }
+                } else content(padding)
+            }
         }
     }
 }
