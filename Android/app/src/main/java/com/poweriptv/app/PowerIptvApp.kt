@@ -198,7 +198,7 @@ class AppContainer(val app: Application) {
             vlcInstance?.takeIf { vlcMode == mode }?.let { return it }
             val opts = arrayListOf(
                 "--http-reconnect",
-                "--no-stats",
+                // Statistik an: Ruckel-Erkennung (verworfene Bilder) und Messwerte im Fehlerprotokoll brauchen sie
                 "--avcodec-threads=0",
                 "--audio-time-stretch",
                 // Halbbild-Sender (z.B. RTL, ProSieben in SD/1080i): nur bei Bedarf entflechten
