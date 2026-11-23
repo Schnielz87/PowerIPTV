@@ -643,10 +643,11 @@ class PlayerActivity : ComponentActivity() {
                 IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { closePlayer() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurueck zur Uebersicht", tint = Color.White)
                 }
-                Text(
-                    title, color = Color.White, fontWeight = FontWeight.Bold,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
-                )
+                Column(Modifier.weight(1f)) {
+                    Text(title, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    // Welcher Player laeuft (klein, fuer Rueckmeldungen)
+                    Text("Player: Standard (ExoPlayer)", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp, maxLines = 1)
+                }
                 if (timeshiftActive) {
                     Text(
                         if (playingBuffer) "⏱ -${formatDelay(timeshiftDelay)}" else "⏸ Pausiert (Puffer laeuft)",

@@ -66,6 +66,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -297,6 +298,7 @@ class VlcPlayerActivity : ComponentActivity() {
                             }
                             checkSleep()
                             checkStall()
+                            checkQuality()
                         }
                     }
                     if (showSendDialog) current()?.let { e ->
@@ -470,6 +472,11 @@ class VlcPlayerActivity : ComponentActivity() {
                 IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { closePlayer() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurueck zur Uebersicht", tint = Color.White) }
                 Column(Modifier.weight(1f)) {
                     Text(title, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    // Welcher Player/Decoder laeuft (klein, fuer Rueckmeldungen)
+                    Text(
+                        "Player: VLC · " + (if (softwareVod && current()?.live != true) "Software-Decoder" else "Hardware-Decoder"),
+                        color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp, maxLines = 1,
+                    )
                 }
                 if (live) {
                     if (watchingRecording) IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { showChannels = true }) {
@@ -667,6 +674,53 @@ class VlcPlayerActivity : ComponentActivity() {
         runCatching { mediaPlayer.setAudioDelay(ms * 1000L) }
     }
 
+    // ---------- Ruckeln erkennen (verworfene Bilder) ----------
+    private var qTick = 0
+    private var qLost = -1
+    private var qShown = 0
+    private var qRead = 0L
+    private var qLogAt = 0L
+    private var qBad = 0
+
+    /**
+     * Alle 5 s VLC-Statistik: wie viele Bilder gezeigt/verworfen und wie viele Daten ankommen. Verwirft der
+     * Hardware-Decoder dauerhaft viele Bilder (Film ruckelt, die Zeit laeuft aber weiter), an derselben Stelle mit
+     * Software-Decoder neu starten. Werte landen im Fehlerprotokoll (Decoder- vs. Netzproblem unterscheidbar).
+     */
+    private fun checkQuality() {
+        if (++qTick % 10 != 0) return
+        val e = current() ?: return
+        if (!playing || userPaused || watchingRecording) { qLost = -1; return }
+        val m = runCatching { mediaPlayer.media }.getOrNull() ?: return
+        val st = try { runCatching { m.stats }.getOrNull() } finally { runCatching { m.release() } } ?: return
+        val lost = st.lostPictures; val shown = st.displayedPictures; val read = st.readBytes.toLong()
+        if (qLost >= 0 && lost >= qLost && shown >= qShown) {
+            val dl = lost - qLost; val ds = shown - qShown
+            val kbps = ((read - qRead).coerceAtLeast(0) * 8 / 5 / 1000)
+            val hw = !(softwareVod && !e.live)
+            val now = System.currentTimeMillis()
+            if (now - qLogAt > 60_000 || dl > 10) {
+                qLogAt = now
+                com.poweriptv.app.util.DiagLog.log("VLC", "Wiedergabe: ${ds / 5} Bilder/s, verworfen $dl, Daten $kbps kbit/s · ${if (hw) "Hardware" else "Software"}")
+            }
+            // Viele verworfene Bilder (> ~15 %) zwei Mal hintereinander -> Decoder kommt nicht mit
+            if (!e.live && hw && dl > 12 && dl * 6 > ds) qBad++ else qBad = 0
+            if (qBad >= 2) {
+                qBad = 0
+                softwareVod = true
+                lastRecoveryAt = now
+                val target = runCatching { mediaPlayer.time }.getOrDefault(position).coerceAtLeast(0)
+                if (target > 0 && length > 0) container.resume.save(e.url, target, length)
+                toast = "Bild ruckelt – VLC wechselt auf Software-Dekodierung …"
+                com.poweriptv.app.util.DiagLog.log("VLC", "Ruckeln (verworfene Bilder) – Neustart mit Software-Decoder bei ${target / 1000} s")
+                qLost = -1
+                play(container.playIndex)
+                return
+            }
+        }
+        qLost = lost; qShown = shown; qRead = read
+    }
+
     private fun checkStall() {
         val e = current() ?: return
         if (scrubSuspended || userPaused || error != null || watchingRecording || blockedRec != null) { stallSince = 0L; return }
@@ -828,6 +882,7 @@ class VlcPlayerActivity : ComponentActivity() {
         val entry = queue[container.playIndex]
         if (!rescuing) rescue.reset()
         lastTick = -1L; stallSince = 0L // neuer Start -> Start-Wartezeit gilt wieder
+        qLost = -1; qBad = 0
         title = entry.title
         error = null
         buffering = true
