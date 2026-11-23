@@ -1304,17 +1304,33 @@ class VlcPlayerActivity : ComponentActivity() {
             }.onFailure { com.poweriptv.app.util.DiagLog.log("VLC", "Bild neu verbinden fehlgeschlagen: ${it.message}") }
             com.poweriptv.app.util.DiagLog.log("VLC", "Zurück in der App – Bildfläche neu verbunden")
         }
+        if (stoppedInBackground) {
+            stoppedInBackground = false
+            userPaused = false
+            com.poweriptv.app.util.DiagLog.log("VLC", "Zurück in der App – neu verbinden an der gemerkten Stelle")
+            play(container.playIndex)
+        }
     }
 
     override fun onStop() {
         super.onStop()
         saveResume()
-        // Im Mini-Fenster weiterlaufen lassen, sonst beim Verlassen pausieren und die Bildflaeche freigeben
+        // Im Mini-Fenster weiterlaufen lassen. Sonst die Verbindung zum Anbieter KOMPLETT schliessen: eine nur
+        // pausierte Verbindung blieb offen (bzw. wurde vom Anbieter gekappt) – beim Weiterschauen ruckelte es dann
+        // staendig (zweite Verbindung / tote Verbindung). Beim Zurueckkommen wird an der gemerkten Stelle neu gestartet.
         if (!inPip) {
             runCatching { mediaPlayer.pause() }
-            if (!isFinishing) runCatching { mediaPlayer.detachViews(); viewsDetached = true }
+            if (!isFinishing) {
+                runCatching { mediaPlayer.stop() }
+                stoppedInBackground = true
+                runCatching { mediaPlayer.detachViews(); viewsDetached = true }
+                com.poweriptv.app.util.DiagLog.log("VLC", "App verlassen – Verbindung geschlossen (Stelle gemerkt)")
+            }
         }
     }
+
+    /** Beim Verlassen der App gestoppt -> beim Zurueckkommen an der gemerkten Stelle frisch verbinden. */
+    private var stoppedInBackground = false
 
     override fun onDestroy() {
         pipReceiver?.let { runCatching { unregisterReceiver(it) } }; pipReceiver = null

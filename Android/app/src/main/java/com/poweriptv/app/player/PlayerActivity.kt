@@ -1604,7 +1604,28 @@ class PlayerActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         saveResume()
-        if (!(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)) withSwitch { player.pause() }
+        if (!(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)) {
+            withSwitch { player.pause() }
+            // Verbindung zum Anbieter beim Verlassen der App schliessen (pausiert blieb sie offen bzw. wurde gekappt ->
+            // beim Weiterschauen staendiges Ruckeln). Beim Zurueckkommen frisch an der gemerkten Stelle starten.
+            if (!isFinishing && !timeshiftActive && !watchingRecording) {
+                withSwitch { player.stop() }
+                stoppedInBackground = true
+                com.poweriptv.app.util.DiagLog.log("Player", "App verlassen – Verbindung geschlossen (Stelle gemerkt)")
+            }
+        }
+    }
+
+    /** Beim Verlassen der App gestoppt -> beim Zurueckkommen an der gemerkten Stelle frisch verbinden. */
+    private var stoppedInBackground = false
+
+    override fun onStart() {
+        super.onStart()
+        if (stoppedInBackground) {
+            stoppedInBackground = false
+            com.poweriptv.app.util.DiagLog.log("Player", "Zurück in der App – neu verbinden an der gemerkten Stelle")
+            play(container.playIndex)
+        }
     }
 
     /**
