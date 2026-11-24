@@ -189,6 +189,16 @@ fun BrowseScreen(
         delay(300)
         appliedQuery = query.trim()
     }
+    // Anzahl der Titel je Kategorie (wie bei IPTV Smarters) – einmal im Hintergrund aus der Gesamtliste zaehlen
+    var catCounts by remember(type) { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    LaunchedEffect(type, reload) {
+        val all = runCatching { allItems ?: source.items(type, null) }.getOrNull() ?: return@LaunchedEffect
+        catCounts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            all.groupingBy { it.categoryId }.eachCount() + (CAT_ALL to all.size)
+        }
+    }
+    val sidebarCounts = catCounts +
+        (CAT_FAV to favorites.count { it.type == type }) + (CAT_RECENT to history.count { it.type == type })
     // Alle Titel EINMAL laden – unabhaengig vom Tippen, damit der Ladevorgang nicht abbricht
     LaunchedEffect(wantAll, reload) {
         if (!wantAll || allItems != null) return@LaunchedEffect
@@ -265,6 +275,7 @@ fun BrowseScreen(
                         onBack = onBack,
                         prefs = container.categoryPrefs,
                         prefsScope = "${container.source?.profile?.id}|${type.name}",
+                        counts = sidebarCounts,
                     )
                 }
                 Column(Modifier.weight(1f).fillMaxHeight()) {
@@ -448,6 +459,7 @@ fun BrowseScreen(
                     modifier = Modifier.fillMaxWidth().height(520.dp),
                     prefs = container.categoryPrefs,
                     prefsScope = "${container.source?.profile?.id}|${type.name}",
+                    counts = sidebarCounts,
                 )
             }
         }

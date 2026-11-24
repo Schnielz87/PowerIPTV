@@ -56,6 +56,8 @@ export default function browse(params) {
     if (lang && langs.indexOf(lang) < 0) lang = '';
     renderLangs();
     renderCats();
+    updateCounts();
+    loadCounts();
     if (!active) {
       const first = visibleCats()[0];
       active = first ? first.id : CAT_ALL;
@@ -94,14 +96,39 @@ export default function browse(params) {
     return categoryPrefs.arrange(scope, l);
   }
 
+  // Anzahl der Titel je Kategorie (wie bei IPTV Smarters): einmal aus der Gesamtliste zaehlen
+  let counts = {};
+  const fmtCount = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  function updateCounts() {
+    const lib = app.library;
+    if (lib) {
+      counts[CAT_FAV] = lib.favorites.filter((i) => i.type === type).length;
+      counts[CAT_RECENT] = lib.history.filter((x) => x.item.type === type).length;
+    }
+    Array.prototype.forEach.call(catList.querySelectorAll('.cat'), (c) => {
+      if (c._countEl && counts[c._catId] != null) c._countEl.textContent = fmtCount(counts[c._catId]);
+    });
+  }
+  function loadCounts() {
+    app.source.items(type, null).then((all) => {
+      const m = {};
+      all.forEach((i) => { m[i.categoryId] = (m[i.categoryId] || 0) + 1; });
+      m[CAT_ALL] = all.length;
+      counts = Object.assign(counts, m);
+      updateCounts();
+    }).catch(() => {});
+  }
+
   function renderCats() {
     clear(catList);
     const locked = parental.lockedIds(app.profile.id, type, cats);
     const pins = categoryPrefs.pinned(scope);
     const add = (id, name, badge) => {
-      const c = focusable(h('div.cat' + (id === active ? '.active' : ''), null, h('div.name', null, name), badge ? h('div.badge', null, badge) : null),
+      const cnt = h('div.count', null, counts[id] != null ? fmtCount(counts[id]) : '');
+      const c = focusable(h('div.cat' + (id === active ? '.active' : ''), null, h('div.name', null, name), badge ? h('div.badge', null, badge) : null, cnt),
         () => selectCategory(id, true), { navRight: () => (grid && grid.first()) || null });
       c._catId = id;
+      c._countEl = cnt;
       if (id === active) activeEl = c;
       catList.appendChild(c);
     };

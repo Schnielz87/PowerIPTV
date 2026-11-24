@@ -73,6 +73,8 @@ fun CategorySidebar(
     /** Ausblenden/Anheften (null = nicht verfuegbar). */
     prefs: com.poweriptv.app.data.CategoryPrefs? = null,
     prefsScope: String = "",
+    /** Anzahl der Titel je Kategorie-ID (inkl. CAT_ALL/CAT_FAV/CAT_RECENT); fehlt eine, steht keine Zahl. */
+    counts: Map<String, Int> = emptyMap(),
 ) {
     val prefsVersion by (prefs?.version ?: remember { kotlinx.coroutines.flow.MutableStateFlow(0) }).collectAsState()
     var showHidden by remember { mutableStateOf(false) }
@@ -155,9 +157,9 @@ fun CategorySidebar(
             )
         }
         LazyColumn(Modifier.fillMaxHeight(), contentPadding = PaddingValues(top = 2.dp, bottom = 16.dp)) {
-            item { SidebarRow(Icons.Filled.Star, "Favoriten", selected == CAT_FAV, false) { onSelect(Category(CAT_FAV, "Favoriten")) } }
-            item { SidebarRow(Icons.Filled.History, "Zuletzt gesehen", selected == CAT_RECENT, false) { onSelect(Category(CAT_RECENT, "Zuletzt gesehen")) } }
-            item { SidebarRow(Icons.Filled.Apps, "Alle", selected == CAT_ALL, false) { onSelect(Category(CAT_ALL, "Alle")) } }
+            item { SidebarRow(Icons.Filled.Star, "Favoriten", selected == CAT_FAV, false, count = counts[CAT_FAV]) { onSelect(Category(CAT_FAV, "Favoriten")) } }
+            item { SidebarRow(Icons.Filled.History, "Zuletzt gesehen", selected == CAT_RECENT, false, count = counts[CAT_RECENT]) { onSelect(Category(CAT_RECENT, "Zuletzt gesehen")) } }
+            item { SidebarRow(Icons.Filled.Apps, "Alle", selected == CAT_ALL, false, count = counts[CAT_ALL]) { onSelect(Category(CAT_ALL, "Alle")) } }
             item {
                 Text(
                     "Kategorien (${visible.size})",
@@ -176,6 +178,7 @@ fun CategorySidebar(
                         label, selected == c.id, c.id in lockedIds,
                         dimmed = hidden,
                         onLongClick = if (prefs != null) ({ menuFor = c.id }) else null,
+                        count = counts[c.id],
                     ) { onSelect(c) }
                     // Lange druecken / Menue-Taste: anheften oder ausblenden
                     DropdownMenu(expanded = menuFor == c.id, onDismissRequest = { menuFor = null }) {
@@ -218,6 +221,7 @@ private fun SidebarRow(
     locked: Boolean,
     dimmed: Boolean = false,
     onLongClick: (() -> Unit)? = null,
+    count: Int? = null,
     onClick: () -> Unit,
 ) {
     Row(
@@ -254,6 +258,15 @@ private fun SidebarRow(
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
             color = if (selected) BrandCyan else MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f),
+        )
+        // Anzahl der Titel rechts (wie bei IPTV Smarters)
+        if (count != null) Text(
+            "%,d".format(java.util.Locale.GERMANY, count),
+            maxLines = 1,
+            color = if (selected) BrandCyan else MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(start = 6.dp, end = 4.dp),
         )
     }
 }

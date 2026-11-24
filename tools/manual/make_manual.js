@@ -41,7 +41,7 @@ const c = [];
 c.push(new Paragraph({ spacing: { before: 2400, after: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portiva – PowerIPTV', bold: true, size: 64, color: '1E3A5F' })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 600 }, children: [new TextRun({ text: 'Bedienungsanleitung', size: 40, color: CYAN })] }));
 c.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [t('Für Handy, Tablet, Fire TV und Android TV')] }));
-c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.209 · November 2026', color: '666666' })] }));
+c.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: 'Stand: Version 1.1.210 · November 2026', color: '666666' })] }));
 c.push(new Paragraph({ children: [new PageBreak()] }));
 c.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [t('Inhalt')] }));
 c.push(new TableOfContents('Inhalt', { hyperlink: true, headingStyleRange: '1-2' }));
@@ -81,6 +81,7 @@ c.push(step('Den Android-Installer mit „Aktualisieren“ bestätigen – Zugä
 c.push(p('Unter „Update“ lässt sich die automatische Prüfung abschalten und jederzeit manuell „Nach Updates suchen“. Unter Windows lädt Portiva das neue Setup, schließt sich kurz und der Installer aktualisiert die App.'));
 c.push(p('Playlist und TV-Guide werden ebenfalls automatisch alle 24 Stunden aktualisiert – auch wenn die App länger geöffnet bleibt. Sofort geht es über die zwei Pfeile oben.'));
 c.push(tip('Uhrzeit: Auf der Startseite steht oben neben dem Portiva-Logo die aktuelle Uhrzeit mit Wochentag und Datum (Handy, Fire TV, Samsung, iPhone; unter Windows in der linken Leiste unter dem Logo).'));
+c.push(tip('Anzahl je Kategorie: In der Kategorie-Liste links (Live TV, Filme, Serien) steht hinter jeder Kategorie, wie viele Sender bzw. Titel sie enthält – auch bei „Alle“, „Favoriten“ und „Zuletzt gesehen“ (Handy, Tablet, Fire TV, Samsung). Die Zahlen erscheinen kurz nach dem Öffnen, sobald die Gesamtliste geladen ist.'));
 c.push(tip('Auswahl bleibt erhalten (Fernbedienung): Gehst du in einen Film, eine Serie, eine Kategorie oder eine Liste hinein und kommst mit Zurück wieder heraus, steht die Auswahl wieder auf derselben Kachel bzw. Zeile – in Filmen, Serien, Live TV, Kategorien, Suche, Favoriten, „Zuletzt gesehen“ und bei den Folgen einer Serie.'));
 c.push(tip('Startseite am Fernseher: Am linken Rand einer Kachelzeile nach links drücken springt ans rechte Ende derselben Zeile (z. B. von „Suche“ auf „TV-Guide“), am rechten Rand nach rechts wieder an den Anfang. Kommst du von einer Seite zurück, steht die Auswahl wieder auf der zuletzt gewählten Kachel – die Startseite springt nicht mehr nach oben zu Live TV.'));
 c.push(tip('Symbole in einer Zeile am Fernseher (QR-Code, Bearbeiten und Löschen bei den Zugängen, Herz in der Senderliste): Zeile anwählen → Pfeil rechts springt auf die Symbole, Pfeil links zurück auf die Zeile.'));
