@@ -8,6 +8,13 @@ on:
 permissions:
   contents: write
 
+# Builds nacheinander statt gleichzeitig: sonst kann eine aeltere Version nach einer neueren fertig werden und wird
+# dann von GitHub als "neueste" (releases/latest) markiert – die Apps meldeten dann die aeltere Version als aktuell.
+# Kommen mehrere Pushes schnell hintereinander, wird nur der neueste wartende Build ausgefuehrt.
+concurrency:
+  group: release-build
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-24.04
