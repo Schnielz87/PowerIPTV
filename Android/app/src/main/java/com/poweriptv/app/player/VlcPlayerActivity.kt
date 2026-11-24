@@ -508,7 +508,7 @@ class VlcPlayerActivity : ComponentActivity() {
                 // Portiva Link: auf einem anderen Portiva-Geraet (TV-Stick, Tablet, PC) weiterschauen
                 if (canSendToDevice(current()) && !watchingRecording) {
                     IconButton(modifier = Modifier.tvFocus(CircleShape), onClick = { showSendDialog = true }) {
-                        Icon(Icons.Filled.ConnectedTv, "An Gerät senden", tint = Color.White)
+                        Icon(com.poweriptv.app.ui.components.PortivaLinkIcon.vector, "Portiva Link – an Gerät senden", tint = Color.Unspecified, modifier = Modifier.size(32.dp))
                     }
                 }
                 if (live) {

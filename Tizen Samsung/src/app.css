@@ -332,3 +332,6 @@ body.video-mode #toast { bottom: auto; top: 150px; }
 .mt-desc { font-size: 19px; color: #9FB1C9; margin-top: 4px; max-height: 50px; overflow: hidden; }
 .mt-row.focused .mt-head, .mt-row.focused .mt-meta, .mt-row.focused .mt-desc { color: #EAF4FF; }
 .mt-more { margin: 10px 40px 20px 0; }
+
+.link-btn { display: inline-flex; align-items: center; }
+.link-ico { width: 34px; height: 34px; margin-right: 6px; vertical-align: middle; }

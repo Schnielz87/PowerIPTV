@@ -102,7 +102,9 @@ export async function sendToDevice(play, onSent) {
     const err = await sendPlay(d, Object.assign({ from: isVega() ? 'Fire TV' : 'Samsung TV' }, play));
     if (err) toast(err); else { toast(`Läuft jetzt auf „${d.name}“`); onSent(d.name); }
   };
-  choose('An Gerät senden', list.map((d) => ({ label: d.name, onSelect: () => send(d) })).concat([{
+  const INFO = 'Portiva Link schickt den laufenden Film oder Sender an ein anderes Portiva-Gerät im selben Netz (TV-Stick, Handy, Tablet, PC oder Receiver). Dort läuft er an derselben Stelle weiter, hier wird gestoppt.';
+  const info = { label: 'ⓘ Was ist Portiva Link?', onSelect: () => { toast(INFO, 8000); setTimeout(() => sendToDevice(play, onSent), 50); } };
+  choose('Portiva Link – an Gerät senden', [info].concat(list.map((d) => ({ label: d.name, onSelect: () => send(d) }))).concat([{
     label: '＋ Gerät per IP-Adresse …',
     onSelect: () => askIp(async (ip) => {
       toast(`Verbinde mit ${ip} …`);

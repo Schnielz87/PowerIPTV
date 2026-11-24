@@ -588,10 +588,15 @@ struct SendToDeviceSheet: View {
     @State private var devices: [LinkDevice]?
     @State private var status: String?
     @State private var manualIp = ""
+    @State private var showInfo = false
 
     var body: some View {
         NavigationStack {
             List {
+                if showInfo {
+                    Text("Portiva Link schickt den laufenden Film oder Sender an ein anderes Portiva-Gerät im selben Netz (TV-Stick, Handy, Tablet, PC oder Receiver). Dort läuft er an derselben Stelle weiter, hier wird gestoppt.")
+                        .font(.footnote).foregroundColor(.secondary)
+                }
                 if let d = devices {
                     if d.isEmpty { Text("Kein Gerät gefunden. Portiva muss auf dem anderen Gerät laufen (gleiches Heimnetz – WLAN oder LAN-Kabel am Router). Sonst unten die IP-Adresse eingeben (steht beim Enigma2-Receiver unten auf der Portiva-Startseite).").foregroundColor(.secondary) }
                     ForEach(d) { dev in
@@ -622,8 +627,16 @@ struct SendToDeviceSheet: View {
                 } else { HStack { ProgressView(); Text("Suche Portiva-Geräte im Heimnetz …") } }
                 if let status { Text(status).foregroundColor(.accentColor) }
             }
-            .navigationTitle("An Gerät senden")
-            .toolbar { Button("Neu suchen") { devices = nil; Task { devices = await LinkService.discover() } } }
+            .navigationTitle("Portiva Link")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button { showInfo.toggle() } label: { Image(systemName: showInfo ? "info.circle.fill" : "info.circle") }
+                        .accessibilityLabel("Was ist Portiva Link?")
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Neu suchen") { devices = nil; Task { devices = await LinkService.discover() } }
+                }
+            }
             .task { devices = await LinkService.discover() }
         }
         .presentationDetents([.medium, .large])

@@ -13,11 +13,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.poweriptv.app.AppContainer
 import com.poweriptv.app.PlayEntry
@@ -66,6 +70,7 @@ fun SendToDeviceDialog(
     var busy by remember { mutableStateOf(false) }
     var round by remember { mutableIntStateOf(0) }
     var manualIp by remember { mutableStateOf("") }
+    var showInfo by remember { mutableStateOf(false) }
     // Fernseher: IP-Feld erst auf Wunsch zeigen – sonst landet man beim Hochdruecken im Feld und die Tastatur geht auf
     var showIp by remember { mutableStateOf(!container.isTvDevice) }
     val firstDevice = remember { androidx.compose.ui.focus.FocusRequester() }
@@ -75,7 +80,24 @@ fun SendToDeviceDialog(
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("An Gerät senden") },
+        title = {
+            // Portiva Link: Abzeichen + Titel + i (kurze Erklaerung ein-/ausklappen)
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(com.poweriptv.app.ui.components.PortivaLinkIcon.vector, null, tint = Color.Unspecified, modifier = Modifier.size(34.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Portiva Link", modifier = Modifier.weight(1f))
+                    IconButton(onClick = { showInfo = !showInfo }, modifier = Modifier.tvFocus(androidx.compose.foundation.shape.CircleShape)) {
+                        Icon(Icons.Filled.Info, "Was ist Portiva Link?", tint = if (showInfo) MaterialTheme.colorScheme.primary else LocalContentColor.current)
+                    }
+                }
+                if (showInfo) Text(
+                    com.poweriptv.app.ui.components.PortivaLinkIcon.INFO,
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+        },
         text = {
             // Scrollbar: im Querformat (Player) passt sonst nicht alles hin und das IP-Feld wird abgeschnitten
             Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {

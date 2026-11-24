@@ -1,6 +1,9 @@
 // Player-Bildschirm fuer die Fernbedienung (AVPlay): Infoleiste mit EPG, Spulen, Tonspur/Untertitel/Bildformat,
 // Senderliste + Umschalten (CH+/CH-, Zahlen), naechste Folge, Intro ueberspringen, Sleep-Timer.
 import { h, clear, toast, formatTime, clock } from '../util';
+
+// Portiva-LINK-Abzeichen als Daten-Adresse: die Selbst-Aktualisierung bringt nur JS/CSS mit, keine neuen Bilddateien
+const PORTIVA_LINK_ICON = "data:image/svg+xml;charset=utf-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Cdefs%3E%3ClinearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%220%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%237AE0FF%22/%3E%3Cstop offset=%221%22 stop-color=%22%232A7BFF%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx=%2232%22 cy=%2232%22 r=%2229%22 fill=%22url(%23g)%22/%3E%3Ccircle cx=%2232%22 cy=%2232%22 r=%2229%22 fill=%22none%22 stroke=%22%23fff%22 stroke-opacity=%22.35%22 stroke-width=%222%22/%3E%3Cpath d=%22M24 44V14h11a9.5 9.5 0 0 1 0 19h-5v11z%22 fill=%22%23fff%22/%3E%3Cpath d=%22M30.5 19l6.5 4.5-6.5 4.5z%22 fill=%22%232A7BFF%22/%3E%3Cpath d=%22M21 49v7h4.5M28 49v7M31 56v-7l4.5 7v-7M38.5 49v7M43 49l-4.5 4 4.5 3%22 fill=%22none%22 stroke=%22%23fff%22 stroke-width=%222.4%22 stroke-linejoin=%22bevel%22/%3E%3C/svg%3E";
 import { focusable, setFocus, getFocus, pushScope, popScope, focusFirst } from '../focus';
 import { KEY, isBack, isDigit } from '../keys';
 import { app, back, go, choose, dialog } from '../app';
@@ -80,7 +83,7 @@ export default function playerScreen(params) {
     btnRow.appendChild(button('⚙ Einstellungen', openSettings));
     btnRow.appendChild(button(lib.isFavorite(cur.item) ? '❤' : '♡', toggleFavorite));
     // Portiva Link: auf TV-Stick, Tablet oder PC an derselben Stelle weiterschauen
-    btnRow.appendChild(button('📲 Senden', () => sendToDevice({
+    btnRow.appendChild(button(h('span.link-btn', null, h('img.link-ico', { src: PORTIVA_LINK_ICON }), ' Portiva Link'), () => sendToDevice({
       title: titleEl.textContent, url: urlFor(), live: isLive(),
       positionMs: isLive() ? 0 : Math.floor(p.state.time || 0), durationMs: Math.floor(p.state.duration || 0), logo: cur.item.logo || null,
     }, () => { saveNow(); back(); })));

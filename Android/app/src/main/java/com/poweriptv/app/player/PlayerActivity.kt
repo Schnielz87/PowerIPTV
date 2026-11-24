@@ -684,7 +684,7 @@ class PlayerActivity : ComponentActivity() {
                 // Portiva Link: auf einem anderen Portiva-Geraet (TV-Stick, Tablet, PC) weiterschauen
                 if (canSendToDevice(entry) && !watchingRecording) {
                     IconButton(modifier = Modifier.tvFocus(CircleShape, 1.15f), onClick = { showSendDialog = true }) {
-                        Icon(Icons.Filled.ConnectedTv, "An Gerät senden", tint = Color.White)
+                        Icon(com.poweriptv.app.ui.components.PortivaLinkIcon.vector, "Portiva Link – an Gerät senden", tint = Color.Unspecified, modifier = Modifier.size(32.dp))
                     }
                 }
                 // Vollbild: Bild fuellt den ganzen Bildschirm (Raender werden abgeschnitten) <-> Original

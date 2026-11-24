@@ -1037,9 +1037,15 @@ private fun LinkSendMenu(app: AppState, req: PlayRequest, ctl: PlayerController,
     var manualIp by remember { mutableStateOf("") }
     var manualMsg by remember { mutableStateOf<String?>(null) }
     Box {
-        RoundIcon(Icons.Filled.ConnectedTv, "An Gerät senden (Portiva)") { open = true }
+        RoundIcon(com.poweriptv.app.ui.components.PortivaLinkIcon.vector, "Portiva Link – an Gerät senden", tint = Color.Unspecified) { open = true }
         DropdownMenu(open, onDismissRequest = { open = false }) {
-            MenuHeader(Icons.Filled.ConnectedTv, "An Portiva-Gerät senden")
+            MenuHeader(Icons.Filled.ConnectedTv, "Portiva Link – an Gerät senden")
+            // i: kurze Erklaerung
+            var info by remember { mutableStateOf(false) }
+            DropdownMenuItem(
+                text = { Text(if (info) com.poweriptv.app.ui.components.PortivaLinkIcon.INFO else "ⓘ Was ist Portiva Link?", style = MaterialTheme.typography.bodySmall) },
+                onClick = { info = !info },
+            )
             val list = devices
             when {
                 list == null -> DropdownMenuItem(text = { Text("Suche Portiva-Geräte im Heimnetz …") }, onClick = {}, enabled = false)
