@@ -242,7 +242,7 @@ object EpisodeFlow {
     /** "Intro ueberspringen" ist so lange sichtbar. */
     const val INTRO_SHOW_MS = 7_000L
     /** Intro lernen: Vorspulen in den ersten 10 Minuten um 20 s bis 5 Min. */
-    const val LEARN_WITHIN = 600_000L
+    const val LEARN_WITHIN = 720_000L
     const val LEARN_MIN = 20_000L
     const val LEARN_MAX = 300_000L
     /** Sprungweite und Zeitfenster fuer "Intro ueberspringen". */

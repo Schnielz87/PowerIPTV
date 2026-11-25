@@ -298,7 +298,8 @@ export default function playerScreen(params) {
     const intro = lib.intro(lib.key(cur.item));
     const iStart = intro ? intro[0] : EPISODE.INTRO_WINDOW_START;
     const iEnd = intro ? intro[1] : EPISODE.INTRO_WINDOW_START + EPISODE.INTRO_SHOW_MS;
-    const inIntro = !introDone && t >= iStart && t < iEnd && t < EPISODE.LEARN_WITHIN;
+    // Nur bei bekanntem Intro (sonst wuerde bei Serien mit Anfangsszene Handlung uebersprungen)
+    const inIntro = !!intro && !introDone && t >= iStart && t < iEnd && t < EPISODE.LEARN_WITHIN;
     const skipBtn = corner.querySelector('.skip-intro');
     if (inIntro && !skipBtn && !corner.querySelector('.next-ep')) {
       const b = button('Intro überspringen ⏭', () => {

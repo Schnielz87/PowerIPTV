@@ -989,7 +989,8 @@ private fun CenterMessage(text: String, onRetry: (() -> Unit)? = null, onClose: 
 /** "Intro ueberspringen" anzeigen? Serien: 7 s ab gelerntem Intro-Beginn, sonst ab 5 s nach dem Start. */
 private fun showSkipIntroNow(app: AppState, req: PlayRequest, ctl: PlayerController, skipped: Boolean): Boolean {
     if (req.episode == null || skipped || !ctl.playing) return false
-    val from = app.library?.intro(req.item.key)?.first ?: 5_000L
+    // Nur bei bekanntem Intro (sonst wuerde bei Serien mit Anfangsszene Handlung uebersprungen)
+    val from = app.library?.intro(req.item.key)?.first ?: return false
     return ctl.time in from..(from + 7_000L)
 }
 

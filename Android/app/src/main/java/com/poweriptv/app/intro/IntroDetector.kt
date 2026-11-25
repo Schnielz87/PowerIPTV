@@ -201,15 +201,15 @@ class IntroDetector(
     private fun md5(s: String) = MessageDigest.getInstance("MD5").digest(s.toByteArray()).joinToString("") { "%02x".format(it) }
 
     companion object {
-        /** Aufzeichnung der ersten 10 Minuten jeder Folge. */
-        const val WINDOW_MS = 600_000L
+        /** Aufzeichnung der ersten 12 Minuten jeder Folge (lange Anfangsszenen, z.B. Breaking Bad). */
+        const val WINDOW_MS = 720_000L
         /** Abspann: die letzten 8 Minuten jeder Folge werden aufgezeichnet und verglichen. */
         const val CREDITS_WINDOW_MS = 480_000L
         /** Vorspann: mindestens 15 s, hoechstens 3 Minuten. */
         private const val MIN_FRAMES = 15 * IntroFingerprinter.FRAMES_PER_SECOND
         private const val MAX_FRAMES = 180 * IntroFingerprinter.FRAMES_PER_SECOND
-        /** Vorspann darf in zwei Folgen bis zu 4 Minuten verschoben liegen. */
-        private const val MAX_SHIFT_MS = 240_000L
+        /** Vorspann darf in zwei Folgen bis zu 10 Minuten verschoben liegen (Anfangsszenen unterschiedlich lang). */
+        private const val MAX_SHIFT_MS = 600_000L
         private const val LEARN_BER = 0.38
         /** Mindestens 2 Minuten Ton aufgezeichnet, bevor gelernt wird. */
         private const val MIN_RECORDED = 120 * IntroFingerprinter.FRAMES_PER_SECOND

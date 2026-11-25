@@ -1211,9 +1211,11 @@ class PlayerActivity : ComponentActivity() {
                 pos in autoShowFrom..minOf(autoShowFrom + EpisodeFlow.INTRO_SHOW_MS, auto.endMs - 1_500)
             return
         }
-        // Gelerntes Intro: Knopf genau zum Intro-Beginn; sonst kurz nach dem Start. Immer nur 7 s sichtbar.
-        val showFrom = e?.item?.key?.let { container.resume.intro(it)?.first } ?: EpisodeFlow.INTRO_WINDOW_START
-        showSkipIntro = EpisodeFlow.isEpisode(e) && !introSkipped && isPlaying &&
+        // Gelerntes Intro: Knopf genau zum Intro-Beginn, 7 s sichtbar. Ist das Intro noch nicht bekannt, KEIN Knopf
+        // (wie Netflix) – der fruehere Standardsprung (85 s ab Start) uebersprang bei Serien mit Anfangsszene
+        // (z.B. Breaking Bad) die Handlung statt des Intros.
+        val showFrom = e?.item?.key?.let { container.resume.intro(it)?.first }
+        showSkipIntro = showFrom != null && EpisodeFlow.isEpisode(e) && !introSkipped && isPlaying &&
             pos in showFrom..(showFrom + EpisodeFlow.INTRO_SHOW_MS)
     }
 
