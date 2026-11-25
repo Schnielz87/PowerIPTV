@@ -13,11 +13,20 @@ import java.security.MessageDigest
  * 3. In jeder weiteren Folge wird der Ton live mit der Vorlage verglichen: Sobald der Vorspann
  *    laeuft, sind Beginn und Ende dieser Folge bekannt – egal, wo er in der Folge liegt.
  */
-class IntroDetector(private val baseDir: File) {
+class IntroDetector(
+    private val baseDir: File,
+    /** Laenge des aufgezeichneten Abschnitts (Vorspann: erste 10 Min., Abspann: letzte 8 Min.). */
+    private val windowMs: Long = WINDOW_MS,
+    /** Name der Vorlage (intro.tpl bzw. credits.tpl). */
+    private val templateName: String = "intro.tpl",
+) {
     data class Intro(val startMs: Long, val endMs: Long)
 
     private val fps = IntroFingerprinter.FRAMES_PER_SECOND
-    private val frames = (WINDOW_MS * fps / 1000).toInt()
+    private val frames = (windowMs * fps / 1000).toInt()
+
+    /** Beginn des aufgezeichneten Abschnitts in der Folge (Abspann: Laenge minus 8 Min.). */
+    @Volatile var baseMs = 0L
     private fun idxOf(ms: Long) = (ms * fps / 1000).toInt()
     private fun msOf(idx: Int) = idx.toLong() * 1000 / fps
 
@@ -40,7 +49,7 @@ class IntroDetector(private val baseDir: File) {
         episodeFile = File(dir, md5(episodeUrl) + ".fp")
         fp = episodeFile?.takeIf { it.exists() }?.let { readInts(it) }?.takeIf { it.size == frames } ?: IntArray(frames) { -1 }
         recorded = fp.count { it >= 0 }
-        template = File(dir, "intro.tpl").takeIf { it.exists() }?.let { readInts(it) }?.takeIf { it.size >= MIN_FRAMES }
+        template = File(dir, templateName).takeIf { it.exists() }?.let { readInts(it) }?.takeIf { it.size >= MIN_FRAMES }
         detected = null
         lastMatchStart = Long.MIN_VALUE
     }
@@ -58,17 +67,24 @@ class IntroDetector(private val baseDir: File) {
      */
     fun drain(fpr: IntroFingerprinter, playerPosMs: Long) {
         if (seriesDir == null) { fpr.output.clear(); return }
+        val values = ArrayList<Long>()
+        while (true) values += fpr.output.poll() ?: break
+        feed(values, fpr, playerPosMs)
+    }
+
+    /** Wie drain(), aber mit bereits abgeholten Werten (mehrere Erkenner teilen sich einen Fingerabdruck-Strom). */
+    fun feed(values: List<Long>, fpr: IntroFingerprinter, playerPosMs: Long) {
+        if (seriesDir == null) return
         val epoch = fpr.epoch
         val processed = fpr.processedSamples
         val rate = fpr.sampleRate.coerceAtLeast(8000)
         if (epoch != lastEpoch) { lastEpoch = epoch }
-        while (true) {
-            val v = fpr.output.poll() ?: break
+        for (v in values) {
             if ((v ushr 48) != epoch) continue
             val sample = (v ushr 16) and 0xFFFFFFFFL
             val hash = (v and 0xFFFF).toInt()
             val pos = playerPosMs - (processed - sample) * 1000 / rate
-            val idx = idxOf(pos)
+            val idx = idxOf(pos - baseMs)
             if (idx in 0 until frames) {
                 if (fp[idx] < 0) recorded++
                 fp[idx] = hash
@@ -82,7 +98,7 @@ class IntroDetector(private val baseDir: File) {
         val tpl = template ?: return
         if (detected != null) return
         val w = LIVE_WINDOW
-        val end = idxOf(posMs) - fps / 2 // Ton wird etwas vor der Wiedergabe verarbeitet
+        val end = idxOf(posMs - baseMs) - fps / 2 // Ton wird etwas vor der Wiedergabe verarbeitet
         if (end < w || end >= frames || tpl.size < w) return
         val start = end - w
         var bestBits = Int.MAX_VALUE; var bestJ = -1
@@ -99,7 +115,7 @@ class IntroDetector(private val baseDir: File) {
             if (scaled < bestBits) { bestBits = scaled; bestJ = j }
         }
         if (bestJ < 0 || bestBits.toDouble() / (w * 16) > LIVE_BER) { lastMatchStart = Long.MIN_VALUE; return }
-        val introStart = msOf(start - bestJ)
+        val introStart = msOf(start - bestJ) + baseMs
         // Zweimal hintereinander gleiches Ergebnis -> sicher
         if (kotlin.math.abs(introStart - lastMatchStart) <= 1_000) {
             detected = Intro(introStart.coerceAtLeast(0), introStart + msOf(tpl.size))
@@ -127,7 +143,7 @@ class IntroDetector(private val baseDir: File) {
                 for (o in others) {
                     val other = readInts(o)?.takeIf { it.size == frames } ?: continue
                     val seg = longestCommon(data, other) ?: continue
-                    writeInts(File(dir, "intro.tpl"), data.copyOfRange(seg.first, seg.second))
+                    writeInts(File(dir, templateName), data.copyOfRange(seg.first, seg.second))
                     break
                 }
             }
@@ -187,6 +203,8 @@ class IntroDetector(private val baseDir: File) {
     companion object {
         /** Aufzeichnung der ersten 10 Minuten jeder Folge. */
         const val WINDOW_MS = 600_000L
+        /** Abspann: die letzten 8 Minuten jeder Folge werden aufgezeichnet und verglichen. */
+        const val CREDITS_WINDOW_MS = 480_000L
         /** Vorspann: mindestens 15 s, hoechstens 3 Minuten. */
         private const val MIN_FRAMES = 15 * IntroFingerprinter.FRAMES_PER_SECOND
         private const val MAX_FRAMES = 180 * IntroFingerprinter.FRAMES_PER_SECOND

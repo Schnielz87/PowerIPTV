@@ -370,13 +370,11 @@ fun PlayerScreen(app: AppState, req: PlayRequest) {
     val next = nextEpisode()
     val remaining = ctl.length - ctl.time
     val outro = current.episode?.let { app.library?.outro(current.item.key) }?.takeIf { it > NEXT_COUNTDOWN }
-    // Sekunden bis zum Wechsel: mit gelerntem Abspann 30 s ab Abspann-Beginn, sonst die letzten 30 s
-    val untilSwitch = if (outro != null) remaining - (outro - NEXT_COUNTDOWN) else remaining
+    // Karte ab dem gelernten Abspann (sonst die letzten 30 s); gewechselt wird erst am echten Ende –
+    // der gelernte Wert ist je Folge verschieden und hat sonst manchmal zu frueh umgeschaltet
+    val untilSwitch = remaining
     val inWindow = if (outro != null) remaining <= outro else remaining in 1..NEXT_BEFORE_END
     val showNextCard = next != null && !nextDismissed && ctl.length > 0 && inWindow && untilSwitch > 0 && app.settings.value.autoNextEpisode
-    if (outro != null && next != null && !nextDismissed && ctl.length > 0 && untilSwitch <= 0 && app.settings.value.autoNextEpisode) {
-        LaunchedEffect(current.episode?.id) { playNext() }
-    }
 
     Box(
         Modifier.fillMaxSize().background(Color.Black)

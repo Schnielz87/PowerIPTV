@@ -1066,10 +1066,13 @@ class VlcPlayerActivity : ComponentActivity() {
      */
     private fun learnOutro() {
         val e = current() ?: return
-        if (!EpisodeFlow.isEpisode(e) || nextCountdown != null || autoNextFired) return
+        // Karte nur aus den letzten 30 s (oder Abspann per Ton erkannt) -> nichts lernen; zeigt sie wegen eines zu frueh
+        // gelernten Abspanns, darf der Druck auf "Naechste Folge" den Wert korrigieren
+        if (!EpisodeFlow.isEpisode(e) || autoNextFired) return
         val dur = runCatching { mediaPlayer.length }.getOrDefault(0L)
         val pos = runCatching { mediaPlayer.time }.getOrDefault(0L)
         val rem = dur - pos
+        if (nextCountdown != null && rem <= EpisodeFlow.NEXT_BEFORE_END) return
         if (dur > 600_000 && rem in EpisodeFlow.OUTRO_MIN..EpisodeFlow.OUTRO_MAX) {
             e.item?.key?.let { container.resume.setOutro(it, rem) }
             com.poweriptv.app.util.DiagLog.log("Player", "Abspann gelernt: beginnt ${rem / 1000} s vor Schluss")

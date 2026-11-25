@@ -501,10 +501,8 @@ struct PlayerScreen: View {
         if entry.episode != nil, app.settings.autoNext, ctl.length > 0, nextIndex() != nil {
             let rem = ctl.length - ctl.time
             if let key = entry.item?.key, let outro = app.library?.outro(key), outro > 30_000 {
-                let untilSwitch = rem - (outro - 30_000)
-                if rem <= outro && nextCountdown != -1 {
-                    if untilSwitch <= 0 { playNext() } else { nextCountdown = Int((untilSwitch + 999) / 1000) }
-                }
+                // Karte ab dem gelernten Abspann, gewechselt wird erst am echten Ende (nie mehr zu frueh)
+                if rem <= outro && rem > 0 && nextCountdown != -1 { nextCountdown = Int((rem + 999) / 1000) }
             } else {
                 let left = Int(rem / 1000)
                 if left <= 30 && left > 0 && nextCountdown != -1 { nextCountdown = left }

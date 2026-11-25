@@ -224,19 +224,19 @@ object EpisodeFlow {
 
     /**
      * Countdown "Naechste Folge": Sekunden bis zum Wechsel (null = keine Karte) und ob jetzt gewechselt wird.
-     * Mit gelerntem Abspann startet der Countdown beim Abspann-Beginn und wechselt nach 30 s (der Rest vom Abspann
-     * wird uebersprungen); ohne: die letzten 30 s, gewechselt wird am Ende der Folge.
+     * - [creditsStart] (per Ton-Vergleich in DIESER Folge sicher erkannt): Karte ab Abspann-Beginn, nach 30 s weiter
+     *   (Rest vom Abspann wird uebersprungen – wie bei Netflix).
+     * - Nur gelernter Abspann [outro] (Abstand zum Ende, je Folge verschieden): Karte ab dort, gewechselt wird aber
+     *   erst am echten Ende – nie mehr zu frueh.
+     * - Sonst: Karte in den letzten 30 s, Wechsel am Ende.
      */
-    fun countdown(pos: Long, dur: Long, outro: Long?): Pair<Int?, Boolean> {
+    fun countdown(pos: Long, dur: Long, outro: Long?, creditsStart: Long? = null): Pair<Int?, Boolean> {
         val rem = dur - pos
-        if (outro != null && outro > NEXT_COUNTDOWN) {
-            val untilSwitch = rem - (outro - NEXT_COUNTDOWN)
-            return when {
-                rem > outro -> null to false
-                untilSwitch > 0 -> ((untilSwitch + 999) / 1000).toInt() to false
-                else -> null to true
-            }
+        if (creditsStart != null && pos >= creditsStart && creditsStart < dur) {
+            val untilSwitch = creditsStart + NEXT_COUNTDOWN - pos
+            return if (untilSwitch > 0) ((untilSwitch + 999) / 1000).toInt() to false else null to true
         }
+        if (outro != null && outro > NEXT_BEFORE_END && rem in 1..outro) return ((rem + 999) / 1000).toInt() to false
         return (if (rem in 1..NEXT_BEFORE_END) ((rem + 999) / 1000).toInt() else null) to false
     }
     /** "Intro ueberspringen" ist so lange sichtbar. */

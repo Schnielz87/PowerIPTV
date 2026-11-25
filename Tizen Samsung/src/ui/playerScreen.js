@@ -318,11 +318,8 @@ export default function playerScreen(params) {
     const outro = lib.outro(lib.key(cur.item));
     const learned = outro && outro > EPISODE.NEXT_COUNTDOWN;
     const rem = dur - t;
-    const untilSwitch = () => (learned ? (p.state.duration - p.state.time) - (outro - EPISODE.NEXT_COUNTDOWN) : (p.state.duration - p.state.time));
-    if (learned && dur > 0 && nextShownFor === cur.episode.id && !nextCancelled && untilSwitch() <= 0 && settings.autoNext && nextEpisode()) {
-      playNextEpisode(false);
-      return;
-    }
+    // Gewechselt wird erst am echten Ende (der gelernte Abspann ist je Folge verschieden -> sonst manchmal zu frueh)
+    const untilSwitch = () => (p.state.duration - p.state.time);
     const windowOpen = learned ? rem <= outro : rem < EPISODE.NEXT_BEFORE_END;
     if (dur > 0 && windowOpen && settings.autoNext && !nextCancelled && nextShownFor !== cur.episode.id && nextEpisode()) {
       nextShownFor = cur.episode.id;

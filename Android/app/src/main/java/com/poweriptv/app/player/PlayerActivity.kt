@@ -564,8 +564,15 @@ class PlayerActivity : ComponentActivity() {
                             checkNoPicture()
                             if (introDetector.active) {
                                 val p = player.currentPosition
-                                introFp.enabled = p < com.poweriptv.app.intro.IntroDetector.WINDOW_MS + 5_000
-                                introDetector.drain(introFp, p)
+                                val d = player.duration
+                                // Abspann-Erkennung startet, sobald die Laenge der Folge bekannt ist (letzte 8 Minuten)
+                                if (!creditsStarted && d > 0) startCreditsLearning(d)
+                                val inCredits = creditsDetector.active && p >= creditsDetector.baseMs - 5_000
+                                introFp.enabled = p < com.poweriptv.app.intro.IntroDetector.WINDOW_MS + 5_000 || inCredits
+                                val values = ArrayList<Long>()
+                                while (true) values += introFp.output.poll() ?: break
+                                introDetector.feed(values, introFp, p)
+                                if (creditsDetector.active) creditsDetector.feed(values, introFp, p)
                             }
                             if (!watchingRecording && !timeshiftActive) updateEpisodeFlow(player.currentPosition, player.duration, player.isPlaying)
                             checkSleep()
@@ -1098,6 +1105,29 @@ class PlayerActivity : ComponentActivity() {
 
     private fun autoIntro() = introDetector.detected
 
+    // Abspann per Ton-Vergleich: die letzten 8 Minuten zweier Folgen einer Serie vergleichen (gleiche Abspann-Musik),
+    // danach in jeder Folge live erkennen. Alles nur auf dem Geraet – nichts wird verschickt.
+    private val creditsDetector by lazy {
+        com.poweriptv.app.intro.IntroDetector(File(filesDir, "credits"), com.poweriptv.app.intro.IntroDetector.CREDITS_WINDOW_MS, "credits.tpl")
+    }
+    private var creditsStarted = false
+    private var creditsLogged = false
+
+    private fun startCreditsLearning(dur: Long) {
+        creditsStarted = true
+        val e = current() ?: return
+        if (!EpisodeFlow.isEpisode(e) || dur < 10 * 60_000L) return
+        creditsDetector.startEpisode(e.item!!.key, e.url)
+        creditsDetector.baseMs = (dur - com.poweriptv.app.intro.IntroDetector.CREDITS_WINDOW_MS).coerceAtLeast(0)
+    }
+
+    private fun finishCreditsLearning() {
+        val work = runCatching { creditsDetector.finishEpisode() }.getOrNull()
+        if (work != null) container.scope.launch(Dispatchers.Default) { runCatching { work() } }
+        creditsDetector.stop()
+        creditsStarted = false; creditsLogged = false
+    }
+
     /** Folge beendet/gewechselt: Fingerabdruck speichern und im Hintergrund lernen. */
     private fun finishIntroLearning() {
         val work = runCatching { introDetector.finishEpisode() }.getOrNull() ?: return
@@ -1159,7 +1189,12 @@ class PlayerActivity : ComponentActivity() {
     private fun updateEpisodeFlow(pos: Long, dur: Long, isPlaying: Boolean) {
         val e = current()
         val (countdown, switchNow) = if (e != null && !e.live && hasNext() && dur > 0 && !nextCancelled) {
-            EpisodeFlow.countdown(pos, dur, if (EpisodeFlow.isEpisode(e)) e.item?.key?.let { container.resume.outro(it) } else null)
+            val credits = creditsDetector.detected?.startMs
+            if (credits != null && !creditsLogged) {
+                creditsLogged = true
+                com.poweriptv.app.util.DiagLog.log("Player", "Abspann per Ton erkannt bei ${credits / 1000} s (${(dur - credits) / 1000} s vor Schluss)")
+            }
+            EpisodeFlow.countdown(pos, dur, if (EpisodeFlow.isEpisode(e)) e.item?.key?.let { container.resume.outro(it) } else null, credits)
         } else null to false
         nextCountdown = countdown
         // Gelernter Abspann: nach dem Countdown gleich die naechste Folge (Rest vom Abspann ueberspringen)
@@ -1268,6 +1303,7 @@ class PlayerActivity : ComponentActivity() {
         if (entry.live) { lastInteraction = System.currentTimeMillis(); zapInfo = true; playerView?.showController() }
         error = null
         finishIntroLearning()
+        finishCreditsLearning()
         startIntroLearning(entry)
         // Serien-Komfort zuruecksetzen und Folge als "zuletzt gesehen" merken
         nextCancelled = false; nextCountdown = null; autoNextFired = false; introSkipped = false; showSkipIntro = false
@@ -1456,10 +1492,13 @@ class PlayerActivity : ComponentActivity() {
      */
     private fun learnOutro() {
         val e = current() ?: return
-        if (!EpisodeFlow.isEpisode(e) || nextCountdown != null || autoNextFired) return
+        // Karte nur aus den letzten 30 s (oder Abspann per Ton erkannt) -> nichts lernen; zeigt sie wegen eines zu frueh
+        // gelernten Abspanns, darf der Druck auf "Naechste Folge" den Wert korrigieren
+        if (!EpisodeFlow.isEpisode(e) || autoNextFired || creditsDetector.detected != null) return
         val dur = runCatching { player.duration }.getOrDefault(0L)
         val pos = runCatching { player.currentPosition }.getOrDefault(0L)
         val rem = dur - pos
+        if (nextCountdown != null && rem <= EpisodeFlow.NEXT_BEFORE_END) return
         if (dur > 600_000 && rem in EpisodeFlow.OUTRO_MIN..EpisodeFlow.OUTRO_MAX) {
             e.item?.key?.let { container.resume.setOutro(it, rem) }
             com.poweriptv.app.util.DiagLog.log("Player", "Abspann gelernt: beginnt ${rem / 1000} s vor Schluss")
@@ -1661,6 +1700,7 @@ class PlayerActivity : ComponentActivity() {
         saveResume()
         finishIntroLearning()
         introDetector.stop()
+        finishCreditsLearning()
         stopTimeshift()
         withSwitch {
             player.playWhenReady = false
